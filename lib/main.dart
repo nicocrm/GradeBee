@@ -1,7 +1,8 @@
 import 'package:class_database/data/services/database.dart';
-import 'package:class_database/ui/class_list/class_list_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'routes.dart';
 
 void main() {
   runApp(ProviderScope(child: MainApp()));
@@ -12,7 +13,9 @@ class MainApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const myApp = MaterialApp(home: ClassListScreen());
+    final myApp = MaterialApp.router(
+      routerConfig: router,
+    );
     return _EagerLoading(child: myApp);
   }
 }
