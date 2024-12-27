@@ -1,5 +1,6 @@
 # code generated files
 **/*.g.dart
+lib/brick/
 
 # Miscellaneous
 *.class

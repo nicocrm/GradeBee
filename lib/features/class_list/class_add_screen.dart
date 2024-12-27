@@ -1,5 +1,5 @@
-import 'package:class_database/data/models/class.dart';
-import 'package:class_database/ui/class_list/class_list_vm.dart';
+import 'package:class_database/features/class_list/models/class.model.dart';
+import 'package:class_database/features/class_list/class_list_vm.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';

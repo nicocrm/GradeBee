@@ -1,5 +1,5 @@
-import 'package:class_database/ui/class_list/class_list_vm.dart';
-import 'package:class_database/ui/class_list/widgets/class_list.dart';
+import 'package:class_database/features/class_list/class_list_vm.dart';
+import 'package:class_database/features/class_list/widgets/class_list.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -17,14 +17,16 @@ class ClassListScreen extends ConsumerWidget {
       body: vm.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stackTrace) => Center(child: Text(error.toString())),
-        data:(data) => ClassList(classes: data),
+        data: (data) => RefreshIndicator(
+          child: ClassList(classes: data),
+          onRefresh: () => ref.refresh(classListVmProvider.future),
+        ),
       ),
       floatingActionButton: FloatingActionButton(
-        child: const Icon(Icons.add),
-        onPressed: () => {
-          context.go('/add'),
-        }
-      ),
+          child: const Icon(Icons.add),
+          onPressed: () => {
+                context.go('/add'),
+              }),
     );
   }
 }
