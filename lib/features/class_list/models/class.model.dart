@@ -5,10 +5,20 @@
 // @ConnectOfflineFirstWithSupabase(
 //   supabaseConfig: SupabaseSerializable(tableName: 'classes'),
 // )
-class Class {
-  String? id;
-  String course, dayOfWeek, room;
-  Class(this.course, this.dayOfWeek, this.room);
+
+import 'package:freezed_annotation/freezed_annotation.dart';
+
+part 'class.model.freezed.dart';
+
+@freezed
+class Class with _$Class {
+  const Class._();
+  factory Class({
+    required String course,
+    required String dayOfWeek,
+    required String room,
+    @Default('') String id,
+  }) = _Class;
 
   Map<String, dynamic> toJson() {
     return {
@@ -20,9 +30,10 @@ class Class {
 
   static Class fromJson(Map<String, dynamic> data) {
     return Class(
-      data['course'],
-      data['dayOfWeek'],
-      data['room'],
+      course: data['course'],
+      dayOfWeek: data['dayOfWeek'],
+      room: data['room'],
+      id: data['\$id']
     );
   }
 }

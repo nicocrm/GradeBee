@@ -1,5 +1,6 @@
 import 'package:class_database/features/class_list/models/class.model.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 class ClassList extends StatelessWidget {
   final List<Class> classes;
@@ -14,6 +15,7 @@ class ClassList extends StatelessWidget {
         final class_ = classes[index];
         return ListTile(
           title: Text(class_.course),
+          onTap: () => {context.go('/class_list/details', extra: class_)},
         );
       },
     );
