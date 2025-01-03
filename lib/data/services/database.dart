@@ -32,6 +32,7 @@ class Database {
 
   Future<void> update(String collectionId, Map<String, dynamic> data,
       Map<String, String?> map) async {
+    throw UnimplementedError();
     await _db.updateDocument(
         databaseId: _databaseId,
         collectionId: collectionId,

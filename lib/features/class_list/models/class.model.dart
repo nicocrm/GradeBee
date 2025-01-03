@@ -8,6 +8,8 @@
 
 import 'package:freezed_annotation/freezed_annotation.dart';
 
+import 'student.dart';
+
 part 'class.model.freezed.dart';
 
 @freezed
@@ -18,6 +20,7 @@ class Class with _$Class {
     required String? dayOfWeek,
     required String room,
     @Default('') String id,
+    @Default([]) List<Student> students,
   }) = _Class;
 
   Map<String, dynamic> toJson() {

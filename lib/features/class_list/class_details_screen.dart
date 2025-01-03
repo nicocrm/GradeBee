@@ -28,7 +28,7 @@ class _ClassDetailsScreenState extends ConsumerState<ClassDetailsScreen>
     final isLoading = ref.watch(vmProvider.select((p) => p.isLoading));
     final error = ref.watch(vmProvider.select((p) => p.error));
 
-    showErrorSnackbar(error);
+    showErrorSnackbar(error, vm.clearError);
 
     return Scaffold(
       appBar: AppBar(

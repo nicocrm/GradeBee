@@ -1,4 +1,5 @@
 class Student {
   final String name;
-  Student(this.name);
+  final String? id;
+  Student({required this.name, this.id});
 }
