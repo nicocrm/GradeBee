@@ -48,7 +48,7 @@ class _ClassDetailsScreenState extends ConsumerState<ClassDetailsScreen>
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
             isLoading
-                ? SpinnerButton(text: 'Add Class')
+                ? SpinnerButton(text: 'Saving')
                 : ElevatedButton(
                     onPressed: () => onSave(context, vm),
                     child: const Text('Save'),

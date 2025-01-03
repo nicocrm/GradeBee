@@ -30,7 +30,7 @@ class Database {
             .toList());
   }
 
-  update(String collectionId, Map<String, dynamic> data,
+  Future<void> update(String collectionId, Map<String, dynamic> data,
       Map<String, String?> map) async {
     await _db.updateDocument(
         databaseId: _databaseId,
