@@ -8,9 +8,10 @@
 
 import 'package:freezed_annotation/freezed_annotation.dart';
 
-import 'student.dart';
+import 'student.model.dart';
 
 part 'class.model.freezed.dart';
+part 'class.model.g.dart';
 
 @freezed
 class Class with _$Class {
@@ -23,20 +24,5 @@ class Class with _$Class {
     @Default([]) List<Student> students,
   }) = _Class;
 
-  Map<String, dynamic> toJson() {
-    return {
-      'course': course,
-      'dayOfWeek': dayOfWeek,
-      'room': room,
-    };
-  }
-
-  static Class fromJson(Map<String, dynamic> data) {
-    return Class(
-      course: data['course'],
-      dayOfWeek: data['dayOfWeek'],
-      room: data['room'],
-      id: data['\$id']
-    );
-  }
+  factory Class.fromJson(Map<String, dynamic> json) => _$ClassFromJson(json);
 }

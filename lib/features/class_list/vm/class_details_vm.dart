@@ -1,7 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-import '../models/student.dart';
+import '../models/student.model.dart';
 import '../repositories/class_repository.dart';
 import 'class_state_mixin.dart';
 
@@ -14,6 +14,7 @@ class ClassDetailsState extends ClassState with _$ClassDetailsState {
   factory ClassDetailsState({
     required Class class_,
     required bool isLoading,
+    @Default(false) bool hasChanges,
     @Default('') String error,
   }) = _ClassDetailsState;
 }
@@ -34,17 +35,20 @@ class ClassDetailsVm extends _$ClassDetailsVm
 
   @override
   void setCourse(String course) {
-    state = state.copyWith(class_: state.class_.copyWith(course: course));
+    state = state.copyWith(
+        hasChanges: true, class_: state.class_.copyWith(course: course));
   }
 
   @override
   void setDayOfWeek(String dayOfWeek) {
-    state = state.copyWith(class_: state.class_.copyWith(dayOfWeek: dayOfWeek));
+    state = state.copyWith(
+        hasChanges: true, class_: state.class_.copyWith(dayOfWeek: dayOfWeek));
   }
 
   @override
   void setRoom(String room) {
-    state = state.copyWith(class_: state.class_.copyWith(room: room));
+    state = state.copyWith(
+        hasChanges: true, class_: state.class_.copyWith(room: room));
   }
 
   void addStudent(String student) {
@@ -53,12 +57,14 @@ class ClassDetailsVm extends _$ClassDetailsVm
       return;
     }
     state = state.copyWith(
+        hasChanges: true,
         class_: state.class_.copyWith(
             students: [...state.class_.students, Student(name: student)]));
   }
 
   void removeStudent(String student) {
     state = state.copyWith(
+        hasChanges: true,
         class_: state.class_.copyWith(
             students: state.class_.students
                 .where((s) => s.name != student)
@@ -69,7 +75,7 @@ class ClassDetailsVm extends _$ClassDetailsVm
     try {
       state = state.copyWith(error: '', isLoading: true);
       await _repo.updateClass(state.class_);
-      state = state.copyWith(isLoading: false);
+      state = state.copyWith(isLoading: false, hasChanges: false);
       ref.invalidate(classListProvider);
       return true;
     } catch (e) {
