@@ -9,7 +9,7 @@ class StudentList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final students = ref.watch(vmProvider.select((p) => p.class_.students));
+    final students = ref.watch(vmProvider.select((p) => p.students));
     return Column(
       children: [
         ListView(
