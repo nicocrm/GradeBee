@@ -12,7 +12,7 @@ import 'widgets/student_list.dart';
 class ClassDetailsScreen extends StatefulWidget {
   final Class class_;
 
-  ClassDetailsScreen({super.key, required this.class_});
+  const ClassDetailsScreen({super.key, required this.class_});
 
   @override
   State<ClassDetailsScreen> createState() => _ClassDetailsScreenState();
@@ -64,7 +64,7 @@ class _ClassDetailsScreenState extends State<ClassDetailsScreen>
           bottomNavigationBar: BottomAppBar(
             child: IconButton(
               icon: const Icon(Icons.record_voice_over),
-              onPressed: () => _showRecordNoteDialog(context, widget.class_.id),
+              onPressed: () => _showRecordNoteDialog(context, widget.class_.id!),
             ),
           ),
         ));

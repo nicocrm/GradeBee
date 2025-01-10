@@ -29,11 +29,11 @@ class Database {
   }
 
   Future<void> update(String collectionId, Map<String, dynamic> data,
-      Map<String, String?> map) async {
+      String documentId) async {
     await _db.updateDocument(
         databaseId: _databaseId,
         collectionId: collectionId,
-        documentId: map['id']!,
+        documentId: documentId,
         data: data);
   }
 }
