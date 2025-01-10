@@ -2,7 +2,6 @@ import '../../core/widgets/spinner_button.dart';
 import 'widgets/class_edit_details.dart';
 import 'models/class.model.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'vm/class_details_vm.dart';
@@ -10,22 +9,27 @@ import 'widgets/error_mixin.dart';
 import 'widgets/notes_list.dart';
 import 'widgets/student_list.dart';
 
-class ClassDetailsScreen extends ConsumerStatefulWidget {
+class ClassDetailsScreen extends StatefulWidget {
   final Class class_;
 
-  const ClassDetailsScreen({super.key, required this.class_});
+  ClassDetailsScreen({super.key, required this.class_});
 
   @override
-  ConsumerState<ClassDetailsScreen> createState() => _ClassDetailsScreenState();
+  State<ClassDetailsScreen> createState() => _ClassDetailsScreenState();
 }
 
-class _ClassDetailsScreenState extends ConsumerState<ClassDetailsScreen>
+class _ClassDetailsScreenState extends State<ClassDetailsScreen>
     with ErrorMixin {
+  late final ClassDetailsVM vm;
+
+  @override
+  void initState() {
+    super.initState();
+    vm = ClassDetailsVM(widget.class_);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final vmProvider = classDetailsVmProvider(widget.class_);
-    final title = ref.watch(vmProvider.select((p) => p.course));
-
     return DefaultTabController(
         length: 3,
         child: Scaffold(
@@ -34,7 +38,7 @@ class _ClassDetailsScreenState extends ConsumerState<ClassDetailsScreen>
               icon: const Icon(Icons.arrow_back),
               onPressed: () => context.pop(),
             ),
-            title: Text(title),
+            title: Text(vm.currentClass.course),
             bottom: const TabBar(
               tabs: [
                 Tab(text: 'Details'),
@@ -46,13 +50,15 @@ class _ClassDetailsScreenState extends ConsumerState<ClassDetailsScreen>
           body: TabBarView(
             children: [
               // Details Tab
-              _DetailsTab(vmProvider: vmProvider),
+              _DetailsTab(
+                viewModel: vm,
+              ),
 
               // Students Tab
-              StudentList(vmProvider: vmProvider),
+              StudentList(vm: vm),
 
               // Notes Tab
-              NotesList(vmProvider: vmProvider),
+              NotesList(vm: vm),
             ],
           ),
           bottomNavigationBar: BottomAppBar(
@@ -96,31 +102,31 @@ class _ClassDetailsScreenState extends ConsumerState<ClassDetailsScreen>
   }
 }
 
-class _DetailsTab extends ConsumerStatefulWidget {
-  final ClassDetailsVmProvider vmProvider;
+class _DetailsTab extends StatefulWidget {
+  final ClassDetailsVM viewModel;
 
-  const _DetailsTab({required this.vmProvider});
+  const _DetailsTab({
+    required this.viewModel,
+  });
 
   @override
-  ConsumerState<_DetailsTab> createState() => _DetailsTabState();
+  State<_DetailsTab> createState() => _DetailsTabState();
 }
 
-class _DetailsTabState extends ConsumerState<_DetailsTab> with ErrorMixin {
+class _DetailsTabState extends State<_DetailsTab> with ErrorMixin {
   final _formKey = GlobalKey<FormState>();
   bool isSaving = false;
   String error = '';
 
-  _DetailsTabState();
-
   @override
   Widget build(BuildContext context) {
-    final class_ = ref.watch(widget.vmProvider);
-    final vm = ref.read(widget.vmProvider.notifier);
-
     return Column(children: [
       Form(
         key: _formKey,
-        child: ClassEditDetails(class_: class_, vm: vm),
+        child: ClassEditDetails(
+          class_: widget.viewModel.currentClass,
+          vm: widget.viewModel,
+        ),
       ),
       if (error.isNotEmpty)
         Padding(
@@ -146,7 +152,7 @@ class _DetailsTabState extends ConsumerState<_DetailsTab> with ErrorMixin {
     if (_formKey.currentState!.validate()) {
       setState(() => isSaving = true);
       try {
-        await ref.read(widget.vmProvider.notifier).updateClass();
+        await widget.viewModel.updateClass();
       } catch (e) {
         showErrorSnackbar(e.toString());
         setState(() => error = e.toString());
