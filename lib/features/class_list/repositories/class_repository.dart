@@ -10,7 +10,8 @@ class ClassRepository {
     return _db.list('classes', Class.fromJson);
   }
 
-  Future<void> updateClass(Class class_) {
-    return _db.update('classes', class_.toJson(), class_.id!);
+  Future<Class> updateClass(Class class_) async {
+    await _db.update('classes', class_.toJson(), class_.id!);
+    return class_;
   }
 }
