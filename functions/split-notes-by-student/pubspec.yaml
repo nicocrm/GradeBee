@@ -1,11 +1,14 @@
-name: starter_template
+name: split-notes-by-student
+publish_to: 'none'
 version: 1.0.0
 
 environment:
-  sdk: ^2.17.0
+  sdk: ^3.5.0
 
 dependencies:
-  dart_appwrite: 8.0.0
+  dart_appwrite: ^12.0.0
+  gradebee_models:
+    path: ../../gradebee_models
 
 dev_dependencies:
   lints: ^2.0.0

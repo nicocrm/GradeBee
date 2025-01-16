@@ -7,6 +7,7 @@
 
 import 'package:freezed_annotation/freezed_annotation.dart';
 
+import 'note.model.dart';
 import 'student.model.dart';
 
 part 'class.model.freezed.dart';
@@ -21,6 +22,7 @@ class Class with _$Class {
     required String room,
     @Default(null) String? id,
     @Default([]) List<Student> students,
+    @Default([]) List<Note> notes,
   }) = _Class;
 
   factory Class.fromJson(Map<String, dynamic> json) => _$ClassFromJson(json);

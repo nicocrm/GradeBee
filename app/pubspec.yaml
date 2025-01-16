@@ -23,6 +23,8 @@ dependencies:
   json_serializable: ^6.9.0
   json_annotation: ^4.9.0
   async: ^2.11.0
+  gradebee_models:
+    path: ../gradebee_models
 
 dev_dependencies:
   flutter_test:

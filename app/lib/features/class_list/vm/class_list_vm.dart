@@ -1,4 +1,4 @@
-import '../models/class.model.dart';
+import 'package:gradebee_models/common.dart';
 import '../repositories/class_repository.dart';
 
 class ClassListVM {

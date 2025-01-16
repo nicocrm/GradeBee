@@ -1,6 +1,6 @@
+import 'package:gradebee_models/common.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'models/class.model.dart';
 import 'widgets/class_list.dart';
 import 'vm/class_list_vm.dart';
 

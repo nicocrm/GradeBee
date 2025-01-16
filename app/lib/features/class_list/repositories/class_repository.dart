@@ -1,5 +1,5 @@
 import '../../../data/services/database.dart';
-import '../models/class.model.dart';
+import 'package:gradebee_models/common.dart';
 
 class ClassRepository {
   final Database _db;

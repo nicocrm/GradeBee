@@ -1,8 +1,7 @@
 import 'package:async/async.dart';
 import 'package:flutter/material.dart';
 import '../../../core/command.dart';
-import '../models/class.model.dart';
-import '../models/student.model.dart';
+import 'package:gradebee_models/common.dart';
 import '../repositories/class_repository.dart';
 import 'class_state_mixin.dart';
 

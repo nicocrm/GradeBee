@@ -1,0 +1,208 @@
+{
+    "projectId": "676d686c003bb5bf58fb",
+    "projectName": "class_manager",
+    "settings": {
+        "services": {
+            "account": true,
+            "avatars": true,
+            "databases": true,
+            "locale": true,
+            "health": true,
+            "storage": true,
+            "teams": true,
+            "users": true,
+            "functions": true,
+            "graphql": true,
+            "messaging": true
+        },
+        "auth": {
+            "methods": {
+                "jwt": true,
+                "phone": true,
+                "invites": true,
+                "anonymous": true,
+                "email-otp": true,
+                "magic-url": true,
+                "email-password": true
+            },
+            "security": {
+                "duration": 31536000,
+                "limit": 0,
+                "sessionsLimit": 10,
+                "passwordHistory": 0,
+                "passwordDictionary": false,
+                "personalDataCheck": false,
+                "sessionAlerts": false,
+                "mockNumbers": []
+            }
+        }
+    },
+    "functions": [
+        {
+            "$id": "67843b5600236a08ca4d",
+            "execute": [],
+            "name": "Split notes by student",
+            "enabled": true,
+            "logging": true,
+            "runtime": "dart-3.5",
+            "scopes": [
+                "users.read",
+                "databases.read",
+                "databases.write",
+                "collections.read",
+                "collections.write",
+                "attributes.read",
+                "attributes.write",
+                "indexes.read",
+                "indexes.write",
+                "documents.read",
+                "documents.write"
+            ],
+            "events": [
+                "databases.*.collections.notes.documents.*.create"
+            ],
+            "schedule": "",
+            "timeout": 15,
+            "entrypoint": "lib/main.dart",
+            "commands": "dart pub get",
+            "path": "functions/split-notes-by-student"
+        }
+    ],
+    "databases": [
+        {
+            "$id": "676d6913002126bc091b",
+            "name": "default",
+            "enabled": true
+        }
+    ],
+    "collections": [
+        {
+            "$id": "classes",
+            "$permissions": [
+                "create(\"users\")",
+                "read(\"users\")",
+                "update(\"users\")",
+                "delete(\"users\")"
+            ],
+            "databaseId": "676d6913002126bc091b",
+            "name": "classes",
+            "enabled": true,
+            "documentSecurity": true,
+            "attributes": [
+                {
+                    "key": "course",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 50,
+                    "default": null
+                },
+                {
+                    "key": "dayOfWeek",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "elements": [
+                        "Mon",
+                        "Tue",
+                        "Wed",
+                        "Thu",
+                        "Fri",
+                        "Sat",
+                        "Sun"
+                    ],
+                    "format": "enum",
+                    "default": null
+                },
+                {
+                    "key": "room",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 32,
+                    "default": null
+                },
+                {
+                    "key": "students",
+                    "type": "relationship",
+                    "required": false,
+                    "array": false,
+                    "relatedCollection": "students",
+                    "relationType": "oneToMany",
+                    "twoWay": false,
+                    "twoWayKey": "6777da4e0022efc49fe6",
+                    "onDelete": "cascade",
+                    "side": "parent"
+                },
+                {
+                    "key": "notes",
+                    "type": "relationship",
+                    "required": false,
+                    "array": false,
+                    "relatedCollection": "notes",
+                    "relationType": "manyToOne",
+                    "twoWay": true,
+                    "twoWayKey": "class",
+                    "onDelete": "cascade",
+                    "side": "child"
+                }
+            ],
+            "indexes": []
+        },
+        {
+            "$id": "students",
+            "$permissions": [
+                "create(\"users\")",
+                "read(\"users\")",
+                "update(\"users\")",
+                "delete(\"users\")"
+            ],
+            "databaseId": "676d6913002126bc091b",
+            "name": "students",
+            "enabled": true,
+            "documentSecurity": false,
+            "attributes": [
+                {
+                    "key": "name",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 50,
+                    "default": null
+                }
+            ],
+            "indexes": []
+        },
+        {
+            "$id": "notes",
+            "$permissions": [],
+            "databaseId": "676d6913002126bc091b",
+            "name": "notes",
+            "enabled": true,
+            "documentSecurity": false,
+            "attributes": [
+                {
+                    "key": "text",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 9000,
+                    "default": null
+                },
+                {
+                    "key": "class",
+                    "type": "relationship",
+                    "required": false,
+                    "array": false,
+                    "relatedCollection": "classes",
+                    "relationType": "manyToOne",
+                    "twoWay": true,
+                    "twoWayKey": "notes",
+                    "onDelete": "cascade",
+                    "side": "parent"
+                }
+            ],
+            "indexes": []
+        }
+    ]
+}
