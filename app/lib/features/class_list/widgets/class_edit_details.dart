@@ -1,7 +1,7 @@
-import 'package:gradebee_models/common.dart';
+import '../models/class.model.dart';
 import 'package:flutter/material.dart';
 
-import '../../../core/constants.dart';
+import '../../../shared/ui/constants.dart';
 import '../vm/class_state_mixin.dart';
 import 'day_of_week_dropdown.dart';
 

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import 'data/services/appwrite_client.dart';
-import 'data/services/auth_state.dart';
-import 'data/services/router.dart';
+import 'shared/data/appwrite_client.dart';
+import 'shared/data/auth_state.dart';
+import 'shared/router.dart';
 
 void main() {
   runApp(MainApp());

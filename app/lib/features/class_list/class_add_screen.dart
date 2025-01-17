@@ -1,10 +1,10 @@
-import '../../core/widgets/spinner_button.dart';
+import '../../shared/ui/widgets/spinner_button.dart';
 import 'widgets/class_edit_details.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import 'vm/class_add_vm.dart';
-import 'widgets/error_mixin.dart';
+import '../../shared/ui/utils/error_mixin.dart';
 
 class ClassAddScreen extends StatefulWidget {
   final ClassAddVM vm;
