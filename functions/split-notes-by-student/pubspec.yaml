@@ -7,6 +7,7 @@ environment:
 
 dependencies:
   dart_appwrite: ^12.0.0
+  dart_openai: ^5.1.0
   gradebee_models:
     path: ../gradebee_models
 

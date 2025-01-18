@@ -64,8 +64,8 @@
             "schedule": "",
             "timeout": 15,
             "entrypoint": "lib/main.dart",
-            "commands": "dart pub get",
-            "path": "functions/split-notes-by-student"
+            "commands": "sh pre-build.sh split-notes-by-student",
+            "path": "functions"
         }
     ],
     "databases": [
