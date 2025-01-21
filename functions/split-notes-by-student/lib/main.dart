@@ -20,7 +20,10 @@ Future<dynamic> main(final context) async {
         databaseId: Platform.environment['APPWRITE_DATABASE_ID']!,
         collectionId: "notes",
         documentId: note.id,
-        data: {"student_notes": studentNotes.map((e) => e.toJson()).toList()});
+        data: {
+          "is_split": true,
+          "student_notes": studentNotes.map((e) => e.toJson()).toList()
+        });
 
     return context.res.json({
       'status': 'success',
