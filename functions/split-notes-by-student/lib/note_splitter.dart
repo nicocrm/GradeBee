@@ -15,7 +15,7 @@ class NoteSplitter {
     final prompt = '''
               Split the following teacher's note into individual student notes.
 
-              Format the response as a JSON array where each object has: studentName: the student\'s name, content: the content relevant to that student.
+              Format the response as a JSON array without including any code block delimiters where each object has: studentName: the student\'s name, content: the content relevant to that student.
               Use the following student names:
               ${studentsByName.keys.join(", ")}
 
@@ -23,6 +23,7 @@ class NoteSplitter {
               For each student mentioned, create a separate note with only the information relevant to that student.
               If a student is mentioned multiple times, create one combined note for that student.
               If a student is not mentioned, do not create a note for that student.
+              Be precise.
 
               Teacher's note:
               ${note.text}
@@ -34,9 +35,8 @@ class NoteSplitter {
             OpenAIChatCompletionChoiceMessageContentItemModel.text(prompt)
           ]);
       final chatCompletion = await OpenAI.instance.chat.create(
-        model: 'gpt-3.5-turbo',
+        model: 'gpt-4o',
         messages: [userMessage],
-        temperature: 0.5,
       );
 
       final content = chatCompletion.choices.first.message.content;
@@ -49,7 +49,7 @@ class NoteSplitter {
         final content = noteData['content'];
         final student = studentsByName[studentName];
         if (student != null) {
-          yield StudentNote(student: student, text: content);
+          yield StudentNote(student: student, text: content, when: note.when);
         }
       }
     } catch (e) {
