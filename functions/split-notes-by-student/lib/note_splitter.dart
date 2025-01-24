@@ -15,7 +15,7 @@ class NoteSplitter {
     final prompt = '''
               Split the following teacher's note into individual student notes.
 
-              Format the response as a JSON array without including any code block delimiters where each object has: studentName: the student\'s name, content: the content relevant to that student.
+              Format the response as a JSON array without including any code block delimiters where each object has: studentName: the student's name, content: the content relevant to that student.
               Use the following student names:
               ${studentsByName.keys.join(", ")}
 

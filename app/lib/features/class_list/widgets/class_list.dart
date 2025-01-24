@@ -15,7 +15,7 @@ class ClassList extends StatelessWidget {
         final class_ = classes[index];
         return ListTile(
           title: Text(class_.course),
-          onTap: () => {context.go('/class_list/details', extra: class_)},
+          onTap: () => {context.push('/class_list/details', extra: class_)},
         );
       },
     );

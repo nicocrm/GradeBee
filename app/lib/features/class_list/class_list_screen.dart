@@ -59,7 +59,7 @@ class _ClassListScreenState extends State<ClassListScreen> with ErrorMixin {
       ),
       floatingActionButton: FloatingActionButton(
         child: const Icon(Icons.add),
-        onPressed: () => context.go('/class_list/add'),
+        onPressed: () => context.push('/class_list/add'),
       ),
     );
   }

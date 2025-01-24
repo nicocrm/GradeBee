@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../vm/class_details_vm.dart';
 
 class StudentList extends StatelessWidget {
@@ -22,6 +23,8 @@ class StudentList extends StatelessWidget {
                   final student = students[index];
                   return ListTile(
                     title: Text(student.name),
+                    onTap: () =>
+                        context.push('/student_details', extra: student.id!),
                     trailing: IconButton(
                       icon: const Icon(Icons.delete),
                       onPressed: () => vm.removeStudent(student.name),

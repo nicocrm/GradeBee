@@ -39,6 +39,20 @@ class Database {
     }
   }
 
+  Future<T> get<T>(String collectionId,
+      T Function(Map<String, dynamic>) fromJson, String documentId) async {
+    try {
+      final doc = await _db.getDocument(
+          databaseId: _databaseId,
+          collectionId: collectionId,
+          documentId: documentId);
+      return fromJson({...doc.data, "id": doc.$id});
+    } catch (e, s) {
+      AppLogger.error('Error getting document', e, s);
+      rethrow;
+    }
+  }
+
   Future<void> update(
       String collectionId, Map<String, dynamic> data, String documentId) async {
     try {
