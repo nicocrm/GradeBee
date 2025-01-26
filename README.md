@@ -18,7 +18,9 @@ For appwrite functions:
 - a class has a list of students, and a list of notes
 - a note has a list of student notes
 - a student note has a student and a text
-- a student has a list of notes, and a list of generated reports
+- a student has a list of notes, and a list of generated report cards
+- a report card template has a list of template sections
+- a report card is built from a template.  It has a list of sections
 
 - I can view a class with its students and notes.  I can add a note, or add a student.
 - I can view a student with his notes and reports.  I can't directly add a note.

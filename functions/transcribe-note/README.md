@@ -14,6 +14,7 @@ Environment variables (configured in Appwrite, for development configure in
 .env):
 
 - OPENAI_API_KEY
+- NOTES_BUCKET_ID
 
 ## Development
 
