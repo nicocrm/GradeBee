@@ -1,13 +1,16 @@
 import 'class.model.dart';
+import 'student_note.model.dart';
 
 class Note {
-  final String? text;
+  String? text;
   final Class class_;
   final String id;
   final String? voice;
   final DateTime when;
-  final bool isSplit;
-  final bool isTranscribed;
+  bool isSplit;
+  bool isTranscribed;
+  List<StudentNote> studentNotes;
+  String? error;
 
   Note(
       {required this.text,
@@ -16,16 +19,21 @@ class Note {
       required this.when,
       this.voice,
       this.isSplit = false,
-      this.isTranscribed = false});
+      this.isTranscribed = false,
+      this.error,
+      List<StudentNote>? studentNotes})
+      : studentNotes = studentNotes ?? [];
 
   factory Note.fromJson(Map<String, dynamic> json) {
     return Note(
-        text: json["text"],
-        voice: json["voice"],
-        class_: Class.fromJson(json["class"]),
-        id: json["\$id"],
-        when: DateTime.parse(json["when"]),
-        isSplit: json["is_split"],
-        isTranscribed: json["is_transcribed"]);
+      text: json["text"],
+      voice: json["voice"],
+      class_: Class.fromJson(json["class"]),
+      id: json["\$id"],
+      when: DateTime.parse(json["when"]),
+      isSplit: json["is_split"],
+      isTranscribed: json["is_transcribed"],
+      error: json["error"],
+    );
   }
 }

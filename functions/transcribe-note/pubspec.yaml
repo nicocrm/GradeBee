@@ -6,7 +6,8 @@ environment:
   sdk: ^3.5.0
 
 dependencies:
-  dart_appwrite: ^12.0.0
+  # pinned to 12.1.0 because of https://github.com/appwrite/sdk-for-dart/issues/68
+  dart_appwrite: 12.1.0
   dart_openai: ^5.1.0
   gradebee_models:
     path: ../gradebee_models
