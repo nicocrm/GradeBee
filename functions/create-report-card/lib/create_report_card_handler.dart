@@ -34,7 +34,7 @@ class CreateReportCardHandler {
       note.isSplit = true;
       note.error = null;
     } catch (e, s) {
-      context.error("${e.toString()}\n${s}");
+      context.error("${e.toString()}\n$s");
       note.error = "Error splitting notes";
       note.isSplit = false;
     }
