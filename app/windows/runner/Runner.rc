@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.example" "\0"
-            VALUE "FileDescription", "class_database" "\0"
+            VALUE "CompanyName", "bytemypython" "\0"
+            VALUE "FileDescription", "gradebee" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "class_database" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2024 com.example. All rights reserved." "\0"
-            VALUE "OriginalFilename", "class_database.exe" "\0"
-            VALUE "ProductName", "class_database" "\0"
+            VALUE "InternalName", "gradebee" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2024 bytemypython. All rights reserved." "\0"
+            VALUE "OriginalFilename", "gradebee.exe" "\0"
+            VALUE "ProductName", "gradebee" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END
