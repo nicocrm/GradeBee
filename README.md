@@ -1,8 +1,12 @@
-# class_database
+# Grade Bee
 
-A new Flutter project.
+Grade Bee is a mobile application for teachers to record notes and generate report cards for
+students.  It is built with Flutter and Appwrite.
 
 ## Development Environment
+
+Run `ENV=dev make pull` to pull the changes from the server into appwrite.json.
+Run `ENV=dev make push` to sync them up.
 
 For appwrite functions:
 

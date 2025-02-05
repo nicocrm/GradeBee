@@ -177,7 +177,7 @@
                     "default": null
                 },
                 {
-                    "key": "studentNotes",
+                    "key": "notes",
                     "type": "relationship",
                     "required": false,
                     "array": false,
@@ -185,6 +185,18 @@
                     "relationType": "oneToMany",
                     "twoWay": true,
                     "twoWayKey": "student",
+                    "onDelete": "cascade",
+                    "side": "parent"
+                },
+                {
+                    "key": "report_cards",
+                    "type": "relationship",
+                    "required": false,
+                    "array": false,
+                    "relatedCollection": "report_cards",
+                    "relationType": "oneToMany",
+                    "twoWay": false,
+                    "twoWayKey": "67931f6f0010e115d47c",
                     "onDelete": "cascade",
                     "side": "parent"
                 }
@@ -222,14 +234,6 @@
                     "side": "parent"
                 },
                 {
-                    "key": "voice",
-                    "type": "string",
-                    "required": false,
-                    "array": false,
-                    "size": 20,
-                    "default": null
-                },
-                {
                     "key": "when",
                     "type": "datetime",
                     "required": true,
@@ -262,6 +266,22 @@
                     "required": false,
                     "array": false,
                     "default": false
+                },
+                {
+                    "key": "voice",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 20,
+                    "default": null
+                },
+                {
+                    "key": "error",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 5000,
+                    "default": null
                 }
             ],
             "indexes": []
@@ -297,14 +317,6 @@
                     "default": null
                 },
                 {
-                    "key": "when",
-                    "type": "datetime",
-                    "required": true,
-                    "array": false,
-                    "format": "",
-                    "default": null
-                },
-                {
                     "key": "student",
                     "type": "relationship",
                     "required": false,
@@ -312,9 +324,125 @@
                     "relatedCollection": "students",
                     "relationType": "oneToMany",
                     "twoWay": true,
-                    "twoWayKey": "studentNotes",
+                    "twoWayKey": "notes",
                     "onDelete": "cascade",
                     "side": "child"
+                },
+                {
+                    "key": "when",
+                    "type": "datetime",
+                    "required": true,
+                    "array": false,
+                    "format": "",
+                    "default": null
+                }
+            ],
+            "indexes": []
+        },
+        {
+            "$id": "report_cards",
+            "$permissions": [],
+            "databaseId": "676d6913002126bc091b",
+            "name": "report_cards",
+            "enabled": true,
+            "documentSecurity": true,
+            "attributes": [
+                {
+                    "key": "when",
+                    "type": "datetime",
+                    "required": true,
+                    "array": false,
+                    "format": "",
+                    "default": null
+                }
+            ],
+            "indexes": []
+        },
+        {
+            "$id": "report_card_templates",
+            "$permissions": [
+                "create(\"users\")"
+            ],
+            "databaseId": "676d6913002126bc091b",
+            "name": "report_card_templates",
+            "enabled": true,
+            "documentSecurity": true,
+            "attributes": [
+                {
+                    "key": "name",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 50,
+                    "default": null
+                },
+                {
+                    "key": "sections",
+                    "type": "relationship",
+                    "required": false,
+                    "array": false,
+                    "relatedCollection": "report_card_template_lines",
+                    "relationType": "oneToMany",
+                    "twoWay": false,
+                    "twoWayKey": "6796710a001a9848bfba",
+                    "onDelete": "cascade",
+                    "side": "parent"
+                }
+            ],
+            "indexes": []
+        },
+        {
+            "$id": "report_card_template_lines",
+            "$permissions": [
+                "create(\"users\")"
+            ],
+            "databaseId": "676d6913002126bc091b",
+            "name": "report_card_template_sections",
+            "enabled": true,
+            "documentSecurity": true,
+            "attributes": [
+                {
+                    "key": "category",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 50,
+                    "default": null
+                },
+                {
+                    "key": "example",
+                    "type": "string",
+                    "required": false,
+                    "array": true,
+                    "size": 5000,
+                    "default": null
+                }
+            ],
+            "indexes": []
+        },
+        {
+            "$id": "report_card_sections",
+            "$permissions": [],
+            "databaseId": "676d6913002126bc091b",
+            "name": "report_card_sections",
+            "enabled": true,
+            "documentSecurity": false,
+            "attributes": [
+                {
+                    "key": "category",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 50,
+                    "default": null
+                },
+                {
+                    "key": "text",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 5000,
+                    "default": null
                 }
             ],
             "indexes": []
