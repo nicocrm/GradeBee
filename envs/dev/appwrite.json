@@ -1,0 +1,464 @@
+{
+    "projectId": "676d686c003bb5bf58fb",
+    "projectName": "class_manager",
+    "settings": {
+        "services": {
+            "account": true,
+            "avatars": true,
+            "databases": true,
+            "locale": true,
+            "health": true,
+            "storage": true,
+            "teams": true,
+            "users": true,
+            "functions": true,
+            "graphql": true,
+            "messaging": true
+        },
+        "auth": {
+            "methods": {
+                "jwt": true,
+                "phone": true,
+                "invites": true,
+                "anonymous": true,
+                "email-otp": true,
+                "magic-url": true,
+                "email-password": true
+            },
+            "security": {
+                "duration": 31536000,
+                "limit": 0,
+                "sessionsLimit": 10,
+                "passwordHistory": 0,
+                "passwordDictionary": false,
+                "personalDataCheck": false,
+                "sessionAlerts": false,
+                "mockNumbers": []
+            }
+        }
+    },
+    "functions": [
+        {
+            "$id": "67843b5600236a08ca4d",
+            "execute": [],
+            "name": "Split notes by student",
+            "enabled": true,
+            "logging": true,
+            "runtime": "dart-3.5",
+            "scopes": [
+                "users.read",
+                "databases.read",
+                "databases.write",
+                "collections.read",
+                "collections.write",
+                "attributes.read",
+                "attributes.write",
+                "indexes.read",
+                "indexes.write",
+                "documents.read",
+                "documents.write"
+            ],
+            "events": [
+                "databases.*.collections.notes.documents.*.create",
+                "databases.*.collections.notes.documents.*.update"
+            ],
+            "schedule": "",
+            "timeout": 15,
+            "entrypoint": "lib/main.dart",
+            "commands": "sh pre-build.sh split-notes-by-student",
+            "path": "functions"
+        },
+        {
+            "$id": "678f37e7000e395f7461",
+            "execute": [],
+            "name": "Transcribe note to text",
+            "enabled": true,
+            "logging": true,
+            "runtime": "dart-3.5",
+            "scopes": [
+                "documents.write",
+                "files.read"
+            ],
+            "events": [
+                "databases.*.collections.notes.documents.*.create"
+            ],
+            "schedule": "",
+            "timeout": 15,
+            "entrypoint": "lib/main.dart",
+            "commands": "sh pre-build.sh transcribe-note",
+            "path": "functions"
+        }
+    ],
+    "databases": [
+        {
+            "$id": "676d6913002126bc091b",
+            "name": "default",
+            "enabled": true
+        }
+    ],
+    "collections": [
+        {
+            "$id": "classes",
+            "$permissions": [
+                "create(\"users\")"
+            ],
+            "databaseId": "676d6913002126bc091b",
+            "name": "classes",
+            "enabled": true,
+            "documentSecurity": true,
+            "attributes": [
+                {
+                    "key": "course",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 50,
+                    "default": null
+                },
+                {
+                    "key": "room",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 32,
+                    "default": null
+                },
+                {
+                    "key": "students",
+                    "type": "relationship",
+                    "required": false,
+                    "array": false,
+                    "relatedCollection": "students",
+                    "relationType": "oneToMany",
+                    "twoWay": false,
+                    "twoWayKey": "6777da4e0022efc49fe6",
+                    "onDelete": "cascade",
+                    "side": "parent"
+                },
+                {
+                    "key": "notes",
+                    "type": "relationship",
+                    "required": false,
+                    "array": false,
+                    "relatedCollection": "notes",
+                    "relationType": "manyToOne",
+                    "twoWay": true,
+                    "twoWayKey": "class",
+                    "onDelete": "cascade",
+                    "side": "child"
+                },
+                {
+                    "key": "schedule",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 30,
+                    "default": null
+                }
+            ],
+            "indexes": []
+        },
+        {
+            "$id": "students",
+            "$permissions": [
+                "create(\"users\")"
+            ],
+            "databaseId": "676d6913002126bc091b",
+            "name": "students",
+            "enabled": true,
+            "documentSecurity": true,
+            "attributes": [
+                {
+                    "key": "name",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 50,
+                    "default": null
+                },
+                {
+                    "key": "notes",
+                    "type": "relationship",
+                    "required": false,
+                    "array": false,
+                    "relatedCollection": "student_notes",
+                    "relationType": "oneToMany",
+                    "twoWay": true,
+                    "twoWayKey": "student",
+                    "onDelete": "cascade",
+                    "side": "parent"
+                },
+                {
+                    "key": "report_cards",
+                    "type": "relationship",
+                    "required": false,
+                    "array": false,
+                    "relatedCollection": "report_cards",
+                    "relationType": "oneToMany",
+                    "twoWay": false,
+                    "twoWayKey": "67931f6f0010e115d47c",
+                    "onDelete": "cascade",
+                    "side": "parent"
+                }
+            ],
+            "indexes": []
+        },
+        {
+            "$id": "notes",
+            "$permissions": [
+                "create(\"users\")"
+            ],
+            "databaseId": "676d6913002126bc091b",
+            "name": "notes",
+            "enabled": true,
+            "documentSecurity": true,
+            "attributes": [
+                {
+                    "key": "text",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 9000,
+                    "default": null
+                },
+                {
+                    "key": "class",
+                    "type": "relationship",
+                    "required": false,
+                    "array": false,
+                    "relatedCollection": "classes",
+                    "relationType": "manyToOne",
+                    "twoWay": true,
+                    "twoWayKey": "notes",
+                    "onDelete": "cascade",
+                    "side": "parent"
+                },
+                {
+                    "key": "when",
+                    "type": "datetime",
+                    "required": true,
+                    "array": false,
+                    "format": "",
+                    "default": null
+                },
+                {
+                    "key": "student_notes",
+                    "type": "relationship",
+                    "required": false,
+                    "array": false,
+                    "relatedCollection": "student_notes",
+                    "relationType": "oneToMany",
+                    "twoWay": true,
+                    "twoWayKey": "original_note",
+                    "onDelete": "cascade",
+                    "side": "parent"
+                },
+                {
+                    "key": "is_split",
+                    "type": "boolean",
+                    "required": false,
+                    "array": false,
+                    "default": false
+                },
+                {
+                    "key": "is_transcribed",
+                    "type": "boolean",
+                    "required": false,
+                    "array": false,
+                    "default": false
+                },
+                {
+                    "key": "voice",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 20,
+                    "default": null
+                }
+            ],
+            "indexes": []
+        },
+        {
+            "$id": "student_notes",
+            "$permissions": [
+                "create(\"users\")"
+            ],
+            "databaseId": "676d6913002126bc091b",
+            "name": "student_notes",
+            "enabled": true,
+            "documentSecurity": true,
+            "attributes": [
+                {
+                    "key": "original_note",
+                    "type": "relationship",
+                    "required": false,
+                    "array": false,
+                    "relatedCollection": "notes",
+                    "relationType": "oneToMany",
+                    "twoWay": true,
+                    "twoWayKey": "student_notes",
+                    "onDelete": "cascade",
+                    "side": "child"
+                },
+                {
+                    "key": "text",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 9000,
+                    "default": null
+                },
+                {
+                    "key": "student",
+                    "type": "relationship",
+                    "required": false,
+                    "array": false,
+                    "relatedCollection": "students",
+                    "relationType": "oneToMany",
+                    "twoWay": true,
+                    "twoWayKey": "notes",
+                    "onDelete": "cascade",
+                    "side": "child"
+                },
+                {
+                    "key": "when",
+                    "type": "datetime",
+                    "required": true,
+                    "array": false,
+                    "format": "",
+                    "default": null
+                }
+            ],
+            "indexes": []
+        },
+        {
+            "$id": "report_cards",
+            "$permissions": [],
+            "databaseId": "676d6913002126bc091b",
+            "name": "report_cards",
+            "enabled": true,
+            "documentSecurity": true,
+            "attributes": [
+                {
+                    "key": "when",
+                    "type": "datetime",
+                    "required": true,
+                    "array": false,
+                    "format": "",
+                    "default": null
+                }
+            ],
+            "indexes": []
+        },
+        {
+            "$id": "report_card_templates",
+            "$permissions": [
+                "create(\"users\")"
+            ],
+            "databaseId": "676d6913002126bc091b",
+            "name": "report_card_templates",
+            "enabled": true,
+            "documentSecurity": true,
+            "attributes": [
+                {
+                    "key": "name",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 50,
+                    "default": null
+                },
+                {
+                    "key": "sections",
+                    "type": "relationship",
+                    "required": false,
+                    "array": false,
+                    "relatedCollection": "report_card_template_lines",
+                    "relationType": "oneToMany",
+                    "twoWay": false,
+                    "twoWayKey": "6796710a001a9848bfba",
+                    "onDelete": "cascade",
+                    "side": "parent"
+                }
+            ],
+            "indexes": []
+        },
+        {
+            "$id": "report_card_template_lines",
+            "$permissions": [
+                "create(\"users\")"
+            ],
+            "databaseId": "676d6913002126bc091b",
+            "name": "report_card_template_sections",
+            "enabled": true,
+            "documentSecurity": true,
+            "attributes": [
+                {
+                    "key": "category",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 50,
+                    "default": null
+                },
+                {
+                    "key": "example",
+                    "type": "string",
+                    "required": false,
+                    "array": true,
+                    "size": 5000,
+                    "default": null
+                }
+            ],
+            "indexes": []
+        },
+        {
+            "$id": "report_card_sections",
+            "$permissions": [],
+            "databaseId": "676d6913002126bc091b",
+            "name": "report_card_sections",
+            "enabled": true,
+            "documentSecurity": false,
+            "attributes": [
+                {
+                    "key": "category",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 50,
+                    "default": null
+                },
+                {
+                    "key": "text",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 5000,
+                    "default": null
+                }
+            ],
+            "indexes": []
+        }
+    ],
+    "buckets": [
+        {
+            "$id": "notes",
+            "$permissions": [
+                "create(\"users\")"
+            ],
+            "fileSecurity": false,
+            "name": "notes",
+            "enabled": true,
+            "maximumFileSize": 50000000,
+            "allowedFileExtensions": [
+                "m4a",
+                "mp4",
+                "mp3",
+                "aac"
+            ],
+            "compression": "none",
+            "encryption": true,
+            "antivirus": true
+        }
+    ]
+}

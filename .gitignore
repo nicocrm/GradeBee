@@ -13,7 +13,7 @@
 migrate_working_dir/
 .env
 # we generate that one from the envs
-appwrite.json
+/appwrite.json
 
 # IntelliJ related
 *.iml
