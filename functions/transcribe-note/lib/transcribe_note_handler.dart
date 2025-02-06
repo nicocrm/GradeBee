@@ -35,10 +35,12 @@ class TranscribeNoteHandler {
   Future<Note> processRequest(Note note) async {
     try {
       final students = note.class_.students.map((s) => s.name).toList();
+      context.log("Transcribing note ${note.id} with students $students");
       final audio = await bucket.download(note.voice!, context);
       note.text =
           await Speechtotext(Platform.environment['OPENAI_API_KEY'] ?? '')
               .transcribe(students, audio);
+      context.log("Transcribed note ${note.id} with text ${note.text}");
     } catch (e, s) {
       context.error("${e.toString()}\n$s");
       note.error = "Error transcribing notes";
