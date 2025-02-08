@@ -48,12 +48,14 @@ class _LoginScreenState extends State<LoginScreen> with ErrorMixin {
             child: Form(
               key: _formKey,
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   TextFormField(
                     controller: _emailController,
                     decoration: const InputDecoration(
                       labelText: 'Email',
                     ),
+                    readOnly: vm.loginCommand.running,
                     onChanged: (value) {
                       _formKey.currentState?.validate();
                     },
@@ -75,6 +77,7 @@ class _LoginScreenState extends State<LoginScreen> with ErrorMixin {
                     decoration: const InputDecoration(
                       labelText: 'Password',
                     ),
+                    readOnly: vm.loginCommand.running,
                     onChanged: (value) {
                       _formKey.currentState?.validate();
                     },
@@ -87,28 +90,44 @@ class _LoginScreenState extends State<LoginScreen> with ErrorMixin {
                   ),
                   Padding(
                     padding: const EdgeInsets.all(24.0),
-                    child: vm.loginCommand.running
-                        ? ElevatedButton(
-                            onPressed: null,
-                            child: const Center(
-                              child: SizedBox.square(
-                                dimension: 12,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2),
-                              ),
-                            ))
-                        : ElevatedButton(
-                            onPressed: () {
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (vm.loginCommand.running)
+                          const Center(
+                            child: SizedBox.square(
+                              dimension: 24,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          )
+                        else ...[
+                          ElevatedButton(
+                            onPressed: () async {
                               final email = _emailController.text;
                               final password = _passwordController.text;
-                              if (!_formKey.currentState!.validate()) return;
-                              vm.loginCommand.execute(LoginParams(email, password));
-                              // if (result && context.mounted) {
-                              //   context.go('/');
-                              // }
+                              if (!_formKey.currentState!.validate()) {
+                                return;
+                              }
+                              await vm.loginCommand
+                                  .execute(LoginWithPassword(email, password));
                             },
                             child: const Center(child: Text('Log in')),
                           ),
+                          const SizedBox(height: 16),
+                          ElevatedButton.icon(
+                            onPressed: () async {
+                              await vm.loginCommand.execute(LoginWithGoogle());
+                            },
+                            icon: Image.asset(
+                              'assets/google_icon.png', // Ensure you have this asset in your project
+                              height: 24,
+                              width: 24,
+                            ),
+                            label: const Text('Log in with Google'),
+                          ),
+                        ],
+                      ],
+                    ),
                   )
                 ],
               ),

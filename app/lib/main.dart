@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:get_it/get_it.dart';
 
 import 'shared/data/appwrite_client.dart';
 import 'shared/data/auth_state.dart';
@@ -25,6 +26,7 @@ class _MainAppState extends State<MainApp> {
     super.initState();
     final appwriteClient = client();
     authState = AuthState(appwriteClient);
+    GetIt.instance.registerSingleton<AuthState>(authState);
   }
 
   @override

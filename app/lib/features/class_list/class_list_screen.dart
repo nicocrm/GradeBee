@@ -1,3 +1,5 @@
+import '../../shared/ui/widgets/shared_app_bar.dart';
+import '../../shared/ui/widgets/shared_drawer.dart';
 import 'models/class.model.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -33,9 +35,8 @@ class _ClassListScreenState extends State<ClassListScreen> with ErrorMixin {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('My Classes'),
-      ),
+      appBar: SharedAppBar(title: "My Classes"),
+      drawer: const SharedDrawer(),
       body: FutureBuilder<List<Class>>(
         future: _classesFuture,
         builder: (context, snapshot) {
