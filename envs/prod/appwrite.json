@@ -63,7 +63,7 @@
                 "databases.*.collections.notes.documents.*.update"
             ],
             "schedule": "",
-            "timeout": 15,
+            "timeout": 45,
             "entrypoint": "lib/main.dart",
             "commands": "sh pre-build.sh split-notes-by-student",
             "path": "functions"

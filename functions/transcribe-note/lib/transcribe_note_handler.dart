@@ -40,11 +40,12 @@ class TranscribeNoteHandler {
       note.text =
           await Speechtotext(Platform.environment['OPENAI_API_KEY'] ?? '')
               .transcribe(students, audio);
+      note.isTranscribed = true;
       context.log("Transcribed note ${note.id} with text ${note.text}");
     } catch (e, s) {
       context.error("${e.toString()}\n$s");
       note.error = "Error transcribing notes";
-      note.isSplit = false;
+      note.isTranscribed = false;
     }
     return note;
   }
