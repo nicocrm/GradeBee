@@ -41,45 +41,53 @@ class _ClassDetailsScreenState extends State<ClassDetailsScreen>
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-        length: 3,
-        child: Scaffold(
-          appBar: AppBar(
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back),
-              onPressed: () => context.pop(),
-            ),
-            title: Text(vm.currentClass.course),
-            bottom: const TabBar(
-              tabs: [
-                Tab(text: 'Details'),
-                Tab(text: 'Students'),
-                Tab(text: 'Notes'),
-              ],
-            ),
-          ),
-          body: TabBarView(
-            children: [
-              // Details Tab
-              _DetailsTab(
-                viewModel: vm,
+    return FutureBuilder<Class>(
+      future: vm.getClassWithNotes(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return buildErrorText(snapshot.error.toString());
+        }
+        return DefaultTabController(
+            length: 3,
+            child: Scaffold(
+              appBar: AppBar(
+                leading: IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () => context.pop(),
+                ),
+                title: Text(vm.currentClass.course),
+                bottom: const TabBar(
+                  tabs: [
+                    Tab(text: 'Details'),
+                    Tab(text: 'Students'),
+                    Tab(text: 'Notes'),
+                  ],
+                ),
               ),
+              body: TabBarView(
+                children: [
+                  // Details Tab
+                  _DetailsTab(
+                    viewModel: vm,
+                  ),
 
-              // Students Tab
-              StudentList(vm: vm),
+                  // Students Tab
+                  StudentList(vm: vm),
 
-              // Notes Tab
-              NotesList(vm: vm),
-            ],
-          ),
-          bottomNavigationBar: BottomAppBar(
-            child: IconButton(
-              icon: const Icon(Icons.record_voice_over),
-              onPressed: () =>
-                  _showRecordNoteDialog(context, widget.class_.id!),
-            ),
-          ),
-        ));
+                  // Notes Tab
+                  NotesList(vm: vm),
+                ],
+              ),
+              bottomNavigationBar: BottomAppBar(
+                child: IconButton(
+                  icon: const Icon(Icons.record_voice_over),
+                  onPressed: () =>
+                      _showRecordNoteDialog(context, widget.class_.id!),
+                ),
+              ),
+            ));
+      },
+    );
   }
 
   void _showRecordNoteDialog(BuildContext context, String classId) {
@@ -139,17 +147,16 @@ class _DetailsTabState extends State<_DetailsTab> with ErrorMixin {
         ),
       ),
       Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: ListenableBuilder(
-          listenable: widget.viewModel.updateClassCommand,
-          builder: (context, _) => widget.viewModel.updateClassCommand.running
-              ? SpinnerButton(text: 'Saving')
-            : ElevatedButton(
-                onPressed: () => onSave(),
-                child: const Text('Save'),
-              ),
-        )
-      ),
+          padding: const EdgeInsets.all(24.0),
+          child: ListenableBuilder(
+            listenable: widget.viewModel.updateClassCommand,
+            builder: (context, _) => widget.viewModel.updateClassCommand.running
+                ? SpinnerButton(text: 'Saving')
+                : ElevatedButton(
+                    onPressed: () => onSave(),
+                    child: const Text('Save'),
+                  ),
+          )),
     ]);
   }
 

@@ -1,4 +1,5 @@
 import 'package:appwrite/appwrite.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import '../logger.dart';
 import 'appwrite_client.dart';
@@ -9,7 +10,7 @@ class Database {
 
   Database([Databases? db, String? databaseId])
       : _db = db ?? Databases(client()),
-        _databaseId = databaseId ?? '676d6913002126bc091b';
+        _databaseId = databaseId ?? dotenv.env['APPWRITE_DATABASE_ID']!;
 
   Future<String> insert(String collectionId, Map<String, dynamic> data) async {
     try {
