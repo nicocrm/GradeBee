@@ -13,6 +13,7 @@ class ClassDetailsVM extends ChangeNotifier with ClassStateMixin {
   final Class _initialClass;
   Class _class;
   late final Command0 updateClassCommand;
+  late final Command1<Class, String> addVoiceNoteCommand;
 
   ClassDetailsVM(
     Class initialClass, [
@@ -21,6 +22,7 @@ class ClassDetailsVM extends ChangeNotifier with ClassStateMixin {
         _initialClass = initialClass,
         _class = initialClass {
     updateClassCommand = Command0(_updateClass);
+    addVoiceNoteCommand = Command1(_addVoiceNote);
   }
 
   Class get currentClass => _class;
@@ -94,12 +96,17 @@ class ClassDetailsVM extends ChangeNotifier with ClassStateMixin {
     }
   }
 
-  Future<Result<Class>> addVoiceNote(String recordingPath) async {
+  Future<Result<Class>> _addVoiceNote(String recordingPath) async {
     try {
-      _class.pendingNotes.add(PendingNote(
-        when: DateTime.now(),
-        recordingPath: recordingPath,
-      ));
+      _class = _class.copyWith(
+        pendingNotes: [
+          ..._class.pendingNotes,
+          PendingNote(
+            when: DateTime.now(),
+            recordingPath: recordingPath,
+          ),
+        ],
+      );
       _class = await _repository.updateClass(_class);
       return Result.value(_class);
     } catch (e) {

@@ -36,7 +36,8 @@ class ClassRepository {
   Future<Class> updateClass(Class class_) async {
     try {
       for (var pendingNote in class_.pendingNotes) {
-        final fileId = await _storageService.upload(pendingNote.recordingPath);
+        final fileId = await _storageService.upload(
+            pendingNote.recordingPath, "voice_note.m4a");
         class_.notes.add(Note(
           voice: fileId,
           when: pendingNote.when,
