@@ -47,8 +47,8 @@ class ClassDetailsVM extends ChangeNotifier with ClassStateMixin {
   }
 
   @override
-  void setRoom(String room) {
-    _class = _class.copyWith(room: room);
+  void setTimeBlock(String timeBlock) {
+    _class = _class.copyWith(timeBlock: timeBlock);
     notifyListeners();
   }
 

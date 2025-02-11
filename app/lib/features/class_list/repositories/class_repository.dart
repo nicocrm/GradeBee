@@ -35,21 +35,23 @@ class ClassRepository {
 
   Future<Class> updateClass(Class class_) async {
     try {
+      final newNotes = <Note>[];
       for (var pendingNote in class_.pendingNotes) {
         final fileId = await _storageService.upload(
             pendingNote.recordingPath, "voice_note.m4a");
-        class_.notes.add(Note(
+        newNotes.add(Note(
           voice: fileId,
           when: pendingNote.when,
           isSplit: false,
           id: fileId,
         ));
       }
-      class_.pendingNotes.clear();
+      class_ = class_
+          .copyWith(notes: [...class_.notes, ...newNotes], pendingNotes: []);
       await _db.update('classes', class_.toJson(), class_.id!);
       return class_;
-    } catch (e) {
-      AppLogger.error('Error updating class');
+    } catch (e, s) {
+      AppLogger.error('Error updating class', e, s);
       rethrow;
     }
   }
