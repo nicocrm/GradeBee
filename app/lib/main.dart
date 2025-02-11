@@ -4,6 +4,8 @@ import 'package:get_it/get_it.dart';
 
 import 'shared/data/appwrite_client.dart';
 import 'shared/data/auth_state.dart';
+import 'shared/data/database.dart';
+import 'shared/data/storage_service.dart';
 import 'shared/router.dart';
 
 void main() async {
@@ -26,6 +28,10 @@ class _MainAppState extends State<MainApp> {
     super.initState();
     final appwriteClient = client();
     authState = AuthState(appwriteClient);
+    GetIt.instance.registerSingleton<DatabaseService>(
+        DatabaseService(appwriteClient, dotenv.env['APPWRITE_DATABASE_ID']!));
+    GetIt.instance.registerSingleton<StorageService>(
+        StorageService(appwriteClient, dotenv.env['APPWRITE_BUCKET_ID']!));
     GetIt.instance.registerSingleton<AuthState>(authState);
   }
 
