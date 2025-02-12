@@ -12,12 +12,11 @@ class StudentDetails extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 3,
+      length: 2,
       child: Column(
         children: [
           const TabBar(
             tabs: [
-              Tab(text: 'Details'),
               Tab(text: 'Notes'),
               Tab(text: 'Report Card'),
             ],
@@ -25,9 +24,6 @@ class StudentDetails extends StatelessWidget {
           Expanded(
             child: TabBarView(
               children: [
-                // Details Tab
-                _DetailsTab(student: student),
-
                 // Notes Tab
                 _NotesTab(student: student),
 
@@ -42,21 +38,21 @@ class StudentDetails extends StatelessWidget {
   }
 }
 
-class _DetailsTab extends StatelessWidget {
-  final Student student;
+// class _DetailsTab extends StatelessWidget {
+//   final Student student;
 
-  const _DetailsTab({required this.student});
+//   const _DetailsTab({required this.student});
 
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(student.name),
-        // Add more student details here
-      ],
-    );
-  }
-}
+//   @override
+//   Widget build(BuildContext context) {
+//     return Column(
+//       children: [
+//         Text(student.name),
+//         // Add more student details here
+//       ],
+//     );
+//   }
+// }
 
 class _NotesTab extends StatelessWidget {
   final Student student;
