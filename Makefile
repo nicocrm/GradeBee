@@ -1,16 +1,23 @@
 ENV ?= dev
-ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
+WEB_OUTPUTDIR := app/build/web
+PUBLISH_S3_BUCKET := gradebee.bytemypython.com
 
 .PHONY: push pull
 push: env
-	appwrite push $(ARGS)
+	appwrite push
 
 pull: env
-	appwrite pull $(ARGS)
+	appwrite pull
 	cp appwrite.json envs/${ENV}/appwrite.json
 
 promote:
 	python scripts/update_appwrite_project.py dev prod
+
+build-web:
+	cd app && flutter build web
+
+publish-web: env build-web
+	aws s3 sync "$(WEB_OUTPUTDIR)"/ s3://$(PUBLISH_S3_BUCKET) --acl public-read --delete
 
 # set up for prod / dev
 .PHONY: env
