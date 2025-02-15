@@ -17,7 +17,8 @@ build-web:
 	cd app && flutter build web
 
 publish-web: env build-web
-	aws s3 sync "$(WEB_OUTPUTDIR)"/ s3://$(PUBLISH_S3_BUCKET) --acl public-read --delete
+	aws s3 sync "$(WEB_OUTPUTDIR)"/ s3://$(PUBLISH_S3_BUCKET)/$(ENV) --acl public-read --delete
+	aws amplify start-deployment --app-id gradebee --branch-name $(ENV) --source s3://$(PUBLISH_S3_BUCKET)/$(ENV) 
 
 # set up for prod / dev
 .PHONY: env

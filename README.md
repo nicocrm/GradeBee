@@ -29,6 +29,18 @@ For appwrite functions:
 - I can view a class with its students and notes.  I can add a note, or add a student.
 - I can view a student with his notes and reports.  I can't directly add a note.
 
+## Deployment
+
+### Web
+
+The web application is deployed to S3.  Run `make publish-web ENV=prod` to deploy the prod settings,
+or `make publish-web ENV=dev` to deploy the dev settings.
+This will do 3 things:
+
+- build the web application, using flutter
+- copy the files to the S3 bucket under the `dev` or `prod` prefix
+- run `aws amplify start-deployment` to create a deployment of the corresponding branch
+
 ## Design Decisions
 
 RECORD ALL DESIGN DECISIONS HERE FOR FUTURE REFERENCE
