@@ -560,7 +560,7 @@ packages:
   record_web:
     dependency: "direct overridden"
     description:
-      path: "../../../ThirdParty/flutter/record/record_web"
+      path: "../../record/record_web"
       relative: true
     source: path
     version: "1.1.4"

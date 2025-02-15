@@ -28,7 +28,7 @@ dependencies:
 
 dependency_overrides:
   record_web:
-    path: ../../../ThirdParty/flutter/record/record_web
+    path: ../../record/record_web
 
 dev_dependencies:
   flutter_test:
