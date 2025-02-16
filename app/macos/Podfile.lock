@@ -9,8 +9,6 @@ PODS:
   - path_provider_foundation (0.0.1):
     - Flutter
     - FlutterMacOS
-  - record_darwin (1.0.0):
-    - FlutterMacOS
   - url_launcher_macos (0.0.1):
     - FlutterMacOS
   - window_to_front (0.0.1):
@@ -22,7 +20,6 @@ DEPENDENCIES:
   - FlutterMacOS (from `Flutter/ephemeral`)
   - package_info_plus (from `Flutter/ephemeral/.symlinks/plugins/package_info_plus/macos`)
   - path_provider_foundation (from `Flutter/ephemeral/.symlinks/plugins/path_provider_foundation/darwin`)
-  - record_darwin (from `Flutter/ephemeral/.symlinks/plugins/record_darwin/macos`)
   - url_launcher_macos (from `Flutter/ephemeral/.symlinks/plugins/url_launcher_macos/macos`)
   - window_to_front (from `Flutter/ephemeral/.symlinks/plugins/window_to_front/macos`)
 
@@ -37,8 +34,6 @@ EXTERNAL SOURCES:
     :path: Flutter/ephemeral/.symlinks/plugins/package_info_plus/macos
   path_provider_foundation:
     :path: Flutter/ephemeral/.symlinks/plugins/path_provider_foundation/darwin
-  record_darwin:
-    :path: Flutter/ephemeral/.symlinks/plugins/record_darwin/macos
   url_launcher_macos:
     :path: Flutter/ephemeral/.symlinks/plugins/url_launcher_macos/macos
   window_to_front:
@@ -50,7 +45,6 @@ SPEC CHECKSUMS:
   FlutterMacOS: 8f6f14fa908a6fb3fba0cd85dbd81ec4b251fb24
   package_info_plus: f0052d280d17aa382b932f399edf32507174e870
   path_provider_foundation: 080d55be775b7414fd5a5ef3ac137b97b097e564
-  record_darwin: 30509266ae213af8afdb09a8ae7467cb64c1377e
   url_launcher_macos: 0fba8ddabfc33ce0a9afe7c5fef5aab3d8d2d673
   window_to_front: 9e76fd432e36700a197dac86a0011e49c89abe0a
 

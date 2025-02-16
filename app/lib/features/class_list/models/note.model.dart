@@ -17,7 +17,7 @@ class Note {
 
   factory Note.fromJson(Map<String, dynamic> json) {
     return Note(
-      text: json["text"],
+      text: json["text"] ?? "",
       id: json["\$id"],
       isSplit: json["is_split"],
       when: DateTime.parse(json["when"]),
