@@ -77,4 +77,16 @@ class Class {
   static List _serializeNotes(List<Note> notes) {
     return notes.map((e) => e.id ?? e.toJson()).toList();
   }
+
+  Class addVoiceNote(String recordingPath) {
+    return copyWith(
+      pendingNotes: [
+        ...pendingNotes,
+        PendingNote(
+          when: DateTime.now(),
+          recordingPath: recordingPath,
+        ),
+      ],
+    );
+  }
 }
