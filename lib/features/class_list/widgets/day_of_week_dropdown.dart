@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 class DayOfWeekDropdown extends StatelessWidget {
   final String? value;
-  final Function(String?) onChanged;
+  final Function(String) onChanged;
 
   const DayOfWeekDropdown({
     super.key,
@@ -23,7 +23,7 @@ class DayOfWeekDropdown extends StatelessWidget {
         }
         return null;
       },
-      onChanged: onChanged,
+      onChanged: (v) => v == null ? null : onChanged(v),
       items: [
         'Monday',
         'Tuesday',

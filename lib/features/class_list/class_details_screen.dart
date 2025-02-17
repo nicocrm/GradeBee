@@ -1,10 +1,12 @@
-import 'package:class_database/features/class_list/widgets/day_of_week_dropdown.dart';
-import 'package:class_database/features/class_list/models/class.model.dart';
+import '../../core/widgets/spinner_button.dart';
+import 'widgets/class_edit_details.dart';
+import 'models/class.model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'vm/class_details_vm.dart';
+import 'widgets/error_snackbar_mixin.dart';
 
 class ClassDetailsScreen extends ConsumerStatefulWidget {
   final Class class_;
@@ -15,30 +17,19 @@ class ClassDetailsScreen extends ConsumerStatefulWidget {
   ConsumerState<ClassDetailsScreen> createState() => _ClassDetailsScreenState();
 }
 
-class _ClassDetailsScreenState extends ConsumerState<ClassDetailsScreen> {
+class _ClassDetailsScreenState extends ConsumerState<ClassDetailsScreen>
+    with ErrorSnackbarMixin {
   final _formKey = GlobalKey<FormState>();
-  final _courseController = TextEditingController();
-  final _roomController = TextEditingController();
-  late String _dayOfWeek;
-
-  @override
-  void initState() {
-    super.initState();
-    _courseController.text = widget.class_.course;
-    _roomController.text = widget.class_.room;
-    _dayOfWeek = widget.class_.dayOfWeek;
-  }
-
-  @override
-  void dispose() {
-    _courseController.dispose();
-    _roomController.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
-    final vm = ref.watch(classDetailsVmProvider(widget.class_));
+    final vmProvider = classDetailsVmProvider(widget.class_);
+    final vm = ref.read(vmProvider.notifier);
+    final isLoading = ref.watch(vmProvider.select((p) => p.isLoading));
+    final error = ref.watch(vmProvider.select((p) => p.error));
+
+    showErrorSnackbar(error);
+
     return Scaffold(
       appBar: AppBar(
         title: Text('Class Details'),
@@ -47,34 +38,8 @@ class _ClassDetailsScreenState extends ConsumerState<ClassDetailsScreen> {
         key: _formKey,
         child: Column(
           children: [
-            TextFormField(
-              controller: _courseController,
-              decoration: const InputDecoration(
-                labelText: 'Course',
-              ),
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Please enter a course name';
-                }
-                return null;
-              },
-            ),
-            DayOfWeekDropdown(
-              value: _dayOfWeek,
-              onChanged: (value) => setState(() => _dayOfWeek = value!),
-            ),
-            TextFormField(
-              controller: _roomController,
-              decoration: const InputDecoration(
-                labelText: 'Room',
-              ),
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Please enter a room';
-                }
-                return null;
-              },
-            ),
+            ClassEditDetails(
+                classProvider: vmProvider.select((p) => p.class_), vm: vm),
           ],
         ),
       ),
@@ -82,24 +47,12 @@ class _ClassDetailsScreenState extends ConsumerState<ClassDetailsScreen> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            ElevatedButton(
-              onPressed: () async {
-                if (_formKey.currentState!.validate()) {
-                  if (await ref
-                      .read(classDetailsVmProvider(vm.class_).notifier)
-                      .updateClass(vm.class_.copyWith(
-                        course: _courseController.text,
-                        dayOfWeek: _dayOfWeek,
-                        room: _roomController.text,
-                      ))) {
-                    if (context.mounted) {
-                      context.pop();
-                    }
-                  }
-                }
-              },
-              child: const Text('Save'),
-            ),
+            isLoading
+                ? SpinnerButton(text: 'Add Class')
+                : ElevatedButton(
+                    onPressed: () => onSave(context, vm),
+                    child: const Text('Save'),
+                  ),
             ElevatedButton(
               onPressed: () => context.pop(),
               child: const Text('Back'),
@@ -108,5 +61,15 @@ class _ClassDetailsScreenState extends ConsumerState<ClassDetailsScreen> {
         ),
       ),
     );
+  }
+
+  void onSave(BuildContext context, ClassDetailsVm vm) async {
+    if (_formKey.currentState!.validate()) {
+      if (await vm.updateClass()) {
+        if (context.mounted) {
+          context.pop();
+        }
+      }
+    }
   }
 }

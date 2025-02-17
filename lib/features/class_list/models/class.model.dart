@@ -15,7 +15,7 @@ class Class with _$Class {
   const Class._();
   factory Class({
     required String course,
-    required String dayOfWeek,
+    required String? dayOfWeek,
     required String room,
     @Default('') String id,
   }) = _Class;
