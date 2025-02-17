@@ -1,11 +1,10 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-import 'class_list_vm.dart';
+import '../repositories/class_repository.dart';
 import 'class_state_mixin.dart';
 
 import '../models/class.model.dart';
-import '../../../data/services/database.dart';
 part 'class_details_vm.freezed.dart';
 part 'class_details_vm.g.dart';
 
@@ -20,11 +19,11 @@ class ClassDetailsState extends ClassState with _$ClassDetailsState {
 
 @riverpod
 class ClassDetailsVm extends _$ClassDetailsVm with ClassStateMixin<ClassDetailsState> {
-  late Database _db;
+  late final ClassRepository _repo;
 
   @override
   ClassDetailsState build(Class originClass) {
-    _db = ref.watch(databaseProvider).requireValue;
+    _repo = ref.watch(classRepositoryProvider);
     return ClassDetailsState(
       class_: originClass,
       isLoading: false,
@@ -49,9 +48,9 @@ class ClassDetailsVm extends _$ClassDetailsVm with ClassStateMixin<ClassDetailsS
   Future<bool> updateClass() async {
     try {
       state = state.copyWith(error: '', isLoading: true);
-      await _db.update('classes', state.class_.toJson(), {'id': state.class_.id});
+      await _repo.updateClass(state.class_);
       state = state.copyWith(isLoading: false);
-      ref.invalidate(classListVmProvider);
+      ref.invalidate(classListProvider);
       return true;
     } catch (e) {
       state = state.copyWith(error: e.toString(), isLoading: false);
