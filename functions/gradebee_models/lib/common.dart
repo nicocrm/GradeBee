@@ -7,3 +7,4 @@ export 'src/models/class.model.dart';
 export 'src/models/student.model.dart';
 export 'src/models/note.model.dart';
 export 'src/models/student_note.model.dart';
+export 'src/validation_exception.dart';
