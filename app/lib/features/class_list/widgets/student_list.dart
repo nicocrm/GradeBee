@@ -15,9 +15,11 @@ class StudentList extends StatelessWidget {
         final students = vm.currentClass.students;
 
         return Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Expanded(
+            Flexible(
               child: ListView.builder(
+                shrinkWrap: true,
                 itemCount: students.length,
                 itemBuilder: (context, index) {
                   final student = students[index];
