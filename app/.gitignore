@@ -1,3 +1,8 @@
+# code generated files
+**/*.g.dart
+**/*.freezed.dart
+lib/brick/
+
 # Miscellaneous
 *.class
 *.log
