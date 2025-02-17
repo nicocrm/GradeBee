@@ -1,7 +1,6 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:record/record.dart';
 import '../vm/class_details_vm.dart';
+import '../vm/record_note_dialog_vm.dart';
 
 class RecordNoteDialog extends StatefulWidget {
   final ClassDetailsVM viewModel;
@@ -13,49 +12,24 @@ class RecordNoteDialog extends StatefulWidget {
 }
 
 class _RecordNoteDialogState extends State<RecordNoteDialog> {
-  Timer? _timer;
-  final _record = AudioRecorder();
-  int _seconds = 0;
-  late Future<void> _startingRecording;
+  late final RecordNoteDialogVM _viewModel;
 
   @override
   void initState() {
     super.initState();
-    _startingRecording = startRecording();
-  }
-
-  void _startTimer() {
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      setState(() {
-        _seconds++;
-      });
-    });
+    _viewModel = RecordNoteDialogVM(classDetailsVM: widget.viewModel);
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
-    _record.dispose();
+    _viewModel.dispose();
     super.dispose();
-  }
-
-  Future<void> startRecording() async {
-    if (await _record.hasPermission()) {
-      await _record.start(
-        const RecordConfig(
-          encoder: AudioEncoder.aacLc,
-        ),
-        path:
-            'voice_note_${DateTime.now().toString().replaceAll(RegExp(r'[^0-9]'), '')}.m4a',
-      );
-      _startTimer();
-    }
   }
 
   @override
   Widget build(BuildContext context) {
     return FutureBuilder(
-        future: _startingRecording,
+        future: _viewModel.startingRecording,
         builder: (context, snapshot) {
           if (snapshot.hasError) {
             return AlertDialog(
@@ -69,23 +43,17 @@ class _RecordNoteDialogState extends State<RecordNoteDialog> {
           return PopScope(
               canPop: false,
               child: RecordingAlertDialog(
-                seconds: _seconds,
-                record: _record,
-                viewModel: widget.viewModel,
+                viewModel: _viewModel,
               ));
         });
   }
 }
 
 class RecordingAlertDialog extends StatelessWidget {
-  final int seconds;
-  final AudioRecorder record;
-  final ClassDetailsVM viewModel;
+  final RecordNoteDialogVM viewModel;
 
   const RecordingAlertDialog({
     super.key,
-    required this.seconds,
-    required this.record,
     required this.viewModel,
   });
 
@@ -98,19 +66,19 @@ class RecordingAlertDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: viewModel.addVoiceNoteCommand,
+      listenable: viewModel,
       builder: (context, child) {
         Widget content;
-        if (viewModel.addVoiceNoteCommand.error != null) {
+        if (viewModel.error != null) {
           content = Text(
-            viewModel.addVoiceNoteCommand.error!.error.toString(),
+            viewModel.error.toString(),
             style: const TextStyle(color: Colors.red),
           );
-        } else if (viewModel.addVoiceNoteCommand.running) {
+        } else if (viewModel.isSaving) {
           content = const CircularProgressIndicator();
         } else {
           content = Text(
-            _formatTime(seconds),
+            _formatTime(viewModel.seconds),
             style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold),
           );
         }
@@ -121,17 +89,15 @@ class RecordingAlertDialog extends StatelessWidget {
           actions: [
             TextButton(
               onPressed: () {
-                record.cancel();
+                viewModel.cancelRecording();
                 Navigator.of(context).pop();
               },
               child: const Text('Cancel'),
             ),
             ElevatedButton(
               onPressed: () async {
-                final path = await record.stop();
-                await viewModel.addVoiceNoteCommand.execute(path!);
-                if (context.mounted &&
-                    !viewModel.addVoiceNoteCommand.hasError) {
+                final success = await viewModel.saveRecording();
+                if (context.mounted && success) {
                   Navigator.of(context).pop();
                 }
               },
