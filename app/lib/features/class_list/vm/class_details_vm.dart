@@ -2,6 +2,8 @@ import 'package:async/async.dart';
 import 'package:flutter/material.dart';
 import '../../../shared/ui/command.dart';
 import '../models/class.model.dart';
+import '../models/note.model.dart';
+import '../models/pending_note.model.dart';
 import '../models/student.model.dart';
 import '../repositories/class_repository.dart';
 import 'class_state_mixin.dart';
@@ -23,6 +25,12 @@ class ClassDetailsVM extends ChangeNotifier with ClassStateMixin {
 
   Class get currentClass => _class;
   Class get initialClass => _initialClass;
+
+  Future<Class> getClassWithNotes() async {
+    _class = await _repository.getClassWithNotes(_class);
+    notifyListeners();
+    return _class;
+  }
 
   @override
   void setCourse(String course) {
@@ -59,8 +67,39 @@ class ClassDetailsVM extends ChangeNotifier with ClassStateMixin {
     notifyListeners();
   }
 
+  void removeNote(Note note) {
+    _class = _class.copyWith(
+      notes: _class.notes.where((n) => n.id != note.id).toList(),
+    );
+    notifyListeners();
+  }
+
+  void removePendingNote(PendingNote pendingNote) {
+    _class = _class.copyWith(
+      pendingNotes: _class.pendingNotes.where((n) => n != pendingNote).toList(),
+    );
+    notifyListeners();
+  }
+
+  void playPendingNote(PendingNote pendingNote) {
+    // TODO: Implement playPendingNote
+  }
+
   Future<Result<Class>> _updateClass() async {
     try {
+      _class = await _repository.updateClass(_class);
+      return Result.value(_class);
+    } catch (e) {
+      return Result.error(Exception(e));
+    }
+  }
+
+  Future<Result<Class>> addVoiceNote(String recordingPath) async {
+    try {
+      _class.pendingNotes.add(PendingNote(
+        when: DateTime.now(),
+        recordingPath: recordingPath,
+      ));
       _class = await _repository.updateClass(_class);
       return Result.value(_class);
     } catch (e) {

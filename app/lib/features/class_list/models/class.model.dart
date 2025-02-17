@@ -6,8 +6,8 @@
 // )
 
 import 'note.model.dart';
+import 'pending_note.model.dart';
 import 'student.model.dart';
-
 
 class Class {
   final String course;
@@ -16,6 +16,7 @@ class Class {
   final String? id;
   final List<Student> students;
   final List<Note> notes;
+  final List<PendingNote> pendingNotes;
 
   Class({
     required this.course,
@@ -24,6 +25,7 @@ class Class {
     this.id,
     this.students = const [],
     this.notes = const [],
+    this.pendingNotes = const [],
   });
 
   Class copyWith({
@@ -33,6 +35,7 @@ class Class {
     String? id,
     List<Student>? students,
     List<Note>? notes,
+    List<PendingNote>? pendingNotes,
   }) {
     return Class(
       course: course ?? this.course,
@@ -41,6 +44,7 @@ class Class {
       id: id ?? this.id,
       students: students ?? this.students,
       notes: notes ?? this.notes,
+      pendingNotes: pendingNotes ?? this.pendingNotes,
     );
   }
 
