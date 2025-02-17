@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../data/services/auth_state.dart';
+import '../class_list/widgets/error_mixin.dart';
 import 'vm/login_vm.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -16,13 +16,18 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends State<LoginScreen> with ErrorMixin {
   late final LoginVM vm;
 
   @override
   void initState() {
     super.initState();
     vm = LoginVM(widget.authState);
+    vm.loginCommand.addListener(() {
+      if (vm.loginCommand.error != null) {
+        showErrorSnackbar(vm.loginCommand.error!.error.toString());
+      }
+    });
   }
 
   final _formKey = GlobalKey<FormState>();
@@ -32,21 +37,8 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: vm,
+      listenable: vm.loginCommand,
       builder: (context, _) {
-        // Add this listener to show SnackBar when error occurs
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (vm.error.isNotEmpty) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(vm.error),
-                backgroundColor: Colors.red,
-                duration: const Duration(seconds: 3),
-              ),
-            );
-          }
-        });
-
         return Scaffold(
           appBar: AppBar(
             title: const Text('Login'),
@@ -95,7 +87,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   Padding(
                     padding: const EdgeInsets.all(24.0),
-                    child: vm.loading
+                    child: vm.loginCommand.running
                         ? ElevatedButton(
                             onPressed: null,
                             child: const Center(
@@ -106,14 +98,14 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             ))
                         : ElevatedButton(
-                            onPressed: () async {
+                            onPressed: () {
                               final email = _emailController.text;
                               final password = _passwordController.text;
                               if (!_formKey.currentState!.validate()) return;
-                              final result = await vm.login(email, password);
-                              if (result && context.mounted) {
-                                context.go('/');
-                              }
+                              vm.loginCommand.execute(LoginParams(email, password));
+                              // if (result && context.mounted) {
+                              //   context.go('/');
+                              // }
                             },
                             child: const Center(child: Text('Log in')),
                           ),

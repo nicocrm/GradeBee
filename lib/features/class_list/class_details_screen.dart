@@ -26,6 +26,17 @@ class _ClassDetailsScreenState extends State<ClassDetailsScreen>
   void initState() {
     super.initState();
     vm = ClassDetailsVM(widget.class_);
+    vm.updateClassCommand.addListener(() {
+      if (vm.updateClassCommand.error != null) {
+        showErrorSnackbar(vm.updateClassCommand.error!.error.toString());
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    vm.dispose();
+    super.dispose();
   }
 
   @override
@@ -64,7 +75,8 @@ class _ClassDetailsScreenState extends State<ClassDetailsScreen>
           bottomNavigationBar: BottomAppBar(
             child: IconButton(
               icon: const Icon(Icons.record_voice_over),
-              onPressed: () => _showRecordNoteDialog(context, widget.class_.id!),
+              onPressed: () =>
+                  _showRecordNoteDialog(context, widget.class_.id!),
             ),
           ),
         ));
@@ -115,8 +127,6 @@ class _DetailsTab extends StatefulWidget {
 
 class _DetailsTabState extends State<_DetailsTab> with ErrorMixin {
   final _formKey = GlobalKey<FormState>();
-  bool isSaving = false;
-  String error = '';
 
   @override
   Widget build(BuildContext context) {
@@ -128,37 +138,24 @@ class _DetailsTabState extends State<_DetailsTab> with ErrorMixin {
           vm: widget.viewModel,
         ),
       ),
-      if (error.isNotEmpty)
-        Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Text(
-            error,
-            style: const TextStyle(color: Colors.red),
-          ),
-        ),
       Padding(
         padding: const EdgeInsets.all(24.0),
-        child: isSaving
-            ? SpinnerButton(text: 'Saving')
+        child: ListenableBuilder(
+          listenable: widget.viewModel.updateClassCommand,
+          builder: (context, _) => widget.viewModel.updateClassCommand.running
+              ? SpinnerButton(text: 'Saving')
             : ElevatedButton(
                 onPressed: () => onSave(),
                 child: const Text('Save'),
               ),
+        )
       ),
     ]);
   }
 
   void onSave() async {
     if (_formKey.currentState!.validate()) {
-      setState(() => isSaving = true);
-      try {
-        await widget.viewModel.updateClass();
-      } catch (e) {
-        showErrorSnackbar(e.toString());
-        setState(() => error = e.toString());
-      } finally {
-        setState(() => isSaving = false);
-      }
+      widget.viewModel.updateClassCommand.execute();
     }
   }
 }

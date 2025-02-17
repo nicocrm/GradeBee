@@ -32,12 +32,31 @@ class StudentList extends StatelessWidget {
             ),
             Padding(
               padding: const EdgeInsets.all(16.0),
-              child: ElevatedButton(
-                onPressed: () => _showAddStudentDialog(context),
-                child: const Text('Add Student'),
-              ),
+              child: _AddStudentButton(vm: vm),
             ),
           ],
+        );
+      },
+    );
+  }
+}
+
+class _AddStudentButton extends StatelessWidget {
+  const _AddStudentButton({required this.vm});
+
+  final ClassDetailsVM vm;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: vm.updateClassCommand,
+      builder: (context, _) {
+        // if (vm.updateClassCommand.running) {
+        //   return SpinnerButton(text: 'Add Student');
+        // }
+        return ElevatedButton(
+          onPressed: () => _showAddStudentDialog(context),
+          child: const Text('Add Student'),
         );
       },
     );
@@ -69,6 +88,7 @@ class StudentList extends StatelessWidget {
 
     if (studentName != null && studentName.isNotEmpty) {
       vm.addStudent(studentName);
+      vm.updateClassCommand.execute();
     }
   }
 }

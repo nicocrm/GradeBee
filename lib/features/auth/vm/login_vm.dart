@@ -1,34 +1,29 @@
+import 'package:async/async.dart';
 import 'package:flutter/material.dart';
+import '../../../core/command.dart';
 import '../../../data/services/auth_state.dart';
+
+class LoginParams {
+  final String email;
+  final String password;
+
+  LoginParams(this.email, this.password);
+}
 
 class LoginVM extends ChangeNotifier {
   final AuthState _authState;
-  bool _success = false;
-  String _error = '';
-  bool _loading = false;
+  late final Command1<bool, LoginParams> loginCommand;
 
-  LoginVM(this._authState);
+  LoginVM(this._authState) {
+    loginCommand = Command1(_login);
+  }
 
-  bool get success => _success;
-  String get error => _error;
-  bool get loading => _loading;
-
-  Future<bool> login(String email, String password) async {
-    _loading = true;
-    _error = '';
-    _success = false;
-    notifyListeners();
-
+  Future<Result<bool>> _login(LoginParams params) async {
     try {
-      await _authState.login(email, password);
-      _success = true;
-      _loading = false;
+      await _authState.login(params.email, params.password);
+      return Result.value(true);
     } catch (e) {
-      _success = false;
-      _error = e.toString();
-      _loading = false;
+      return Result.error(e);
     }
-    notifyListeners();
-    return _success;
   }
 }
