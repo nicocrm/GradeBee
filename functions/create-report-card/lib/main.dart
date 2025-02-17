@@ -1,13 +1,24 @@
 import 'dart:async';
+import 'dart:io';
+import 'package:dart_appwrite/dart_appwrite.dart';
 import 'package:gradebee_models/common.dart';
 import 'create_report_card_handler.dart';
+import 'report_card_generator.dart';
 
 /// This Appwrite function will be executed whenever a note is created or updated with a "text" field.
 /// It will split the note into individual notes for each student and save them to the database.
 /// The "isSplit" field will be set to true.
 Future<dynamic> main(final context) async {
   try {
-    final handler = CreateReportCardHandler(context);
+    final client = Client()
+        .setEndpoint(
+            Platform.environment['APPWRITE_FUNCTION_API_ENDPOINT'] ?? '')
+        .setProject(Platform.environment['APPWRITE_FUNCTION_PROJECT_ID'] ?? '')
+        .setKey(context.req.headers['x-appwrite-key'] ?? '');
+
+    final generator =
+        ReportCardGenerator(Platform.environment['OPENAI_API_KEY']!);
+    final handler = CreateReportCardHandler(context, generator, client);
     final input = handler.parseBody(context.req.bodyJson);
     final output = await handler.processRequest(input);
     await handler.save(output);

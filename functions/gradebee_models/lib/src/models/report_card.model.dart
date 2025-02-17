@@ -55,6 +55,7 @@ class ReportCard {
           .toList(),
       template: ReportCardTemplate.fromJson(json['template']),
       studentName: json['student']['name'],
+      // will need to fetch notes only for a certain period in the future
       studentNotes: (json['student']['student_notes'] as List)
           .map((note) => note['text'].toString())
           .toList(),
