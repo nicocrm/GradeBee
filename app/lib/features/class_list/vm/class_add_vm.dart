@@ -1,15 +1,14 @@
 import 'package:flutter/foundation.dart';
-import '../../../shared/data/database.dart';
 import '../models/class.model.dart';
+import '../repositories/class_repository.dart';
 import 'class_state_mixin.dart';
 
 class ClassAddVM extends ChangeNotifier with ClassStateMixin {
-  final Database _db;
-  Class _currentClass;
+  final ClassRepository _repository;
+  Class _currentClass = Class(course: '', dayOfWeek: null, room: '');
 
-  ClassAddVM([Database? db])
-      : _db = db ?? Database(),
-        _currentClass = Class(course: '', dayOfWeek: null, room: '');
+  ClassAddVM([ClassRepository? repository])
+      : _repository = repository ?? ClassRepository();
 
   Class get currentClass => _currentClass;
 
@@ -32,8 +31,7 @@ class ClassAddVM extends ChangeNotifier with ClassStateMixin {
   }
 
   Future<Class?> addClass() async {
-    final id = await _db.insert('classes', _currentClass.toJson());
-    _currentClass = _currentClass.copyWith(id: id);
+    _currentClass = await _repository.addClass(_currentClass);
     notifyListeners();
     return _currentClass;
   }

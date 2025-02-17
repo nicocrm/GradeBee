@@ -7,11 +7,11 @@ import '../models/class.model.dart';
 import '../models/note.model.dart';
 
 class ClassRepository {
-  final Database _db;
+  final DatabaseService _db;
   final StorageService _storageService;
 
-  ClassRepository([Database? database, StorageService? storageService])
-      : _db = database ?? GetIt.instance<Database>(),
+  ClassRepository([DatabaseService? database, StorageService? storageService])
+      : _db = database ?? GetIt.instance<DatabaseService>(),
         _storageService = storageService ?? GetIt.instance<StorageService>();
 
   Future<List<Class>> listClasses() async {
@@ -19,6 +19,16 @@ class ClassRepository {
       return await _db.list('classes', Class.fromJson);
     } catch (e) {
       AppLogger.error('Error listing classes');
+      rethrow;
+    }
+  }
+
+  Future<Class> addClass(Class class_) async {
+    try {
+      final id = await _db.insert('classes', class_.toJson());
+      return class_.copyWith(id: id);
+    } catch (e) {
+      AppLogger.error('Error adding class');
       rethrow;
     }
   }
