@@ -7,29 +7,24 @@ import 'report_card_generator.dart';
 class CreateReportCardHandler {
   final Client client;
   final dynamic context;
+  final ReportCardGenerator generator;
 
-  CreateReportCardHandler(this.context)
-      : client = Client()
-            .setEndpoint(
-                Platform.environment['APPWRITE_FUNCTION_API_ENDPOINT'] ?? '')
-            .setProject(
-                Platform.environment['APPWRITE_FUNCTION_PROJECT_ID'] ?? '')
-            .setKey(context.req.headers['x-appwrite-key'] ?? '');
+  CreateReportCardHandler(this.context, this.generator, this.client);
 
   ReportCard parseBody(Map<String, dynamic>? json) {
     if (json == null) throw ValidationException("No body");
     final reportCard = ReportCard.fromJson(json);
     if (reportCard.isGenerated) {
-      throw ValidationException("Note is already split");
+      throw ValidationException("Report card is already generated");
     }
     return reportCard;
   }
 
   Future<ReportCard> processRequest(ReportCard reportCard) async {
     try {
-      final generator =
-          ReportCardGenerator(Platform.environment['OPENAI_API_KEY']!);
-      reportCard = await generator.generateReportCard(reportCard);
+      final sections = await generator.generateReportCard(reportCard);
+      reportCard.sections.clear();
+      reportCard.sections.addAll(sections);
       reportCard.isGenerated = true;
       reportCard.error = null;
     } catch (e, s) {

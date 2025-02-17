@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 class ReportCardTemplate {
   final String name;
   final List<ReportCardTemplateSection> sections;
@@ -11,16 +13,30 @@ class ReportCardTemplate {
             .map((section) => ReportCardTemplateSection.fromJson(section))
             .toList());
   }
+
+  String toJson() {
+    return jsonEncode({
+      "name": name,
+      "sections": sections.map((section) => section.toJson()).toList(),
+    });
+  }
 }
 
 class ReportCardTemplateSection {
   final String category;
-  final List<String> example;
+  final List<String> examples;
 
-  ReportCardTemplateSection({required this.category, required this.example});
+  ReportCardTemplateSection({required this.category, required this.examples});
 
   factory ReportCardTemplateSection.fromJson(Map<String, dynamic> json) {
     return ReportCardTemplateSection(
-        category: json["category"], example: json["example"]);
+        category: json["category"], examples: json["example"]);
+  }
+
+  String toJson() {
+    return jsonEncode({
+      "category": category,
+      "examples": examples,
+    });
   }
 }

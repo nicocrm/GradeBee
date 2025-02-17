@@ -87,6 +87,25 @@
             "entrypoint": "lib/main.dart",
             "commands": "sh pre-build.sh transcribe-note",
             "path": "functions"
+        },
+        {
+            "$id": "678f37e7000e395f7462",
+            "execute": [],
+            "name": "Create report card",
+            "enabled": true,
+            "logging": true,
+            "runtime": "dart-3.5",
+            "scopes": [
+                "documents.write"
+            ],
+            "events": [
+                "databases.*.collections.report_cards.documents.*.create"
+            ],
+            "schedule": "",
+            "timeout": 15,
+            "entrypoint": "lib/main.dart",
+            "commands": "sh pre-build.sh create-report-card",
+            "path": "functions"
         }
     ],
     "databases": [
