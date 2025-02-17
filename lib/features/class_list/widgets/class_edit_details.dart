@@ -1,21 +1,18 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants.dart';
 import '../vm/class_state_mixin.dart';
 import '../models/class.model.dart';
 import 'day_of_week_dropdown.dart';
 
-class ClassEditDetails extends ConsumerWidget {
+class ClassEditDetails extends StatelessWidget {
   const ClassEditDetails(
-      {super.key, required this.classProvider, required this.vm});
-  final ProviderListenable<Class> classProvider;
+      {super.key, required this.class_, required this.vm});
+  final Class class_;
   final ClassStateMixin vm;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final class_ = ref.watch(classProvider);
-
+  Widget build(BuildContext context) {
     return Padding(
         padding: kDefaultPadding,
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
