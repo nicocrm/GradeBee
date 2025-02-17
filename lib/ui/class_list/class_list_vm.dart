@@ -6,11 +6,16 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 part 'class_list_vm.g.dart';
 
 @riverpod
-Stream<List<Class>> fetchClasses(Ref ref) {
+Stream<List<Class>> _fetchClasses(Ref ref) {
   final db = ref.watch(databaseProvider).value!;
-  return db.firestore.collection('classes').snapshots().map((snapshot) {
-    return snapshot.docs
-        .map((doc) => Class.fromJson(doc.data()))
-        .toList();
-  });
+  return db.collection('classes', Class.fromJson);
+}
+
+@riverpod
+class ClassListVm extends _$ClassListVm {
+  @override
+  AsyncValue<List<Class>> build() {
+    final classes = ref.watch(_fetchClassesProvider);
+    return classes;
+  }
 }

@@ -9,7 +9,12 @@ part 'database.g.dart';
 class Database {
   FirebaseFirestore get firestore => FirebaseFirestore.instance;
 
-  
+  Stream<List<T>> collection<T>(String collectionName, T Function(Map<String, dynamic> data) fromJson) {
+    return firestore.collection(collectionName).snapshots().map((snapshot) {
+      return snapshot.docs.map((doc) => fromJson(doc.data())).toList();
+    });
+  }
+
 }
 
 @riverpod

@@ -8,9 +8,12 @@ class ClassListScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final classes = ref.watch(fetchClassesProvider);
+    final vm = ref.watch(classListVmProvider);
     return Scaffold(
-      body: classes.when(
+      appBar: AppBar(
+        title: const Text('My Classes'),
+      ),
+      body: vm.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stackTrace) => Center(child: Text(error.toString())),
         data:(data) => ClassList(classes: data),
