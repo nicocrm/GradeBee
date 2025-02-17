@@ -59,7 +59,7 @@ class SplitNoteHandler {
     }
     return {
       "status": "success",
-      "studentNotes": output.studentNotes.map((e) => e.toJson()).toList()
+      "student_notes": output.studentNotes.map((e) => e.toJson()).toList()
     };
   }
 }

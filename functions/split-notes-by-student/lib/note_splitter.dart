@@ -12,31 +12,38 @@ class NoteSplitter {
     Map<String, Student> studentsByName = {
       for (var student in note.class_.students) student.name: student
     };
-    final prompt = '''
-              Split the following teacher's note into individual student notes.
+    final systemPrompt = '''
+Split the following teacher's note into individual student notes.
 
-              Format the response as a JSON array without including any code block delimiters where each object has: studentName: the student's name, content: the content relevant to that student.
-              Use the following student names:
-              ${studentsByName.keys.join(", ")}
+Format the response as a JSON array without including any code block delimiters where each object has: studentName: the student's name, content: the content relevant to that student.
+Use the following student names:
+${studentsByName.keys.join(", ")}
 
-              If a student in the note is not in the above list, do not create a note for that student.
-              For each student mentioned, create a separate note with only the information relevant to that student.
-              If a student is mentioned multiple times, create one combined note for that student.
-              If a student is not mentioned, do not create a note for that student.
-              Be precise.
-
-              Teacher's note:
-              ${note.text}
-              ''';
+Approximate the spelling of the student's name if necessary.
+If a student in the note is not in the above list, do not create a note for that student.
+For each student mentioned, create a separate note with only the information relevant to that student.
+If a student is mentioned multiple times, create one combined note for that student.
+If a student is not mentioned, do not create a note for that student.
+Be precise.
+''';
+    final userPrompt = '''
+Teacher's note:
+${note.text}
+''';
     try {
+      final systemMessage = OpenAIChatCompletionChoiceMessageModel(
+          role: OpenAIChatMessageRole.system,
+          content: [
+            OpenAIChatCompletionChoiceMessageContentItemModel.text(systemPrompt)
+          ]);
       final userMessage = OpenAIChatCompletionChoiceMessageModel(
           role: OpenAIChatMessageRole.user,
           content: [
-            OpenAIChatCompletionChoiceMessageContentItemModel.text(prompt)
+            OpenAIChatCompletionChoiceMessageContentItemModel.text(userPrompt)
           ]);
       final chatCompletion = await OpenAI.instance.chat.create(
         model: 'gpt-4o',
-        messages: [userMessage],
+        messages: [systemMessage, userMessage],
       );
 
       final content = chatCompletion.choices.first.message.content;

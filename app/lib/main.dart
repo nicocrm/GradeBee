@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'shared/data/appwrite_client.dart';
 import 'shared/data/auth_state.dart';
 import 'shared/router.dart';
 
-void main() {
+void main() async {
+  await dotenv.load(fileName: ".env");
   runApp(MainApp());
 }
 
