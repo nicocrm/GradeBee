@@ -12,7 +12,7 @@ class Class {
   factory Class.fromJson(Map<String, dynamic> json) {
     return Class(
       id: json["\$id"],
-      students: json["students"].map((e) => Student.fromJson(e)).toList(),
+      students: [for (var e in json["students"]) Student.fromJson(e)],
     );
   }
 }

@@ -4,11 +4,19 @@ class Note {
   final String text;
   final Class class_;
   final String id;
+  final DateTime when;
 
-  Note({required this.text, required this.class_, required this.id});
+  Note(
+      {required this.text,
+      required this.class_,
+      required this.id,
+      required this.when});
 
   factory Note.fromJson(Map<String, dynamic> json) {
-    return Note(text: json["text"], class_: Class.fromJson(json["class"]), id: json["\$id"]);
+    return Note(
+        text: json["text"],
+        class_: Class.fromJson(json["class"]),
+        id: json["\$id"],
+        when: DateTime.parse(json["when"]));
   }
-
 }

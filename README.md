@@ -8,7 +8,20 @@ For appwrite functions:
 
  - install appwrite CLI
  - run a function with `appwrite run functions`
+ - copy functions/env.sample to functions/.env and edit to provide the correct
+   environment variables
+ - run `appwrite run functions --with-variables` to run the function locally
+ - run `appwrite push functions` to deploy functions
 
+## Data Model
+
+- a class has a list of students, and a list of notes
+- a note has a list of student notes
+- a student note has a student and a text
+- a student has a list of notes, and a list of generated reports
+
+- I can view a class with its students and notes.  I can add a note, or add a student.
+- I can view a student with his notes and reports.  I can't directly add a note.
 
 ## Design Decisions
 
