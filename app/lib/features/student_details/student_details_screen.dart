@@ -15,6 +15,26 @@ class StudentDetailsScreen extends StatefulWidget {
   State<StudentDetailsScreen> createState() => _StudentDetailsScreenState();
 }
 
+class _StudentAppBar extends StatelessWidget implements PreferredSizeWidget {
+  final String? title;
+
+  const _StudentAppBar({this.title = 'Student Details'});
+
+  @override
+  Widget build(BuildContext context) {
+    return AppBar(
+      title: Text(title!),
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back),
+        onPressed: () => context.pop(),
+      ),
+    );
+  }
+
+  @override
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+}
+
 class _StudentDetailsScreenState extends State<StudentDetailsScreen>
     with ErrorMixin {
   late final StudentDetailsVM vm;
@@ -24,41 +44,46 @@ class _StudentDetailsScreenState extends State<StudentDetailsScreen>
   void initState() {
     super.initState();
     vm = StudentDetailsVM(widget.studentId);
-    // vm.updateStudentCommand.addListener(() {
-    //   if (vm.updateStudentCommand.error != null) {
-    //     showErrorSnackbar(vm.updateStudentCommand.error!.error.toString());
-    //   }
-    // });
     _studentFuture = vm.getStudent();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Student Details'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.pop(),
-        ),
-      ),
-      body: FutureBuilder<Student>(
-          future: _studentFuture,
-          builder: (context, snapshot) {
-            switch (snapshot) {
-              case AsyncSnapshot(connectionState: ConnectionState.waiting):
-                return const Center(child: CircularProgressIndicator());
+    return FutureBuilder<Student>(
+      future: _studentFuture,
+      builder: (context, snapshot) {
+        switch (snapshot) {
+          case AsyncSnapshot(connectionState: ConnectionState.waiting):
+            return const Scaffold(
+              appBar: _StudentAppBar(),
+              body: Center(child: CircularProgressIndicator()),
+            );
 
-              case AsyncSnapshot(hasError: true):
-                return Center(child: buildErrorText(snapshot.error.toString()));
+          case AsyncSnapshot(hasError: true):
+            return Scaffold(
+              appBar: _StudentAppBar(),
+              body: Center(child: buildErrorText(snapshot.error.toString())),
+            );
 
-              case AsyncSnapshot(hasData: true):
-                return StudentDetails(student: snapshot.data!);
+          case AsyncSnapshot(
+              connectionState: ConnectionState.done,
+              hasData: true
+            ):
+            return Scaffold(
+              appBar: _StudentAppBar(title: snapshot.data!.name),
+              body: StudentDetails(student: snapshot.data!),
+            );
 
-              default:
-                return const Center(child: Text('No data available'));
-            }
-          }),
+          case AsyncSnapshot(connectionState: ConnectionState.done):
+            return const Scaffold(
+              appBar: _StudentAppBar(),
+              body: Center(child: Text('No student data found')),
+            );
+
+          default:
+            throw StateError('Unexpected FutureBuilder state');
+        }
+      },
     );
   }
 }
