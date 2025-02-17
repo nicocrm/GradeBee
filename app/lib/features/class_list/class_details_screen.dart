@@ -1,11 +1,11 @@
-import '../../core/widgets/spinner_button.dart';
+import '../../shared/ui/widgets/spinner_button.dart';
 import 'widgets/class_edit_details.dart';
-import 'package:gradebee_models/common.dart';
+import 'models/class.model.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import 'vm/class_details_vm.dart';
-import 'widgets/error_mixin.dart';
+import '../../shared/ui/utils/error_mixin.dart';
 import 'widgets/notes_list.dart';
 import 'widgets/student_list.dart';
 

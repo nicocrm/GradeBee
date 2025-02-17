@@ -1,7 +1,7 @@
 import 'package:async/async.dart';
 import 'package:flutter/material.dart';
-import '../../../core/command.dart';
-import '../../../data/services/auth_state.dart';
+import '../../../shared/ui/command.dart';
+import '../../../shared/data/auth_state.dart';
 
 class LoginParams {
   final String email;

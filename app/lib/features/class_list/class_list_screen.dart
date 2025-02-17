@@ -1,6 +1,7 @@
-import 'package:gradebee_models/common.dart';
+import 'models/class.model.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../shared/ui/utils/error_mixin.dart';
 import 'widgets/class_list.dart';
 import 'vm/class_list_vm.dart';
 
@@ -14,7 +15,7 @@ class ClassListScreen extends StatefulWidget {
   State<ClassListScreen> createState() => _ClassListScreenState();
 }
 
-class _ClassListScreenState extends State<ClassListScreen> {
+class _ClassListScreenState extends State<ClassListScreen> with ErrorMixin {
   late Future<List<Class>> _classesFuture;
 
   @override
@@ -43,7 +44,7 @@ class _ClassListScreenState extends State<ClassListScreen> {
               return const Center(child: CircularProgressIndicator());
 
             case AsyncSnapshot(hasError: true):
-              return Center(child: Text(snapshot.error.toString()));
+              return Center(child: buildErrorText(snapshot.error.toString()));
 
             case AsyncSnapshot(hasData: true):
               return RefreshIndicator(

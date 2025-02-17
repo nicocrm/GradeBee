@@ -1,12 +1,12 @@
-import '../../features/auth/login_screen.dart';
-import '../../features/class_list/class_add_screen.dart';
-import '../../features/class_list/class_details_screen.dart';
-import '../../features/class_list/class_list_screen.dart';
+import '../features/auth/login_screen.dart';
+import '../features/class_list/class_add_screen.dart';
+import '../features/class_list/class_details_screen.dart';
+import '../features/class_list/class_list_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:gradebee_models/common.dart';
-import '../../features/class_list/vm/class_add_vm.dart';
-import 'auth_state.dart';
+import '../features/class_list/models/class.model.dart';
+import '../features/class_list/vm/class_add_vm.dart';
+import 'data/auth_state.dart';
 
 GoRouter router(AuthState authState) {
   final GoRouter router = GoRouter(

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../data/services/auth_state.dart';
-import '../class_list/widgets/error_mixin.dart';
+import '../../shared/data/auth_state.dart';
+import '../../shared/ui/utils/error_mixin.dart';
 import 'vm/login_vm.dart';
 
 class LoginScreen extends StatefulWidget {

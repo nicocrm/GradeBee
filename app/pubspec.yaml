@@ -19,12 +19,8 @@ dependencies:
   # supabase_flutter: ^2.8.2
   flutter_dotenv: ^5.2.1
   appwrite: ^13.1.1
-  freezed_annotation: ^2.4.4
-  json_serializable: ^6.9.0
-  json_annotation: ^4.9.0
   async: ^2.11.0
-  gradebee_models:
-    path: ../gradebee_models
+  logger: ^2.5.0
 
 dev_dependencies:
   flutter_test:
@@ -32,8 +28,6 @@ dev_dependencies:
   flutter_lints: ^5.0.0
   custom_lint: ^0.7.0
   # brick_offline_first_with_supabase_build: ^1.1.0
-  build_runner: ^2.4.14
-  freezed: ^2.5.7
 
 flutter:
   uses-material-design: true

@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
-import '../../../data/services/database.dart';
-import 'package:gradebee_models/common.dart';
+import '../../../shared/data/database.dart';
+import '../models/class.model.dart';
 import 'class_state_mixin.dart';
 
 class ClassAddVM extends ChangeNotifier with ClassStateMixin {
