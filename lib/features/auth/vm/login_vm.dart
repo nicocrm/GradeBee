@@ -1,4 +1,4 @@
-import 'package:class_database/data/services/auth_state.dart';
+import '../../../data/services/auth_state.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'login_vm.g.dart';

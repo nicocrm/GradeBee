@@ -1,5 +1,5 @@
-import 'package:class_database/features/class_list/models/class.model.dart';
-import 'package:class_database/data/services/database.dart';
+import '../models/class.model.dart';
+import '../../../data/services/database.dart';
 import 'package:flutter/material.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 

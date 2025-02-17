@@ -1,4 +1,4 @@
-import 'package:class_database/data/services/database.dart';
+import '../../../data/services/database.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
