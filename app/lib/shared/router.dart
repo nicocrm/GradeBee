@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../features/class_list/models/class.model.dart';
 import '../features/class_list/vm/class_add_vm.dart';
+import '../features/student_details/student_details_screen.dart';
 import 'data/auth_state.dart';
 
 GoRouter router(AuthState authState) {
@@ -17,6 +18,12 @@ GoRouter router(AuthState authState) {
           builder: (BuildContext context, GoRouterState state) {
             return LoginScreen(authState: authState);
           }),
+      GoRoute(
+        path: '/student_details',
+        builder: (BuildContext context, GoRouterState state) {
+          return StudentDetailsScreen(studentId: state.extra as String);
+        },
+      ),
       GoRoute(
         path: '/class_list',
         builder: (BuildContext context, GoRouterState state) {

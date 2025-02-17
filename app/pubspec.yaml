@@ -21,6 +21,7 @@ dependencies:
   appwrite: ^13.1.1
   async: ^2.11.0
   logger: ^2.5.0
+  intl: ^0.20.1
 
 dev_dependencies:
   flutter_test:
