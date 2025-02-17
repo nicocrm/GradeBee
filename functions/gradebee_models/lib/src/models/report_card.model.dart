@@ -1,3 +1,5 @@
+import 'report_card_template.model.dart';
+
 class ReportCardSection {
   final String category;
   final String text;
@@ -23,27 +25,39 @@ class ReportCardSection {
 }
 
 class ReportCard {
+  final String id;
   final DateTime when;
   final List<ReportCardSection> sections;
+  final ReportCardTemplate template;
+  bool isGenerated;
+  String? error;
+  final String studentName;
+  final List<String> studentNotes;
 
   ReportCard({
+    required this.id,
     required this.when,
     required this.sections,
+    required this.template,
+    required this.studentName,
+    required this.studentNotes,
+    this.isGenerated = false,
+    this.error,
   });
 
   factory ReportCard.fromJson(Map<String, dynamic> json) {
     return ReportCard(
+      id: json['\$id'],
       when: DateTime.parse(json['when']),
+      isGenerated: json['is_generated'],
       sections: (json['sections'] as List)
           .map((section) => ReportCardSection.fromJson(section))
           .toList(),
+      template: ReportCardTemplate.fromJson(json['template']),
+      studentName: json['student']['name'],
+      studentNotes: (json['student']['student_notes'] as List)
+          .map((note) => note['text'].toString())
+          .toList(),
     );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'when': when.toIso8601String(),
-      'sections': sections.map((section) => section.toJson()).toList(),
-    };
   }
 }

@@ -16,50 +16,49 @@ class CreateReportCardHandler {
                 Platform.environment['APPWRITE_FUNCTION_PROJECT_ID'] ?? '')
             .setKey(context.req.headers['x-appwrite-key'] ?? '');
 
-  Note parseBody(Map<String, dynamic>? json) {
+  ReportCard parseBody(Map<String, dynamic>? json) {
     if (json == null) throw ValidationException("No body");
-    final note = Note.fromJson(json);
-    if (note.isSplit) throw ValidationException("Note is already split");
-    if (note.text == null) {
-      throw ValidationException("Note does not have a text field");
+    final reportCard = ReportCard.fromJson(json);
+    if (reportCard.isGenerated) {
+      throw ValidationException("Note is already split");
     }
-    return note;
+    return reportCard;
   }
 
-  Future<Note> processRequest(Note note) async {
+  Future<ReportCard> processRequest(ReportCard reportCard) async {
     try {
-      final splitter =
-          NoteSplitter(Platform.environment['OPENAI_API_KEY'] ?? '');
-      note.studentNotes = await splitter.splitNotesByStudent(note).toList();
-      note.isSplit = true;
-      note.error = null;
+      final generator =
+          ReportCardGenerator(Platform.environment['OPENAI_API_KEY']!);
+      reportCard = await generator.generateReportCard(reportCard);
+      reportCard.isGenerated = true;
+      reportCard.error = null;
     } catch (e, s) {
       context.error("${e.toString()}\n$s");
-      note.error = "Error splitting notes";
-      note.isSplit = false;
+      reportCard.error = "Error splitting notes";
+      reportCard.isGenerated = false;
     }
-    return note;
+    return reportCard;
   }
 
-  Future<void> save(Note output) async {
+  Future<void> save(ReportCard output) async {
     await Databases(client).updateDocument(
         databaseId: Platform.environment['APPWRITE_DATABASE_ID']!,
         collectionId: "notes",
         documentId: output.id,
         data: {
-          "is_split": output.isSplit,
-          "student_notes": output.studentNotes.map((e) => e.toJson()).toList(),
+          "is_generated": output.isGenerated,
+          "sections": output.sections.map((e) => e.toJson()).toList(),
           "error": output.error
         });
   }
 
-  Map<String, dynamic> result(Note output) {
+  Map<String, dynamic> result(ReportCard output) {
     if (output.error != null) {
       return {"status": "error", "message": output.error};
     }
     return {
       "status": "success",
-      "studentNotes": output.studentNotes.map((e) => e.toJson()).toList()
+      "sections": output.sections.map((e) => e.toJson()).toList()
     };
   }
 }

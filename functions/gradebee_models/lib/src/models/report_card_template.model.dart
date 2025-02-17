@@ -1,10 +1,15 @@
 class ReportCardTemplate {
   final String name;
+  final List<ReportCardTemplateSection> sections;
 
-  ReportCardTemplate({required this.name});
+  ReportCardTemplate({required this.name, required this.sections});
 
   factory ReportCardTemplate.fromJson(Map<String, dynamic> json) {
-    return ReportCardTemplate(name: json["name"]);
+    return ReportCardTemplate(
+        name: json["name"],
+        sections: (json["sections"] as List)
+            .map((section) => ReportCardTemplateSection.fromJson(section))
+            .toList());
   }
 }
 
