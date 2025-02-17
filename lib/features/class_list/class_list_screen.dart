@@ -1,33 +1,65 @@
-import 'repositories/class_repository.dart';
-import 'widgets/class_list.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'models/class.model.dart';
+import 'widgets/class_list.dart';
+import 'vm/class_list_vm.dart';
 
+class ClassListScreen extends StatefulWidget {
+  final ClassListVM viewModel;
 
-class ClassListScreen extends ConsumerWidget {
-  const ClassListScreen({super.key});
+  ClassListScreen({super.key, ClassListVM? viewModel})
+      : viewModel = viewModel ?? ClassListVM();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final classes = ref.watch(classListProvider);
+  State<ClassListScreen> createState() => _ClassListScreenState();
+}
+
+class _ClassListScreenState extends State<ClassListScreen> {
+  late Future<List<Class>> _classesFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _classesFuture = widget.viewModel.listClasses();
+  }
+
+  Future<void> _refreshClasses() async {
+    setState(() {
+      _classesFuture = widget.viewModel.listClasses();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('My Classes'),
       ),
-      body: classes.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stackTrace) => Center(child: Text(error.toString())),
-        data: (data) => RefreshIndicator(
-          child: ClassList(classes: data),
-          onRefresh: () => ref.refresh(classListProvider.future),
-        ),
+      body: FutureBuilder<List<Class>>(
+        future: _classesFuture,
+        builder: (context, snapshot) {
+          switch (snapshot) {
+            case AsyncSnapshot(connectionState: ConnectionState.waiting):
+              return const Center(child: CircularProgressIndicator());
+
+            case AsyncSnapshot(hasError: true):
+              return Center(child: Text(snapshot.error.toString()));
+
+            case AsyncSnapshot(hasData: true):
+              return RefreshIndicator(
+                onRefresh: _refreshClasses,
+                child: ClassList(classes: snapshot.data!),
+              );
+
+            default:
+              return const Center(child: Text('No data available'));
+          }
+        },
       ),
       floatingActionButton: FloatingActionButton(
-          child: const Icon(Icons.add),
-          onPressed: () => {
-                context.go('/class_list/add'),
-              }),
+        child: const Icon(Icons.add),
+        onPressed: () => context.go('/class_list/add'),
+      ),
     );
   }
 }

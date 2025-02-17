@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-mixin ErrorMixin<T extends ConsumerStatefulWidget> on ConsumerState<T> {
+mixin ErrorMixin<T extends StatefulWidget> on State<T> {
   /// Show a snackbar if error is not empty.  [onClosed] is called when the
   /// snackbar is closed, unless the snackbar is removed programmatically.
   void showErrorSnackbar(String error, [Function()? onClosed]) {

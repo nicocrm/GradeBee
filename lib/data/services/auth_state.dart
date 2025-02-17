@@ -1,21 +1,11 @@
 import 'package:appwrite/appwrite.dart';
-import 'package:appwrite/models.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:flutter/material.dart';
 
-import 'appwrite_client.dart';
+class AuthState extends ChangeNotifier {
+  final Client _appwriteClient;
+  bool _state = false;
 
-part 'auth_state.g.dart';
-
-@riverpod
-class CurrentAuthState extends _$CurrentAuthState {
-  late final Client _appwriteClient;
-
-  @override
-  bool build() {
-    _appwriteClient = ref.watch(clientProvider);
-    return false;
-  }
+  AuthState(this._appwriteClient);
 
   Future<void> login(String email, String password) async {
     final account = Account(_appwriteClient);
@@ -24,26 +14,25 @@ class CurrentAuthState extends _$CurrentAuthState {
         email: email,
         password: password,
       );
-      state = true;
+      _state = true;
+      notifyListeners();
     } catch (e) {
-      state = false;
+      _state = false;
       rethrow;
     }
   }
 
-  setLoggedInUser(User user) {
-    state = true;
+  Future<void> existingSession() async {
+    final account = Account(_appwriteClient);
+    try {
+      await account.get();
+      _state = true;
+      notifyListeners();
+    } catch (e) {
+      _state = false;
+      notifyListeners();
+    }
   }
-}
 
-@riverpod
-Future<void> existingSession(Ref ref) async {
-  final client = ref.read(clientProvider);
-  final authState = ref.read(currentAuthStateProvider.notifier);
-  try {
-    final u = await Account(client).get();
-    authState.setLoggedInUser(u);
-  } catch (e) {
-    // user is not logged in
-  }
+  bool get isLoggedIn => _state;
 }

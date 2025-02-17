@@ -1,16 +1,14 @@
 import 'package:appwrite/appwrite.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'appwrite_client.dart';
-
-part 'database.g.dart';
 
 class Database {
   final Databases _db;
   final String _databaseId;
 
-  Database(this._db, this._databaseId);
+  Database([Databases? db, String? databaseId])
+      : _db = db ?? Databases(client()),
+        _databaseId = databaseId ?? '676d6913002126bc091b';
 
   Future<String> insert(String collectionId, Map<String, dynamic> data) async {
     final doc = await _db.createDocument(
@@ -32,17 +30,10 @@ class Database {
 
   Future<void> update(String collectionId, Map<String, dynamic> data,
       Map<String, String?> map) async {
-    throw UnimplementedError();
     await _db.updateDocument(
         databaseId: _databaseId,
         collectionId: collectionId,
         documentId: map['id']!,
         data: data);
   }
-}
-
-@riverpod
-Future<Database> database(Ref ref) async {
-  Client client = ref.watch(clientProvider);
-  return Database(Databases(client), '676d6913002126bc091b');
 }

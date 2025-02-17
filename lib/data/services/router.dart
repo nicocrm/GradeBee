@@ -4,42 +4,31 @@ import '../../features/class_list/class_details_screen.dart';
 import '../../features/class_list/class_list_screen.dart';
 import '../../features/class_list/models/class.model.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import '../../features/class_list/vm/class_add_vm.dart';
 import 'auth_state.dart';
 
-part 'router.g.dart';
-
-@riverpod
-GoRouter router(Ref ref) {
-  ValueNotifier<bool> authState = ValueNotifier(false);
-
-  ref
-    ..onDispose(authState.dispose)
-    ..listen(currentAuthStateProvider, (_, value) {
-      authState.value = value;
-    });
-
+GoRouter router(AuthState authState) {
   final GoRouter router = GoRouter(
     initialLocation: '/class_list',
     routes: <RouteBase>[
       GoRoute(
           path: '/login',
           builder: (BuildContext context, GoRouterState state) {
-            return const LoginScreen();
+            return LoginScreen(authState: authState);
           }),
       GoRoute(
         path: '/class_list',
         builder: (BuildContext context, GoRouterState state) {
-          return const ClassListScreen();
+          return ClassListScreen();
         },
         routes: <RouteBase>[
           GoRoute(
             path: 'add',
             builder: (BuildContext context, GoRouterState state) {
-              return const ClassAddScreen();
+              final vm = ClassAddVM();
+              return ClassAddScreen(vm: vm);
             },
           ),
           GoRoute(
@@ -51,10 +40,10 @@ GoRouter router(Ref ref) {
       ),
     ],
     redirect: (BuildContext context, GoRouterState state) {
-      if (state.fullPath != '/login' && !authState.value) {
+      if (state.fullPath != '/login' && !authState.isLoggedIn) {
         return '/login';
       }
-      if (state.fullPath == '/login' && authState.value) {
+      if (state.fullPath == '/login' && authState.isLoggedIn) {
         return '/class_list';
       }
       if (state.fullPath == '/') {
@@ -62,6 +51,7 @@ GoRouter router(Ref ref) {
       }
       return null;
     },
+    refreshListenable: authState,
   );
   return router;
 }

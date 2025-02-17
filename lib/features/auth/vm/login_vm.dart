@@ -1,32 +1,34 @@
+import 'package:flutter/material.dart';
 import '../../../data/services/auth_state.dart';
-import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-part 'login_vm.g.dart';
+class LoginVM extends ChangeNotifier {
+  final AuthState _authState;
+  bool _success = false;
+  String _error = '';
+  bool _loading = false;
 
-class LoginResult {
-  final bool success;
-  final String error;
-  final bool loading;
+  LoginVM(this._authState);
 
-  LoginResult({this.success = false, this.error = '', this.loading = false});
-}
+  bool get success => _success;
+  String get error => _error;
+  bool get loading => _loading;
 
-@riverpod
-class LoginVm extends _$LoginVm {
-  @override
-  LoginResult build() {
-    return LoginResult();
-  }
+  Future<bool> login(String email, String password) async {
+    _loading = true;
+    _error = '';
+    _success = false;
+    notifyListeners();
 
-  Future<LoginResult> login(String email, String password) async {
-    final authState = ref.read(currentAuthStateProvider.notifier);
-    state = LoginResult(loading: true);
     try {
-      await authState.login(email, password);
-      state = LoginResult(success: true);
+      await _authState.login(email, password);
+      _success = true;
+      _loading = false;
     } catch (e) {
-      state = LoginResult(success: false, error: e.toString());
+      _success = false;
+      _error = e.toString();
+      _loading = false;
     }
-    return state;
+    notifyListeners();
+    return _success;
   }
 }

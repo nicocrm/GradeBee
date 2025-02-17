@@ -1,38 +1,40 @@
+import 'package:flutter/foundation.dart';
 import '../../../data/services/database.dart';
-import 'package:riverpod_annotation/riverpod_annotation.dart';
-
 import '../models/class.model.dart';
 import 'class_state_mixin.dart';
 
-part 'class_add_vm.g.dart';
+class ClassAddVM extends ChangeNotifier with ClassStateMixin {
+  final Database _db;
+  Class _currentClass;
 
-@riverpod
-class ClassAddVm extends _$ClassAddVm with ClassStateMixin {
-  late final Database _db;
+  ClassAddVM([Database? db])
+      : _db = db ?? Database(),
+        _currentClass = Class(course: '', dayOfWeek: null, room: '');
 
-  @override
-  Class build() {
-    _db = ref.watch(databaseProvider).requireValue;
-    return Class(course: '', dayOfWeek: null, room: '');
-  }
+  Class get currentClass => _currentClass;
 
   @override
   void setCourse(String course) {
-    state = state.copyWith(course: course);
+    _currentClass = _currentClass.copyWith(course: course);
+    notifyListeners();
   }
 
   @override
   void setDayOfWeek(String dayOfWeek) {
-    state = state.copyWith(dayOfWeek: dayOfWeek);
+    _currentClass = _currentClass.copyWith(dayOfWeek: dayOfWeek);
+    notifyListeners();
   }
 
   @override
   void setRoom(String room) {
-    state = state.copyWith(room: room);
+    _currentClass = _currentClass.copyWith(room: room);
+    notifyListeners();
   }
 
   Future<Class?> addClass() async {
-    final id = await _db.insert('classes', state.toJson());
-    return state.copyWith(id: id);
+    final id = await _db.insert('classes', _currentClass.toJson());
+    _currentClass = _currentClass.copyWith(id: id);
+    notifyListeners();
+    return _currentClass;
   }
 }
