@@ -373,6 +373,13 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "14.6.3"
+  gradebee_models:
+    dependency: "direct main"
+    description:
+      path: "../gradebee_models"
+      relative: true
+    source: path
+    version: "1.0.0"
   graphs:
     dependency: transitive
     description:
