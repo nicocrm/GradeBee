@@ -12,26 +12,33 @@ class Database {
 
   Database(this._db, this._databaseId);
 
-  Future<String> insert(
-      String collectionName, Map<String, dynamic> data) async {
+  Future<String> insert(String collectionId, Map<String, dynamic> data) async {
     final doc = await _db.createDocument(
         databaseId: _databaseId,
-        collectionId: collectionName,
+        collectionId: collectionId,
         documentId: ID.unique(),
         data: data);
     return doc.$id;
   }
 
   Future<List<T>> list<T>(
-      String collectionName, T Function(Map<String, dynamic>) fromJson) async {
+      String collectionId, T Function(Map<String, dynamic>) fromJson) async {
     return _db
-        .listDocuments(databaseId: _databaseId, collectionId: collectionName)
+        .listDocuments(databaseId: _databaseId, collectionId: collectionId)
         .then((value) => value.documents
             .map((e) => fromJson({...e.data, "id": e.$id}))
             .toList());
   }
-}
 
+  update(String collectionId, Map<String, dynamic> data,
+      Map<String, String?> map) async {
+    await _db.updateDocument(
+        databaseId: _databaseId,
+        collectionId: collectionId,
+        documentId: map['id']!,
+        data: data);
+  }
+}
 
 @riverpod
 Future<Database> database(Ref ref) async {

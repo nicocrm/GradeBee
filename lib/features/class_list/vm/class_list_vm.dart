@@ -15,16 +15,4 @@ class ClassListVm extends _$ClassListVm {
     _db = ref.watch(databaseProvider).requireValue;
     return _db.list('classes', Class.fromJson);
   }
-
-  Future<Class> addClass(Class class_) async {
-    try {
-      final id = await _db.insert('classes', class_.toJson());
-      debugPrint("AFTER INSERT");
-      class_.id = id;
-      ref.invalidateSelf();
-    } catch (e) {
-      debugPrint("There was an error");
-    }
-    return class_;
-  }
 }

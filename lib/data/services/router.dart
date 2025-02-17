@@ -1,6 +1,8 @@
 import 'package:class_database/features/auth/login_screen.dart';
 import 'package:class_database/features/class_list/class_add_screen.dart';
+import 'package:class_database/features/class_list/class_details_screen.dart';
 import 'package:class_database/features/class_list/class_list_screen.dart';
+import 'package:class_database/features/class_list/models/class.model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -40,14 +42,22 @@ GoRouter router(Ref ref) {
               return const ClassAddScreen();
             },
           ),
+          GoRoute(
+              path: 'details',
+              builder: (BuildContext context, GoRouterState state) {
+                return ClassDetailsScreen(class_: state.extra as Class);
+              })
         ],
       ),
     ],
     redirect: (BuildContext context, GoRouterState state) {
-      if(state.fullPath != '/login' && !authState.value) {
+      if (state.fullPath != '/login' && !authState.value) {
         return '/login';
       }
-      if(state.fullPath == '/login' && authState.value) {
+      if (state.fullPath == '/login' && authState.value) {
+        return '/class_list';
+      }
+      if (state.fullPath == '/') {
         return '/class_list';
       }
       return null;
