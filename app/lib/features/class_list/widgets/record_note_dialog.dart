@@ -45,7 +45,8 @@ class _RecordNoteDialogState extends State<RecordNoteDialog> {
         const RecordConfig(
           encoder: AudioEncoder.aacLc,
         ),
-        path: 'voice_note.m4a',
+        path:
+            'voice_note_${DateTime.now().toString().replaceAll(RegExp(r'[^0-9]'), '')}.m4a',
       );
       _startTimer();
     }

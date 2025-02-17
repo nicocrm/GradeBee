@@ -22,6 +22,7 @@ class TranscribeNoteHandler {
 
   Note parseBody(Map<String, dynamic>? json) {
     if (json == null) throw ValidationException("No body");
+    context.log("Parsing note ${json.toString()}");
     final note = Note.fromJson(json);
     if (note.isTranscribed) {
       throw ValidationException("Note is already transcribed");
