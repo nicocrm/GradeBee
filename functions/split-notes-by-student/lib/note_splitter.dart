@@ -24,6 +24,7 @@ If a student in the note is not in the above list, do not create a note for that
 For each student mentioned, create a separate note with only the information relevant to that student.
 If a student is mentioned multiple times, create one combined note for that student.
 If a student is not mentioned, do not create a note for that student.
+If a collective is mentioned like "they", "all the kids", "they all", create a note for each student.
 Be precise.
 ''';
     final userPrompt = '''
