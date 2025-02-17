@@ -45,6 +45,8 @@ abstract class Command<T> extends ChangeNotifier {
     notifyListeners();
   }
 
+  bool get hasError => _result?.asError != null;
+
   /// Internal execute implementation
   Future<void> _execute(CommandAction0<T> action) async {
     // ensure we listen to the latest action

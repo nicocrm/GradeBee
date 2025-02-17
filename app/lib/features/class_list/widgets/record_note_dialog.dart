@@ -13,7 +13,7 @@ class RecordNoteDialog extends StatefulWidget {
 }
 
 class _RecordNoteDialogState extends State<RecordNoteDialog> {
-  late Timer _timer;
+  Timer? _timer;
   final _record = AudioRecorder();
   int _seconds = 0;
   late Future<void> _startingRecording;
@@ -34,7 +34,8 @@ class _RecordNoteDialogState extends State<RecordNoteDialog> {
 
   @override
   void dispose() {
-    _timer.cancel();
+    _timer?.cancel();
+    _record.dispose();
     super.dispose();
   }
 
@@ -64,12 +65,13 @@ class _RecordNoteDialogState extends State<RecordNoteDialog> {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-          return RecordingAlertDialog(
-            seconds: _seconds,
-            record: _record,
-            timer: _timer,
-            viewModel: widget.viewModel,
-          );
+          return PopScope(
+              canPop: false,
+              child: RecordingAlertDialog(
+                seconds: _seconds,
+                record: _record,
+                viewModel: widget.viewModel,
+              ));
         });
   }
 }
@@ -77,14 +79,12 @@ class _RecordNoteDialogState extends State<RecordNoteDialog> {
 class RecordingAlertDialog extends StatelessWidget {
   final int seconds;
   final AudioRecorder record;
-  final Timer timer;
   final ClassDetailsVM viewModel;
 
   const RecordingAlertDialog({
     super.key,
     required this.seconds,
     required this.record,
-    required this.timer,
     required this.viewModel,
   });
 
@@ -121,7 +121,6 @@ class RecordingAlertDialog extends StatelessWidget {
             TextButton(
               onPressed: () {
                 record.cancel();
-                timer.cancel();
                 Navigator.of(context).pop();
               },
               child: const Text('Cancel'),
@@ -129,9 +128,9 @@ class RecordingAlertDialog extends StatelessWidget {
             ElevatedButton(
               onPressed: () async {
                 final path = await record.stop();
-                timer.cancel();
                 await viewModel.addVoiceNoteCommand.execute(path!);
-                if (context.mounted) {
+                if (context.mounted &&
+                    !viewModel.addVoiceNoteCommand.hasError) {
                   Navigator.of(context).pop();
                 }
               },

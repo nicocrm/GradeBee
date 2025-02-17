@@ -31,7 +31,7 @@ class _MainAppState extends State<MainApp> {
     GetIt.instance.registerSingleton<DatabaseService>(
         DatabaseService(appwriteClient, dotenv.env['APPWRITE_DATABASE_ID']!));
     GetIt.instance.registerSingleton<StorageService>(
-        StorageService(appwriteClient, dotenv.env['APPWRITE_BUCKET_ID']!));
+        StorageService(appwriteClient, dotenv.env['NOTES_BUCKET_ID']!));
     GetIt.instance.registerSingleton<AuthState>(authState);
   }
 

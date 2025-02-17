@@ -39,16 +39,21 @@ class ClassRepository {
       for (var pendingNote in class_.pendingNotes) {
         final fileId = await _storageService.upload(
             pendingNote.recordingPath, "voice_note.m4a");
+        // so we have to add them separately or it doesn't trigger the event
+        final noteId = await _db.insert('notes', {
+          'voice': fileId,
+          'when': pendingNote.when.toIso8601String(),
+          'class': class_.id,
+        });
         newNotes.add(Note(
+          id: noteId,
           voice: fileId,
           when: pendingNote.when,
           isSplit: false,
-          id: fileId,
         ));
       }
       class_ = class_
           .copyWith(notes: [...class_.notes, ...newNotes], pendingNotes: []);
-      await _db.update('classes', class_.toJson(), class_.id!);
       return class_;
     } catch (e, s) {
       AppLogger.error('Error updating class', e, s);
