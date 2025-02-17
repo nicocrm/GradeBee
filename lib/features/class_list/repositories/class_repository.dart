@@ -11,6 +11,6 @@ class ClassRepository {
   }
 
   Future<void> updateClass(Class class_) {
-    return _db.update('classes', class_.toJson(), {'id': class_.id});
+    return _db.update('classes', class_.toJson(), class_.id!);
   }
 }
