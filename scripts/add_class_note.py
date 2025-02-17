@@ -58,7 +58,7 @@ def upload_audio_file(file_path):
         sys.exit(1)
 
 
-def get_class_document(course, schedule):
+def get_class_document(course, day_of_week, time_block):
     """Retrieves the class document from the database."""
     try:
         response = cast(
@@ -68,7 +68,8 @@ def get_class_document(course, schedule):
                 collection_id="classes",
                 queries=[
                     Query.equal("course", course),
-                    Query.equal("schedule", schedule),
+                    Query.equal("day_of_week", day_of_week),
+                    Query.equal("time_block", time_block),
                 ],
             ),
         )
@@ -147,8 +148,8 @@ def delete_resources(file_path, class_id):
         sys.exit(1)
 
 
-def main(course, schedule, file_path, delete_flag):
-    class_id = get_class_document(course, schedule)
+def main(course, day_of_week, time_block, file_path, delete_flag):
+    class_id = get_class_document(course, day_of_week, time_block)
 
     if delete_flag:
         delete_resources(file_path, class_id)
@@ -157,13 +158,14 @@ def main(course, schedule, file_path, delete_flag):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 4 or len(sys.argv) > 5:
-        print("Usage: python add_class_note.py <course> <schedule> <file_path> [-d]")
+    if len(sys.argv) < 5 or len(sys.argv) > 6:
+        print("Usage: python add_class_note.py <course> <day_of_week> <time_block> <file_path> [-d]")
         sys.exit(1)
 
     course_name = sys.argv[1]
-    schedule = sys.argv[2]
-    file_path = sys.argv[3]
+    day_of_week = sys.argv[2]
+    time_block = sys.argv[3]
+    file_path = sys.argv[4]
     delete_flag = "-d" in sys.argv
 
-    main(course_name, schedule, file_path, delete_flag)
+    main(course_name, day_of_week, time_block, file_path, delete_flag)

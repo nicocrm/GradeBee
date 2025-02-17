@@ -195,8 +195,8 @@
                     "array": false,
                     "relatedCollection": "report_cards",
                     "relationType": "oneToMany",
-                    "twoWay": false,
-                    "twoWayKey": "67931f6f0010e115d47c",
+                    "twoWay": true,
+                    "twoWayKey": "student",
                     "onDelete": "cascade",
                     "side": "parent"
                 }
@@ -353,6 +353,45 @@
                     "required": true,
                     "array": false,
                     "format": "",
+                    "default": null
+                },
+                {
+                    "key": "student",
+                    "type": "relationship",
+                    "required": false,
+                    "array": false,
+                    "relatedCollection": "students",
+                    "relationType": "oneToMany",
+                    "twoWay": true,
+                    "twoWayKey": "report_cards",
+                    "onDelete": "cascade",
+                    "side": "child"
+                },
+                {
+                    "key": "template",
+                    "type": "relationship",
+                    "required": false,
+                    "array": false,
+                    "relatedCollection": "report_card_templates",
+                    "relationType": "manyToOne",
+                    "twoWay": false,
+                    "twoWayKey": "67ae6ce900055ac92b7b",
+                    "onDelete": "restrict",
+                    "side": "parent"
+                },
+                {
+                    "key": "generated",
+                    "type": "boolean",
+                    "required": false,
+                    "array": false,
+                    "default": false
+                },
+                {
+                    "key": "error",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 3000,
                     "default": null
                 }
             ],
