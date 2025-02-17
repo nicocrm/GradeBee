@@ -45,6 +45,10 @@ class ClassAddVm extends _$ClassAddVm with ClassStateMixin<ClassAddState> {
     state = state.copyWith(class_: state.class_.copyWith(room: room));
   }
 
+  void clearError() {
+    state = state.copyWith(error: '');
+  }
+
   Future<Class?> addClass() async {
     try {
       state = state.copyWith(error: '', isLoading: true);

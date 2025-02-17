@@ -1,6 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import '../models/student.dart';
 import '../repositories/class_repository.dart';
 import 'class_state_mixin.dart';
 
@@ -18,7 +19,8 @@ class ClassDetailsState extends ClassState with _$ClassDetailsState {
 }
 
 @riverpod
-class ClassDetailsVm extends _$ClassDetailsVm with ClassStateMixin<ClassDetailsState> {
+class ClassDetailsVm extends _$ClassDetailsVm
+    with ClassStateMixin<ClassDetailsState> {
   late final ClassRepository _repo;
 
   @override
@@ -45,6 +47,24 @@ class ClassDetailsVm extends _$ClassDetailsVm with ClassStateMixin<ClassDetailsS
     state = state.copyWith(class_: state.class_.copyWith(room: room));
   }
 
+  void addStudent(String student) {
+    if (state.class_.students.any((s) => s.name == student)) {
+      state = state.copyWith(error: 'Student already exists');
+      return;
+    }
+    state = state.copyWith(
+        class_: state.class_.copyWith(
+            students: [...state.class_.students, Student(name: student)]));
+  }
+
+  void removeStudent(String student) {
+    state = state.copyWith(
+        class_: state.class_.copyWith(
+            students: state.class_.students
+                .where((s) => s.name != student)
+                .toList()));
+  }
+
   Future<bool> updateClass() async {
     try {
       state = state.copyWith(error: '', isLoading: true);
@@ -56,5 +76,9 @@ class ClassDetailsVm extends _$ClassDetailsVm with ClassStateMixin<ClassDetailsS
       state = state.copyWith(error: e.toString(), isLoading: false);
       return false;
     }
+  }
+
+  void clearError() {
+    state = state.copyWith(error: '');
   }
 }

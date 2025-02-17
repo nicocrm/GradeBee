@@ -23,7 +23,7 @@ class _ClassAddScreenState extends ConsumerState<ClassAddScreen> with ErrorSnack
     final error = ref.watch(classAddVmProvider.select((p) => p.error));
     final vm = ref.read(classAddVmProvider.notifier);
 
-    showErrorSnackbar(error);
+    showErrorSnackbar(error, vm.clearError);
 
     return Scaffold(
       appBar: AppBar(
