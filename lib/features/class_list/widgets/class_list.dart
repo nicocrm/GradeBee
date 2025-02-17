@@ -1,4 +1,4 @@
-import 'package:class_database/data/models/class.dart';
+import 'package:class_database/features/class_list/models/class.model.dart';
 import 'package:flutter/material.dart';
 
 class ClassList extends StatelessWidget {

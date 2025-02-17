@@ -1,27 +1,40 @@
-import 'package:class_database/firebase_options.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_core/firebase_core.dart';
+import 'package:appwrite/appwrite.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+
+import 'appwrite_client.dart';
 
 part 'database.g.dart';
 
 class Database {
-  FirebaseFirestore get firestore => FirebaseFirestore.instance;
+  final Databases _db;
+  final String _databaseId;
 
-  Stream<List<T>> collection<T>(String collectionName, T Function(Map<String, dynamic> data) fromJson) {
-    return firestore.collection(collectionName).snapshots().map((snapshot) {
-      return snapshot.docs.map((doc) => fromJson(doc.data())).toList();
-    });
+  Database(this._db, this._databaseId);
+
+  Future<String> insert(
+      String collectionName, Map<String, dynamic> data) async {
+    final doc = await _db.createDocument(
+        databaseId: _databaseId,
+        collectionId: collectionName,
+        documentId: ID.unique(),
+        data: data);
+    return doc.$id;
   }
 
-  Future<DocumentReference> insert(String collectionName, Map<String, dynamic> data) {
-    return firestore.collection(collectionName).add(data);
+  Future<List<T>> list<T>(
+      String collectionName, T Function(Map<String, dynamic>) fromJson) async {
+    return _db
+        .listDocuments(databaseId: _databaseId, collectionId: collectionName)
+        .then((value) => value.documents
+            .map((e) => fromJson({...e.data, "id": e.$id}))
+            .toList());
   }
 }
 
+
 @riverpod
 Future<Database> database(Ref ref) async {
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  return Database();
+  Client client = ref.watch(clientProvider);
+  return Database(Databases(client), '676d6913002126bc091b');
 }
