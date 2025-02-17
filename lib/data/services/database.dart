@@ -15,6 +15,9 @@ class Database {
     });
   }
 
+  Future<DocumentReference> insert(String collectionName, Map<String, dynamic> data) {
+    return firestore.collection(collectionName).add(data);
+  }
 }
 
 @riverpod
