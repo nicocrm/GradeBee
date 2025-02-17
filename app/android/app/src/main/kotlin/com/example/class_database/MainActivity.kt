@@ -1,4 +1,4 @@
-package com.example.class_database
+package com.bytemypython.gradebee
 
 import io.flutter.embedding.android.FlutterActivity
 

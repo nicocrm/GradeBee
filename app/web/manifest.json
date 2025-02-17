@@ -1,6 +1,6 @@
 {
-    "name": "class_database",
-    "short_name": "class_database",
+    "name": "gradebee",
+    "short_name": "gradebee",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
