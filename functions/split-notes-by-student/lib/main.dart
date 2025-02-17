@@ -16,8 +16,8 @@ Future<dynamic> main(final context) async {
     final note = Note.fromJson(context.req.bodyJson);
     final splitter = NoteSplitter(Platform.environment['OPENAI_API_KEY'] ?? '');
     final studentNotes = await splitter.splitNotesByStudent(note).toList();
-    Databases(client).updateDocument(
-        databaseId: "notes",
+    await Databases(client).updateDocument(
+        databaseId: Platform.environment['APPWRITE_DATABASE_ID']!,
         collectionId: "notes",
         documentId: note.id,
         data: {"student_notes": studentNotes.map((e) => e.toJson()).toList()});

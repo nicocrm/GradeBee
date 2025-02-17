@@ -79,10 +79,7 @@
         {
             "$id": "classes",
             "$permissions": [
-                "create(\"users\")",
-                "read(\"users\")",
-                "update(\"users\")",
-                "delete(\"users\")"
+                "create(\"users\")"
             ],
             "databaseId": "676d6913002126bc091b",
             "name": "classes",
@@ -152,15 +149,12 @@
         {
             "$id": "students",
             "$permissions": [
-                "create(\"users\")",
-                "read(\"users\")",
-                "update(\"users\")",
-                "delete(\"users\")"
+                "create(\"users\")"
             ],
             "databaseId": "676d6913002126bc091b",
             "name": "students",
             "enabled": true,
-            "documentSecurity": false,
+            "documentSecurity": true,
             "attributes": [
                 {
                     "key": "name",
@@ -169,17 +163,31 @@
                     "array": false,
                     "size": 50,
                     "default": null
+                },
+                {
+                    "key": "studentNotes",
+                    "type": "relationship",
+                    "required": false,
+                    "array": false,
+                    "relatedCollection": "student_notes",
+                    "relationType": "oneToMany",
+                    "twoWay": true,
+                    "twoWayKey": "student",
+                    "onDelete": "cascade",
+                    "side": "parent"
                 }
             ],
             "indexes": []
         },
         {
             "$id": "notes",
-            "$permissions": [],
+            "$permissions": [
+                "create(\"users\")"
+            ],
             "databaseId": "676d6913002126bc091b",
             "name": "notes",
             "enabled": true,
-            "documentSecurity": false,
+            "documentSecurity": true,
             "attributes": [
                 {
                     "key": "text",
@@ -200,6 +208,79 @@
                     "twoWayKey": "notes",
                     "onDelete": "cascade",
                     "side": "parent"
+                },
+                {
+                    "key": "when",
+                    "type": "datetime",
+                    "required": true,
+                    "array": false,
+                    "format": "",
+                    "default": null
+                },
+                {
+                    "key": "studentNotes",
+                    "type": "relationship",
+                    "required": false,
+                    "array": false,
+                    "relatedCollection": "student_notes",
+                    "relationType": "oneToMany",
+                    "twoWay": true,
+                    "twoWayKey": "original_note",
+                    "onDelete": "cascade",
+                    "side": "parent"
+                }
+            ],
+            "indexes": []
+        },
+        {
+            "$id": "student_notes",
+            "$permissions": [
+                "create(\"users\")"
+            ],
+            "databaseId": "676d6913002126bc091b",
+            "name": "student_notes",
+            "enabled": true,
+            "documentSecurity": true,
+            "attributes": [
+                {
+                    "key": "original_note",
+                    "type": "relationship",
+                    "required": false,
+                    "array": false,
+                    "relatedCollection": "notes",
+                    "relationType": "oneToMany",
+                    "twoWay": true,
+                    "twoWayKey": "studentNotes",
+                    "onDelete": "cascade",
+                    "side": "child"
+                },
+                {
+                    "key": "text",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 9000,
+                    "default": null
+                },
+                {
+                    "key": "student",
+                    "type": "relationship",
+                    "required": false,
+                    "array": false,
+                    "relatedCollection": "students",
+                    "relationType": "oneToMany",
+                    "twoWay": true,
+                    "twoWayKey": "studentNotes",
+                    "onDelete": "cascade",
+                    "side": "child"
+                },
+                {
+                    "key": "when",
+                    "type": "datetime",
+                    "required": true,
+                    "array": false,
+                    "format": "",
+                    "default": null
                 }
             ],
             "indexes": []
