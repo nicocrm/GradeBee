@@ -218,7 +218,7 @@
                     "default": null
                 },
                 {
-                    "key": "studentNotes",
+                    "key": "student_notes",
                     "type": "relationship",
                     "required": false,
                     "array": false,
@@ -228,6 +228,20 @@
                     "twoWayKey": "original_note",
                     "onDelete": "cascade",
                     "side": "parent"
+                },
+                {
+                    "key": "is_split",
+                    "type": "boolean",
+                    "required": false,
+                    "array": false,
+                    "default": false
+                },
+                {
+                    "key": "is_transcribed",
+                    "type": "boolean",
+                    "required": false,
+                    "array": false,
+                    "default": false
                 }
             ],
             "indexes": []
@@ -250,7 +264,7 @@
                     "relatedCollection": "notes",
                     "relationType": "oneToMany",
                     "twoWay": true,
-                    "twoWayKey": "studentNotes",
+                    "twoWayKey": "student_notes",
                     "onDelete": "cascade",
                     "side": "child"
                 },
