@@ -14,7 +14,8 @@ class ClassAddScreen extends ConsumerStatefulWidget {
   ConsumerState<ClassAddScreen> createState() => _ClassAddScreenState();
 }
 
-class _ClassAddScreenState extends ConsumerState<ClassAddScreen> with ErrorSnackbarMixin {
+class _ClassAddScreenState extends ConsumerState<ClassAddScreen>
+    with ErrorSnackbarMixin {
   final _formKey = GlobalKey<FormState>();
 
   @override
@@ -29,27 +30,24 @@ class _ClassAddScreenState extends ConsumerState<ClassAddScreen> with ErrorSnack
       appBar: AppBar(
         title: const Text('Add Class'),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              ClassEditDetails(
-                  vm: vm,
-                  classProvider: classAddVmProvider.select((p) => p.class_)),
-              Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: isLoading
-                    ? SpinnerButton(text: 'Add Class')
-                    : ElevatedButton(
-                        onPressed: () => onSave(context),
-                        child: const Text('Add Class'),
-                      ),
-              ),
-            ],
-          ),
+      body: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ClassEditDetails(
+                vm: vm,
+                classProvider: classAddVmProvider.select((p) => p.class_)),
+            Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: isLoading
+                  ? SpinnerButton(text: 'Add Class')
+                  : ElevatedButton(
+                      onPressed: () => onSave(context),
+                      child: const Text('Add Class'),
+                    ),
+            ),
+          ],
         ),
       ),
     );
