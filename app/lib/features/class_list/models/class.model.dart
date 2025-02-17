@@ -12,7 +12,7 @@ import 'student.model.dart';
 class Class {
   final String course;
   final String? dayOfWeek;
-  final String room;
+  final String timeBlock;
   final String? id;
   final List<Student> students;
   final List<Note> notes;
@@ -21,7 +21,7 @@ class Class {
   Class({
     required this.course,
     required this.dayOfWeek,
-    required this.room,
+    required this.timeBlock,
     this.id,
     this.students = const [],
     this.notes = const [],
@@ -31,7 +31,7 @@ class Class {
   Class copyWith({
     String? course,
     String? dayOfWeek,
-    String? room,
+    String? timeBlock,
     String? id,
     List<Student>? students,
     List<Note>? notes,
@@ -40,7 +40,7 @@ class Class {
     return Class(
       course: course ?? this.course,
       dayOfWeek: dayOfWeek ?? this.dayOfWeek,
-      room: room ?? this.room,
+      timeBlock: timeBlock ?? this.timeBlock,
       id: id ?? this.id,
       students: students ?? this.students,
       notes: notes ?? this.notes,
@@ -51,8 +51,8 @@ class Class {
   Map<String, dynamic> toJson() {
     return {
       'course': course,
-      'dayOfWeek': dayOfWeek,
-      'room': room,
+      'day_of_week': dayOfWeek,
+      'time_block': timeBlock,
       'students': _serializeStudents(students),
       'notes': _serializeNotes(notes),
       "\$id": id,
@@ -62,8 +62,8 @@ class Class {
   factory Class.fromJson(Map<String, dynamic> json) {
     return Class(
       course: json["course"],
-      dayOfWeek: json["dayOfWeek"],
-      room: json["room"],
+      dayOfWeek: json["day_of_week"],
+      timeBlock: json["time_block"] ?? "?",
       id: json["\$id"],
       students: [for (var e in json["students"]) Student.fromJson(e)],
       notes: [for (var e in json["notes"]) Note.fromJson(e)],

@@ -6,8 +6,7 @@ import '../vm/class_state_mixin.dart';
 import 'day_of_week_dropdown.dart';
 
 class ClassEditDetails extends StatelessWidget {
-  const ClassEditDetails(
-      {super.key, required this.class_, required this.vm});
+  const ClassEditDetails({super.key, required this.class_, required this.vm});
   final Class class_;
   final ClassStateMixin vm;
 
@@ -32,17 +31,11 @@ class ClassEditDetails extends StatelessWidget {
           DayOfWeekDropdown(
               value: class_.dayOfWeek, onChanged: vm.setDayOfWeek),
           TextFormField(
-            initialValue: class_.room,
-            onChanged: vm.setRoom,
+            initialValue: class_.timeBlock,
+            onChanged: vm.setTimeBlock,
             decoration: const InputDecoration(
-              labelText: 'Room',
+              labelText: 'Time, class number, or block',
             ),
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Please enter a room';
-              }
-              return null;
-            },
           ),
         ]));
   }

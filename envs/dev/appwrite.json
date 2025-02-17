@@ -116,14 +116,6 @@
                     "default": null
                 },
                 {
-                    "key": "room",
-                    "type": "string",
-                    "required": false,
-                    "array": false,
-                    "size": 32,
-                    "default": null
-                },
-                {
                     "key": "students",
                     "type": "relationship",
                     "required": false,
@@ -148,11 +140,19 @@
                     "side": "child"
                 },
                 {
-                    "key": "schedule",
+                    "key": "day_of_week",
                     "type": "string",
                     "required": false,
                     "array": false,
                     "size": 30,
+                    "default": null
+                },
+                {
+                    "key": "time_block",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 20,
                     "default": null
                 }
             ],
