@@ -23,6 +23,12 @@ dependencies:
   logger: ^2.5.0
   intl: ^0.20.1
   get_it: ^8.0.3
+  http: ^1.3.0
+  record: ^5.2.0
+
+dependency_overrides:
+  record_web:
+    path: ../../../ThirdParty/flutter/record/record_web
 
 dev_dependencies:
   flutter_test:

@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'vm/class_details_vm.dart';
 import '../../shared/ui/utils/error_mixin.dart';
 import 'widgets/notes_list.dart';
+import 'widgets/record_note_dialog.dart';
 import 'widgets/student_list.dart';
 
 class ClassDetailsScreen extends StatefulWidget {
@@ -79,8 +80,10 @@ class _ClassDetailsScreenState extends State<ClassDetailsScreen>
                 ],
               ),
               bottomNavigationBar: BottomAppBar(
-                child: IconButton(
-                  icon: const Icon(Icons.record_voice_over),
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.mic, size: 28),
+                  label:
+                      const Text('Record Note', style: TextStyle(fontSize: 24)),
                   onPressed: () =>
                       _showRecordNoteDialog(context, widget.class_.id!),
                 ),
@@ -93,31 +96,7 @@ class _ClassDetailsScreenState extends State<ClassDetailsScreen>
   void _showRecordNoteDialog(BuildContext context, String classId) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Record New Note'),
-        content: TextField(
-          decoration: const InputDecoration(
-            hintText: 'Enter your note here',
-          ),
-          maxLines: 3,
-          onChanged: (value) {
-            // TODO: Implement note saving logic
-          },
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              // TODO: Save note
-              Navigator.of(context).pop();
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
+      builder: (context) => RecordNoteDialog(viewModel: vm),
     );
   }
 }
