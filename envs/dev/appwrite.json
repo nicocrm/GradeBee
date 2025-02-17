@@ -274,6 +274,14 @@
                     "array": false,
                     "size": 20,
                     "default": null
+                },
+                {
+                    "key": "error",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 5000,
+                    "default": null
                 }
             ],
             "indexes": []
