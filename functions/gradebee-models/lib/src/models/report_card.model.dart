@@ -1,18 +1,22 @@
 import 'report_card_template.model.dart';
+import 'student.model.dart';
 
 class ReportCardSection {
   final String category;
   final String text;
+  final String? id;
 
   ReportCardSection({
     required this.category,
     required this.text,
+    this.id,
   });
 
   factory ReportCardSection.fromJson(Map<String, dynamic> json) {
     return ReportCardSection(
       category: json['category'],
       text: json['text'],
+      id: json['\$id'],
     );
   }
 
@@ -25,21 +29,21 @@ class ReportCardSection {
 }
 
 class ReportCard {
-  final String id;
+  final String? id;
   final DateTime when;
   final List<ReportCardSection> sections;
   final ReportCardTemplate template;
   bool isGenerated;
   String? error;
-  final String studentName;
+  final Student student;
   final List<String> studentNotes;
 
   ReportCard({
-    required this.id,
+    this.id,
     required this.when,
     required this.sections,
     required this.template,
-    required this.studentName,
+    required this.student,
     required this.studentNotes,
     this.isGenerated = false,
     this.error,
@@ -54,11 +58,21 @@ class ReportCard {
           .map((section) => ReportCardSection.fromJson(section))
           .toList(),
       template: ReportCardTemplate.fromJson(json['template']),
-      studentName: json['student']['name'],
+      student: Student.fromJson(json['student']),
       // will need to fetch notes only for a certain period in the future
       studentNotes: (json['student']['student_notes'] as List)
           .map((note) => note['text'].toString())
           .toList(),
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'when': when.toIso8601String(),
+      'is_generated': isGenerated,
+      'sections': sections.map((section) => section.toJson()).toList(),
+      'template': template.id,
+      'student': student.id,
+    };
   }
 }

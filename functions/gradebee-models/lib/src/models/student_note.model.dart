@@ -16,4 +16,11 @@ class StudentNote {
       'when': when.toIso8601String(),
     };
   }
+
+  static StudentNote fromJson(Map<String, dynamic> json, Student student) {
+    return StudentNote(
+        student: student,
+        text: json['text'],
+        when: DateTime.parse(json['when']));
+  }
 }

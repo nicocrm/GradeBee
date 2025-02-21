@@ -6,10 +6,14 @@ environment:
   sdk: ^3.5.0
 
 dependencies:
-  dart_appwrite: ^12.0.0
+  args: ^2.6.0
+  dart_appwrite: ^13.0.0
   dart_openai: ^5.1.0
   gradebee_models:
-    path: ../gradebee_models
+    path: ../gradebee-models
+  gradebee_function_helpers:
+    path: ../gradebee-function-helpers
+  dotenv: ^4.1.0
 
 dev_dependencies:
   dotenv: ^4.2.0

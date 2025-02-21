@@ -145,7 +145,7 @@ packages:
   gradebee_models:
     dependency: "direct main"
     description:
-      path: "../gradebee_models"
+      path: "../gradebee-models"
       relative: true
     source: path
     version: "1.0.0"

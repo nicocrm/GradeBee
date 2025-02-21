@@ -27,6 +27,7 @@ void main() {
     test('createSystemPrompt should include template information', () {
       // Arrange
       final template = ReportCardTemplate(
+        id: '123',
         name: 'Test Template',
         sections: [
           ReportCardTemplateSection(
@@ -37,7 +38,7 @@ void main() {
       );
 
       // Act
-      final result = generator.createSystemPrompt(template);
+      final result = generator.createSystemPrompt(template.sections);
 
       // Assert
       expect(result, contains('You are a helpful assistant'));

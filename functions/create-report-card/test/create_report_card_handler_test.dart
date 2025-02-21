@@ -1,3 +1,4 @@
+import 'package:gradebee_function_helpers/helpers.dart';
 import 'package:test/test.dart';
 import 'package:mockito/mockito.dart';
 import 'package:mockito/annotations.dart';
@@ -9,25 +10,21 @@ import 'package:create_report_card/report_card_generator.dart';
 @GenerateNiceMocks([
   MockSpec<ReportCardGenerator>(),
   MockSpec<Client>(),
-  MockSpec<Context>(),
+  MockSpec<SimpleLogger>(),
 ])
 import 'create_report_card_handler_test.mocks.dart';
-
-class Context {
-  void error(String message) {}
-}
 
 void main() {
   late MockReportCardGenerator mockGenerator;
   late CreateReportCardHandler handler;
-  late MockContext mockContext;
+  late MockSimpleLogger mockLogger;
   late MockClient mockClient;
 
   setUp(() {
     mockGenerator = MockReportCardGenerator();
     mockClient = MockClient();
-    mockContext = MockContext();
-    handler = CreateReportCardHandler(mockContext, mockGenerator, mockClient);
+    mockLogger = MockSimpleLogger();
+    handler = CreateReportCardHandler(mockLogger, mockGenerator, mockClient);
   });
 
   group('processRequest', () {
@@ -38,10 +35,14 @@ void main() {
         isGenerated: false,
         when: DateTime.now(),
         template: ReportCardTemplate(
+          id: '123',
           name: 'Test Template',
           sections: [],
         ),
-        studentName: 'John Doe',
+        student: Student(
+          id: '123',
+          name: 'John Doe',
+        ),
         studentNotes: [],
       );
 
@@ -68,10 +69,14 @@ void main() {
         isGenerated: false,
         when: DateTime.now(),
         template: ReportCardTemplate(
+          id: '123',
           name: 'Test Template',
           sections: [],
         ),
-        studentName: 'John Doe',
+        student: Student(
+          id: '123',
+          name: 'John Doe',
+        ),
         studentNotes: [],
       );
 
@@ -84,7 +89,7 @@ void main() {
       expect(result.error, 'Error splitting notes');
       expect(result.sections, isEmpty);
       verify(mockGenerator.generateReportCard(reportCard)).called(1);
-      verify(mockContext.error(any)).called(1);
+      verify(mockLogger.error(any)).called(1);
     });
   });
 }

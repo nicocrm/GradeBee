@@ -1,15 +1,16 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:dart_appwrite/dart_appwrite.dart';
+import 'package:gradebee_function_helpers/helpers.dart';
 import 'package:gradebee_models/common.dart';
 import 'report_card_generator.dart';
 
 class CreateReportCardHandler {
   final Client client;
-  final dynamic context;
+  final SimpleLogger logger;
   final ReportCardGenerator generator;
 
-  CreateReportCardHandler(this.context, this.generator, this.client);
+  CreateReportCardHandler(this.logger, this.generator, this.client);
 
   ReportCard parseBody(Map<String, dynamic>? json) {
     if (json == null) throw ValidationException("No body");
@@ -28,7 +29,7 @@ class CreateReportCardHandler {
       reportCard.isGenerated = true;
       reportCard.error = null;
     } catch (e, s) {
-      context.error("${e.toString()}\n$s");
+      logger.error("${e.toString()}\n$s");
       reportCard.error = "Error splitting notes";
       reportCard.isGenerated = false;
     }
@@ -39,7 +40,7 @@ class CreateReportCardHandler {
     await Databases(client).updateDocument(
         databaseId: Platform.environment['APPWRITE_DATABASE_ID']!,
         collectionId: "notes",
-        documentId: output.id,
+        documentId: output.id!,
         data: {
           "is_generated": output.isGenerated,
           "sections": output.sections.map((e) => e.toJson()).toList(),

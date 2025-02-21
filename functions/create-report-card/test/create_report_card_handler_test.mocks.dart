@@ -3,18 +3,18 @@
 // Do not manually edit this file.
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'dart:async' as _i5;
+import 'dart:async' as _i6;
 
-import 'package:create_report_card/report_card_generator.dart' as _i4;
-import 'package:dart_appwrite/dart_appwrite.dart' as _i2;
-import 'package:dart_appwrite/src/enums.dart' as _i9;
+import 'package:create_report_card/report_card_generator.dart' as _i5;
+import 'package:dart_appwrite/src/client.dart' as _i2;
+import 'package:dart_appwrite/src/enums.dart' as _i10;
 import 'package:dart_appwrite/src/response.dart' as _i3;
-import 'package:dart_appwrite/src/upload_progress.dart' as _i8;
-import 'package:gradebee_models/common.dart' as _i6;
+import 'package:dart_appwrite/src/upload_progress.dart' as _i9;
+import 'package:gradebee_function_helpers/src/setup_logging.dart' as _i11;
+import 'package:gradebee_models/common.dart' as _i7;
+import 'package:logging/logging.dart' as _i4;
 import 'package:mockito/mockito.dart' as _i1;
-import 'package:mockito/src/dummies.dart' as _i7;
-
-import 'create_report_card_handler_test.dart' as _i10;
+import 'package:mockito/src/dummies.dart' as _i8;
 
 // ignore_for_file: type=lint
 // ignore_for_file: avoid_redundant_argument_values
@@ -32,45 +32,50 @@ import 'create_report_card_handler_test.dart' as _i10;
 
 class _FakeClient_0 extends _i1.SmartFake implements _i2.Client {
   _FakeClient_0(Object parent, Invocation parentInvocation)
-    : super(parent, parentInvocation);
+      : super(parent, parentInvocation);
 }
 
 class _FakeResponse_1<T> extends _i1.SmartFake implements _i3.Response<T> {
   _FakeResponse_1(Object parent, Invocation parentInvocation)
-    : super(parent, parentInvocation);
+      : super(parent, parentInvocation);
+}
+
+class _FakeLogger_2 extends _i1.SmartFake implements _i4.Logger {
+  _FakeLogger_2(Object parent, Invocation parentInvocation)
+      : super(parent, parentInvocation);
 }
 
 /// A class which mocks [ReportCardGenerator].
 ///
 /// See the documentation for Mockito's code generation for more information.
 class MockReportCardGenerator extends _i1.Mock
-    implements _i4.ReportCardGenerator {
+    implements _i5.ReportCardGenerator {
   @override
-  _i5.Future<List<_i6.ReportCardSection>> generateReportCard(
-    _i6.ReportCard? reportCard,
+  _i6.Future<List<_i7.ReportCardSection>> generateReportCard(
+    _i7.ReportCard? reportCard,
   ) =>
       (super.noSuchMethod(
-            Invocation.method(#generateReportCard, [reportCard]),
-            returnValue: _i5.Future<List<_i6.ReportCardSection>>.value(
-              <_i6.ReportCardSection>[],
-            ),
-            returnValueForMissingStub:
-                _i5.Future<List<_i6.ReportCardSection>>.value(
-                  <_i6.ReportCardSection>[],
-                ),
-          )
-          as _i5.Future<List<_i6.ReportCardSection>>);
+        Invocation.method(#generateReportCard, [reportCard]),
+        returnValue: _i6.Future<List<_i7.ReportCardSection>>.value(
+          <_i7.ReportCardSection>[],
+        ),
+        returnValueForMissingStub:
+            _i6.Future<List<_i7.ReportCardSection>>.value(
+          <_i7.ReportCardSection>[],
+        ),
+      ) as _i6.Future<List<_i7.ReportCardSection>>);
 
   @override
-  dynamic createUserPrompt(List<String>? studentNotes) => super.noSuchMethod(
-    Invocation.method(#createUserPrompt, [studentNotes]),
-    returnValueForMissingStub: null,
-  );
-
-  @override
-  dynamic createSystemPrompt(_i6.ReportCardTemplate? template) =>
+  dynamic createUserPrompt(List<String>? studentNotes, String? studentName) =>
       super.noSuchMethod(
-        Invocation.method(#createSystemPrompt, [template]),
+        Invocation.method(#createUserPrompt, [studentNotes, studentName]),
+        returnValueForMissingStub: null,
+      );
+
+  @override
+  dynamic createSystemPrompt(List<_i7.ReportCardTemplateSection>? sections) =>
+      super.noSuchMethod(
+        Invocation.method(#createSystemPrompt, [sections]),
         returnValueForMissingStub: null,
       );
 }
@@ -80,189 +85,187 @@ class MockReportCardGenerator extends _i1.Mock
 /// See the documentation for Mockito's code generation for more information.
 class MockClient extends _i1.Mock implements _i2.Client {
   @override
-  Map<String, String> get config =>
-      (super.noSuchMethod(
-            Invocation.getter(#config),
-            returnValue: <String, String>{},
-            returnValueForMissingStub: <String, String>{},
-          )
-          as Map<String, String>);
+  Map<String, String> get config => (super.noSuchMethod(
+        Invocation.getter(#config),
+        returnValue: <String, String>{},
+        returnValueForMissingStub: <String, String>{},
+      ) as Map<String, String>);
 
   @override
   set config(Map<String, String>? _config) => super.noSuchMethod(
-    Invocation.setter(#config, _config),
-    returnValueForMissingStub: null,
-  );
+        Invocation.setter(#config, _config),
+        returnValueForMissingStub: null,
+      );
 
   @override
-  String get endPoint =>
-      (super.noSuchMethod(
-            Invocation.getter(#endPoint),
-            returnValue: _i7.dummyValue<String>(
-              this,
-              Invocation.getter(#endPoint),
-            ),
-            returnValueForMissingStub: _i7.dummyValue<String>(
-              this,
-              Invocation.getter(#endPoint),
-            ),
-          )
-          as String);
+  String get endPoint => (super.noSuchMethod(
+        Invocation.getter(#endPoint),
+        returnValue: _i8.dummyValue<String>(
+          this,
+          Invocation.getter(#endPoint),
+        ),
+        returnValueForMissingStub: _i8.dummyValue<String>(
+          this,
+          Invocation.getter(#endPoint),
+        ),
+      ) as String);
 
   @override
-  _i5.Future<String?> webAuth(Uri? url) =>
-      (super.noSuchMethod(
-            Invocation.method(#webAuth, [url]),
-            returnValue: _i5.Future<String?>.value(),
-            returnValueForMissingStub: _i5.Future<String?>.value(),
-          )
-          as _i5.Future<String?>);
+  _i6.Future<String?> webAuth(Uri? url) => (super.noSuchMethod(
+        Invocation.method(#webAuth, [url]),
+        returnValue: _i6.Future<String?>.value(),
+        returnValueForMissingStub: _i6.Future<String?>.value(),
+      ) as _i6.Future<String?>);
 
   @override
-  _i2.Client setSelfSigned({bool? status = true}) =>
-      (super.noSuchMethod(
-            Invocation.method(#setSelfSigned, [], {#status: status}),
-            returnValue: _FakeClient_0(
-              this,
-              Invocation.method(#setSelfSigned, [], {#status: status}),
-            ),
-            returnValueForMissingStub: _FakeClient_0(
-              this,
-              Invocation.method(#setSelfSigned, [], {#status: status}),
-            ),
-          )
-          as _i2.Client);
+  _i2.Client setSelfSigned({bool? status = true}) => (super.noSuchMethod(
+        Invocation.method(#setSelfSigned, [], {#status: status}),
+        returnValue: _FakeClient_0(
+          this,
+          Invocation.method(#setSelfSigned, [], {#status: status}),
+        ),
+        returnValueForMissingStub: _FakeClient_0(
+          this,
+          Invocation.method(#setSelfSigned, [], {#status: status}),
+        ),
+      ) as _i2.Client);
 
   @override
-  _i2.Client setEndpoint(String? endPoint) =>
-      (super.noSuchMethod(
-            Invocation.method(#setEndpoint, [endPoint]),
-            returnValue: _FakeClient_0(
-              this,
-              Invocation.method(#setEndpoint, [endPoint]),
-            ),
-            returnValueForMissingStub: _FakeClient_0(
-              this,
-              Invocation.method(#setEndpoint, [endPoint]),
-            ),
-          )
-          as _i2.Client);
+  _i2.Client setEndpoint(String? endPoint) => (super.noSuchMethod(
+        Invocation.method(#setEndpoint, [endPoint]),
+        returnValue: _FakeClient_0(
+          this,
+          Invocation.method(#setEndpoint, [endPoint]),
+        ),
+        returnValueForMissingStub: _FakeClient_0(
+          this,
+          Invocation.method(#setEndpoint, [endPoint]),
+        ),
+      ) as _i2.Client);
 
   @override
-  _i2.Client setProject(dynamic value) =>
-      (super.noSuchMethod(
-            Invocation.method(#setProject, [value]),
-            returnValue: _FakeClient_0(
-              this,
-              Invocation.method(#setProject, [value]),
-            ),
-            returnValueForMissingStub: _FakeClient_0(
-              this,
-              Invocation.method(#setProject, [value]),
-            ),
-          )
-          as _i2.Client);
+  _i2.Client setProject(dynamic value) => (super.noSuchMethod(
+        Invocation.method(#setProject, [value]),
+        returnValue: _FakeClient_0(
+          this,
+          Invocation.method(#setProject, [value]),
+        ),
+        returnValueForMissingStub: _FakeClient_0(
+          this,
+          Invocation.method(#setProject, [value]),
+        ),
+      ) as _i2.Client);
 
   @override
-  _i2.Client setKey(dynamic value) =>
-      (super.noSuchMethod(
-            Invocation.method(#setKey, [value]),
-            returnValue: _FakeClient_0(
-              this,
-              Invocation.method(#setKey, [value]),
-            ),
-            returnValueForMissingStub: _FakeClient_0(
-              this,
-              Invocation.method(#setKey, [value]),
-            ),
-          )
-          as _i2.Client);
+  _i2.Client setKey(dynamic value) => (super.noSuchMethod(
+        Invocation.method(#setKey, [value]),
+        returnValue: _FakeClient_0(
+          this,
+          Invocation.method(#setKey, [value]),
+        ),
+        returnValueForMissingStub: _FakeClient_0(
+          this,
+          Invocation.method(#setKey, [value]),
+        ),
+      ) as _i2.Client);
 
   @override
-  _i2.Client setJWT(dynamic value) =>
-      (super.noSuchMethod(
-            Invocation.method(#setJWT, [value]),
-            returnValue: _FakeClient_0(
-              this,
-              Invocation.method(#setJWT, [value]),
-            ),
-            returnValueForMissingStub: _FakeClient_0(
-              this,
-              Invocation.method(#setJWT, [value]),
-            ),
-          )
-          as _i2.Client);
+  _i2.Client setJWT(dynamic value) => (super.noSuchMethod(
+        Invocation.method(#setJWT, [value]),
+        returnValue: _FakeClient_0(
+          this,
+          Invocation.method(#setJWT, [value]),
+        ),
+        returnValueForMissingStub: _FakeClient_0(
+          this,
+          Invocation.method(#setJWT, [value]),
+        ),
+      ) as _i2.Client);
 
   @override
-  _i2.Client setLocale(dynamic value) =>
-      (super.noSuchMethod(
-            Invocation.method(#setLocale, [value]),
-            returnValue: _FakeClient_0(
-              this,
-              Invocation.method(#setLocale, [value]),
-            ),
-            returnValueForMissingStub: _FakeClient_0(
-              this,
-              Invocation.method(#setLocale, [value]),
-            ),
-          )
-          as _i2.Client);
+  _i2.Client setLocale(dynamic value) => (super.noSuchMethod(
+        Invocation.method(#setLocale, [value]),
+        returnValue: _FakeClient_0(
+          this,
+          Invocation.method(#setLocale, [value]),
+        ),
+        returnValueForMissingStub: _FakeClient_0(
+          this,
+          Invocation.method(#setLocale, [value]),
+        ),
+      ) as _i2.Client);
 
   @override
-  _i2.Client setSession(dynamic value) =>
-      (super.noSuchMethod(
-            Invocation.method(#setSession, [value]),
-            returnValue: _FakeClient_0(
-              this,
-              Invocation.method(#setSession, [value]),
-            ),
-            returnValueForMissingStub: _FakeClient_0(
-              this,
-              Invocation.method(#setSession, [value]),
-            ),
-          )
-          as _i2.Client);
+  _i2.Client setSession(dynamic value) => (super.noSuchMethod(
+        Invocation.method(#setSession, [value]),
+        returnValue: _FakeClient_0(
+          this,
+          Invocation.method(#setSession, [value]),
+        ),
+        returnValueForMissingStub: _FakeClient_0(
+          this,
+          Invocation.method(#setSession, [value]),
+        ),
+      ) as _i2.Client);
 
   @override
-  _i2.Client setForwardedUserAgent(dynamic value) =>
-      (super.noSuchMethod(
-            Invocation.method(#setForwardedUserAgent, [value]),
-            returnValue: _FakeClient_0(
-              this,
-              Invocation.method(#setForwardedUserAgent, [value]),
-            ),
-            returnValueForMissingStub: _FakeClient_0(
-              this,
-              Invocation.method(#setForwardedUserAgent, [value]),
-            ),
-          )
-          as _i2.Client);
+  _i2.Client setForwardedUserAgent(dynamic value) => (super.noSuchMethod(
+        Invocation.method(#setForwardedUserAgent, [value]),
+        returnValue: _FakeClient_0(
+          this,
+          Invocation.method(#setForwardedUserAgent, [value]),
+        ),
+        returnValueForMissingStub: _FakeClient_0(
+          this,
+          Invocation.method(#setForwardedUserAgent, [value]),
+        ),
+      ) as _i2.Client);
 
   @override
-  _i2.Client addHeader(String? key, String? value) =>
-      (super.noSuchMethod(
-            Invocation.method(#addHeader, [key, value]),
-            returnValue: _FakeClient_0(
-              this,
-              Invocation.method(#addHeader, [key, value]),
-            ),
-            returnValueForMissingStub: _FakeClient_0(
-              this,
-              Invocation.method(#addHeader, [key, value]),
-            ),
-          )
-          as _i2.Client);
+  _i2.Client addHeader(String? key, String? value) => (super.noSuchMethod(
+        Invocation.method(#addHeader, [key, value]),
+        returnValue: _FakeClient_0(
+          this,
+          Invocation.method(#addHeader, [key, value]),
+        ),
+        returnValueForMissingStub: _FakeClient_0(
+          this,
+          Invocation.method(#addHeader, [key, value]),
+        ),
+      ) as _i2.Client);
 
   @override
-  _i5.Future<_i3.Response<dynamic>> chunkedUpload({
+  _i6.Future<String> ping() => (super.noSuchMethod(
+        Invocation.method(#ping, []),
+        returnValue: _i6.Future<String>.value(
+          _i8.dummyValue<String>(this, Invocation.method(#ping, [])),
+        ),
+        returnValueForMissingStub: _i6.Future<String>.value(
+          _i8.dummyValue<String>(this, Invocation.method(#ping, [])),
+        ),
+      ) as _i6.Future<String>);
+
+  @override
+  _i6.Future<_i3.Response<dynamic>> chunkedUpload({
     required String? path,
     required Map<String, dynamic>? params,
     required String? paramName,
     required String? idParamName,
     required Map<String, String>? headers,
-    dynamic Function(_i8.UploadProgress)? onProgress,
+    dynamic Function(_i9.UploadProgress)? onProgress,
   }) =>
       (super.noSuchMethod(
+        Invocation.method(#chunkedUpload, [], {
+          #path: path,
+          #params: params,
+          #paramName: paramName,
+          #idParamName: idParamName,
+          #headers: headers,
+          #onProgress: onProgress,
+        }),
+        returnValue: _i6.Future<_i3.Response<dynamic>>.value(
+          _FakeResponse_1<dynamic>(
+            this,
             Invocation.method(#chunkedUpload, [], {
               #path: path,
               #params: params,
@@ -271,44 +274,45 @@ class MockClient extends _i1.Mock implements _i2.Client {
               #headers: headers,
               #onProgress: onProgress,
             }),
-            returnValue: _i5.Future<_i3.Response<dynamic>>.value(
-              _FakeResponse_1<dynamic>(
-                this,
-                Invocation.method(#chunkedUpload, [], {
-                  #path: path,
-                  #params: params,
-                  #paramName: paramName,
-                  #idParamName: idParamName,
-                  #headers: headers,
-                  #onProgress: onProgress,
-                }),
-              ),
-            ),
-            returnValueForMissingStub: _i5.Future<_i3.Response<dynamic>>.value(
-              _FakeResponse_1<dynamic>(
-                this,
-                Invocation.method(#chunkedUpload, [], {
-                  #path: path,
-                  #params: params,
-                  #paramName: paramName,
-                  #idParamName: idParamName,
-                  #headers: headers,
-                  #onProgress: onProgress,
-                }),
-              ),
-            ),
-          )
-          as _i5.Future<_i3.Response<dynamic>>);
+          ),
+        ),
+        returnValueForMissingStub: _i6.Future<_i3.Response<dynamic>>.value(
+          _FakeResponse_1<dynamic>(
+            this,
+            Invocation.method(#chunkedUpload, [], {
+              #path: path,
+              #params: params,
+              #paramName: paramName,
+              #idParamName: idParamName,
+              #headers: headers,
+              #onProgress: onProgress,
+            }),
+          ),
+        ),
+      ) as _i6.Future<_i3.Response<dynamic>>);
 
   @override
-  _i5.Future<_i3.Response<dynamic>> call(
-    _i9.HttpMethod? method, {
+  _i6.Future<_i3.Response<dynamic>> call(
+    _i10.HttpMethod? method, {
     String? path = '',
     Map<String, String>? headers = const {},
     Map<String, dynamic>? params = const {},
-    _i9.ResponseType? responseType,
+    _i10.ResponseType? responseType,
   }) =>
       (super.noSuchMethod(
+        Invocation.method(
+          #call,
+          [method],
+          {
+            #path: path,
+            #headers: headers,
+            #params: params,
+            #responseType: responseType,
+          },
+        ),
+        returnValue: _i6.Future<_i3.Response<dynamic>>.value(
+          _FakeResponse_1<dynamic>(
+            this,
             Invocation.method(
               #call,
               [method],
@@ -319,47 +323,50 @@ class MockClient extends _i1.Mock implements _i2.Client {
                 #responseType: responseType,
               },
             ),
-            returnValue: _i5.Future<_i3.Response<dynamic>>.value(
-              _FakeResponse_1<dynamic>(
-                this,
-                Invocation.method(
-                  #call,
-                  [method],
-                  {
-                    #path: path,
-                    #headers: headers,
-                    #params: params,
-                    #responseType: responseType,
-                  },
-                ),
-              ),
+          ),
+        ),
+        returnValueForMissingStub: _i6.Future<_i3.Response<dynamic>>.value(
+          _FakeResponse_1<dynamic>(
+            this,
+            Invocation.method(
+              #call,
+              [method],
+              {
+                #path: path,
+                #headers: headers,
+                #params: params,
+                #responseType: responseType,
+              },
             ),
-            returnValueForMissingStub: _i5.Future<_i3.Response<dynamic>>.value(
-              _FakeResponse_1<dynamic>(
-                this,
-                Invocation.method(
-                  #call,
-                  [method],
-                  {
-                    #path: path,
-                    #headers: headers,
-                    #params: params,
-                    #responseType: responseType,
-                  },
-                ),
-              ),
-            ),
-          )
-          as _i5.Future<_i3.Response<dynamic>>);
+          ),
+        ),
+      ) as _i6.Future<_i3.Response<dynamic>>);
 }
 
-/// A class which mocks [Context].
+/// A class which mocks [SimpleLogger].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockContext extends _i1.Mock implements _i10.Context {
+class MockSimpleLogger extends _i1.Mock implements _i11.SimpleLogger {
   @override
-  void error(String? message) => super.noSuchMethod(
-    Invocation.method(#error, [message]),
-    returnValueForMissingStub: null,
-  );
+  _i4.Logger get logger => (super.noSuchMethod(
+        Invocation.getter(#logger),
+        returnValue: _FakeLogger_2(this, Invocation.getter(#logger)),
+        returnValueForMissingStub: _FakeLogger_2(
+          this,
+          Invocation.getter(#logger),
+        ),
+      ) as _i4.Logger);
+
+  @override
+  void log(String? message) => super.noSuchMethod(
+        Invocation.method(#log, [message]),
+        returnValueForMissingStub: null,
+      );
+
+  @override
+  void error(String? message, [Object? error, StackTrace? stackTrace]) =>
+      super.noSuchMethod(
+        Invocation.method(#error, [message, error, stackTrace]),
+        returnValueForMissingStub: null,
+      );
 }
