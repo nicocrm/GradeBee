@@ -15,6 +15,8 @@ class ClassList extends StatelessWidget {
         final class_ = classes[index];
         return ListTile(
           title: Text(class_.course),
+          subtitle:
+              Text('${class_.dayOfWeek ?? 'No day set'} - ${class_.timeBlock}'),
           onTap: () => {context.push('/class_list/details', extra: class_)},
         );
       },

@@ -116,6 +116,25 @@ class _DetailsTabState extends State<_DetailsTab> with ErrorMixin {
   final _formKey = GlobalKey<FormState>();
 
   @override
+  void initState() {
+    super.initState();
+    widget.viewModel.updateClassCommand.addListener(_handleError);
+  }
+
+  @override
+  void dispose() {
+    widget.viewModel.updateClassCommand.removeListener(_handleError);
+    super.dispose();
+  }
+
+  void _handleError() {
+    if (widget.viewModel.updateClassCommand.error != null) {
+      showErrorSnackbar(
+          widget.viewModel.updateClassCommand.error!.error.toString());
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Column(children: [
       Form(
@@ -132,16 +151,16 @@ class _DetailsTabState extends State<_DetailsTab> with ErrorMixin {
             builder: (context, _) => widget.viewModel.updateClassCommand.running
                 ? SpinnerButton(text: 'Saving')
                 : ElevatedButton(
-                    onPressed: () => onSave(),
+                    onPressed: () async => await onSave(),
                     child: const Text('Save'),
                   ),
           )),
     ]);
   }
 
-  void onSave() async {
+  Future<void> onSave() async {
     if (_formKey.currentState!.validate()) {
-      widget.viewModel.updateClassCommand.execute();
+      await widget.viewModel.updateClassCommand.execute();
     }
   }
 }

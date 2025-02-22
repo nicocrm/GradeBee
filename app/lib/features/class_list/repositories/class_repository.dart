@@ -54,6 +54,7 @@ class ClassRepository {
       }
       class_ = class_
           .copyWith(notes: [...class_.notes, ...newNotes], pendingNotes: []);
+      await _db.update('classes', class_.toJson(), class_.id!);
       return class_;
     } catch (e, s) {
       AppLogger.error('Error updating class', e, s);

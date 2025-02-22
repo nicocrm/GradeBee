@@ -86,12 +86,8 @@ class ClassDetailsVM extends ChangeNotifier with ClassStateMixin {
   }
 
   Future<Result<Class>> _updateClass() async {
-    try {
-      _class = await _repository.updateClass(_class);
-      return Result.value(_class);
-    } catch (e) {
-      return Result.error(Exception(e));
-    }
+    _class = await _repository.updateClass(_class);
+    return Result.value(_class);
   }
 
   Future<void> addVoiceNote(String recordingPath) async {

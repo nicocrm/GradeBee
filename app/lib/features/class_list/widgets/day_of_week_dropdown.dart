@@ -4,6 +4,16 @@ class DayOfWeekDropdown extends StatelessWidget {
   final String? value;
   final Function(String) onChanged;
 
+  static const List<String> daysOfWeek = [
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday'
+  ];
+
   const DayOfWeekDropdown({
     super.key,
     required this.value,
@@ -12,8 +22,12 @@ class DayOfWeekDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Validate if the current value is in the list
+    final validValue =
+        value != null && daysOfWeek.contains(value) ? value : null;
+
     return DropdownButtonFormField<String>(
-      value: value,
+      value: validValue,
       decoration: const InputDecoration(
         labelText: 'Day of Week',
       ),
@@ -24,18 +38,12 @@ class DayOfWeekDropdown extends StatelessWidget {
         return null;
       },
       onChanged: (v) => v == null ? null : onChanged(v),
-      items: [
-        'Monday',
-        'Tuesday',
-        'Wednesday',
-        'Thursday',
-        'Friday',
-        'Saturday',
-        'Sunday',
-      ].map((e) => DropdownMenuItem<String>(
-            value: e.substring(0, 3),
-            child: Text(e),
-          )).toList(),
+      items: daysOfWeek
+          .map((day) => DropdownMenuItem(
+                value: day,
+                child: Text(day),
+              ))
+          .toList(),
     );
   }
 }

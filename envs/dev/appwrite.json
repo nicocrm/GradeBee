@@ -399,7 +399,7 @@
                     "side": "parent"
                 },
                 {
-                    "key": "generated",
+                    "key": "is_generated",
                     "type": "boolean",
                     "required": false,
                     "array": false,
@@ -412,6 +412,18 @@
                     "array": false,
                     "size": 3000,
                     "default": null
+                },
+                {
+                    "key": "sections",
+                    "type": "relationship",
+                    "required": false,
+                    "array": false,
+                    "relatedCollection": "report_card_sections",
+                    "relationType": "oneToMany",
+                    "twoWay": false,
+                    "twoWayKey": "67ae76a5001061a8580c",
+                    "onDelete": "cascade",
+                    "side": "parent"
                 }
             ],
             "indexes": []
