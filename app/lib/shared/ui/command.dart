@@ -51,7 +51,7 @@ abstract class Command<T> extends ChangeNotifier {
   Future<void> _execute(CommandAction0<T> action) async {
     // ensure we listen to the latest action
     if (_operation != null) {
-      _operation!.cancel();
+      await _operation!.cancel();
     }
 
     // Notify listeners.

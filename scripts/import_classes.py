@@ -1,6 +1,48 @@
 import csv
 import argparse
+from datetime import datetime
 from config import databases, database_id
+from appwrite.permission import Permission
+from appwrite.role import Role
+
+OWNER_USER_ID = "67b972280034245d5ba1"
+# Day of week mapping
+DAY_MAPPING = {
+    "Mon": "Monday",
+    "Tue": "Tuesday",
+    "Wed": "Wednesday",
+    "Thu": "Thursday",
+    "Fri": "Friday",
+    "Sat": "Saturday",
+    "Sun": "Sunday",
+}
+
+
+def expand_day_of_week(short_day):
+    return DAY_MAPPING.get(short_day, short_day)
+
+
+def parse_day_and_time(day_of_week_str):
+    if "@" in day_of_week_str:
+        day, time = day_of_week_str.split("@", 1)
+        return expand_day_of_week(day.strip()), time.strip()
+    return expand_day_of_week(day_of_week_str.strip()), None
+
+
+def add_student_notes(student, row):
+    notes = {
+        "motivation": row[1].strip(),
+        "learning": row[2].strip(),
+        "behaviour": row[3].strip(),
+    }
+    for key, value in notes.items():
+        if value:
+            student["notes"].append(
+                {
+                    "text": f"{key}: {value}",
+                    "when": datetime.now().isoformat(),
+                }
+            )
 
 
 def load_classes_from_csv(file_path):
@@ -17,14 +59,19 @@ def load_classes_from_csv(file_path):
                 if current_class:
                     classes.append(current_class)
                 course_name, schedule = value.split("-")
+                day, time_block = parse_day_and_time(schedule)
                 current_class = {
                     "course": course_name,
-                    "schedule": schedule,
+                    "day_of_week": day,
+                    "time_block": time_block,
                     "students": [],
                 }
             else:  # It's a student name
                 if current_class is not None:
-                    current_class["students"].append({"name": value})
+                    student_name = value.strip()
+                    student = {"name": student_name, "notes": []}
+                    add_student_notes(student, row)
+                    current_class["students"].append(student)
 
     if current_class:
         classes.append(current_class)
@@ -34,11 +81,17 @@ def load_classes_from_csv(file_path):
 
 def save_class_to_appwrite(class_dict):
     try:
+        # Update permissions
+        permissions = [
+            Permission.read(Role.user(OWNER_USER_ID)),
+            Permission.update(Role.user(OWNER_USER_ID)),
+        ]
         response = databases.create_document(
             database_id=database_id,
             collection_id="classes",
             document_id="unique()",
             data=class_dict,
+            permissions=permissions,
         )
         print(f"Class {class_dict['course']} saved successfully: {response}")
     except Exception as e:
@@ -54,6 +107,7 @@ def main():
 
     classes = load_classes_from_csv(args.csv_file)
     for class_dict in classes:
+        print(class_dict)
         save_class_to_appwrite(class_dict)
 
 

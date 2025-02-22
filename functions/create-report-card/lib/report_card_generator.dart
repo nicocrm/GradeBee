@@ -2,9 +2,11 @@ import 'dart:convert';
 
 import 'package:dart_openai/dart_openai.dart';
 import 'package:gradebee_models/common.dart';
+import 'package:gradebee_function_helpers/helpers.dart';
 
 class ReportCardGenerator {
-  ReportCardGenerator(String apiKey) {
+  final SimpleLogger logger;
+  ReportCardGenerator(this.logger, String apiKey) {
     OpenAI.apiKey = apiKey;
   }
 
@@ -36,6 +38,7 @@ class ReportCardGenerator {
       throw Exception('Failed to generate report card');
     }
     final json = content[0].text!;
+    logger.log("Generated report card: $json");
     final sections = jsonDecode(json);
     final List<ReportCardSection> reportCardSections = [];
     for (var section in sections) {

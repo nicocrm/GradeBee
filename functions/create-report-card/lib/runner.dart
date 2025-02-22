@@ -41,7 +41,7 @@ Future<void> main(List<String> args) async {
         .setProject(env['APPWRITE_PROJECT_ID'] ?? '')
         .setKey(env['APPWRITE_API_KEY'] ?? '');
 
-    final generator = ReportCardGenerator(env['OPENAI_API_KEY'] ?? '');
+    final generator = ReportCardGenerator(logger, env['OPENAI_API_KEY'] ?? '');
     final handler = CreateReportCardHandler(logger, generator, client);
     final database = DatabaseService(client, env['APPWRITE_DATABASE_ID'] ?? '');
     final source = await initializeReportCard(

@@ -28,6 +28,8 @@ class CreateReportCardHandler {
       reportCard.sections.addAll(sections);
       reportCard.isGenerated = true;
       reportCard.error = null;
+      logger.log(
+          "Report card generated: ${reportCard.id} with sections: ${sections.join(", ")}");
     } catch (e, s) {
       logger.error("${e.toString()}\n$s");
       reportCard.error = "Error splitting notes";
@@ -39,7 +41,7 @@ class CreateReportCardHandler {
   Future<void> save(ReportCard output) async {
     await Databases(client).updateDocument(
         databaseId: Platform.environment['APPWRITE_DATABASE_ID']!,
-        collectionId: "notes",
+        collectionId: "report_cards",
         documentId: output.id!,
         data: {
           "is_generated": output.isGenerated,

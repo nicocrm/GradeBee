@@ -15,7 +15,7 @@ void main() {
       final notes = ['Note 1', 'Note 2', 'Note 3'];
 
       // Act
-      final result = generator.createUserPrompt(notes);
+      final result = generator.createUserPrompt(notes, 'Test Template');
 
       // Assert
       expect(result, contains('Note 1'));
@@ -42,7 +42,7 @@ void main() {
 
       // Assert
       expect(result, contains('You are a helpful assistant'));
-      expect(result, contains(template.toJson()));
+      expect(result, contains('Academic Progress'));
     });
   });
 }

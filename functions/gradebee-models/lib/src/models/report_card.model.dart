@@ -54,15 +54,19 @@ class ReportCard {
       id: json['\$id'],
       when: DateTime.parse(json['when']),
       isGenerated: json['is_generated'],
-      sections: (json['sections'] as List)
-          .map((section) => ReportCardSection.fromJson(section))
-          .toList(),
+      sections: json['sections'] != null
+          ? (json['sections'] as List)
+              .map((section) => ReportCardSection.fromJson(section))
+              .toList()
+          : [],
       template: ReportCardTemplate.fromJson(json['template']),
       student: Student.fromJson(json['student']),
       // will need to fetch notes only for a certain period in the future
-      studentNotes: (json['student']['student_notes'] as List)
-          .map((note) => note['text'].toString())
-          .toList(),
+      studentNotes: json['student']['notes'] != null
+          ? (json['student']['notes'] as List)
+              .map((note) => note['text'].toString())
+              .toList()
+          : [],
     );
   }
 

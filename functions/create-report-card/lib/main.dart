@@ -19,7 +19,7 @@ Future<dynamic> main(final context) async {
         .setKey(context.req.headers['x-appwrite-key'] ?? '');
 
     final generator =
-        ReportCardGenerator(Platform.environment['OPENAI_API_KEY']!);
+        ReportCardGenerator(logger, Platform.environment['OPENAI_API_KEY']!);
     final handler = CreateReportCardHandler(logger, generator, client);
     final input = handler.parseBody(context.req.bodyJson);
     final output = await handler.processRequest(input);
