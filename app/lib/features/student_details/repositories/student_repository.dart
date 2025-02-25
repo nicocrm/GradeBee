@@ -2,6 +2,7 @@ import 'package:get_it/get_it.dart';
 
 import '../../../shared/data/database.dart';
 import '../../../shared/logger.dart';
+import '../models/report_card.model.dart';
 import '../models/student.model.dart';
 
 class StudentRepository {
@@ -16,5 +17,9 @@ class StudentRepository {
       AppLogger.error('Error getting student');
       rethrow;
     }
+  }
+
+  Future<void> updateReportCard(ReportCard reportCard) async {
+    await _db.update('report_cards', reportCard.toJson(), reportCard.id);
   }
 }

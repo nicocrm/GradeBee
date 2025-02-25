@@ -27,9 +27,7 @@ class DatabaseService {
     try {
       final result = await _db.listDocuments(
           databaseId: _databaseId, collectionId: collectionId);
-      return result.documents
-          .map((e) => fromJson({...e.data, "id": e.$id}))
-          .toList();
+      return result.documents.map((e) => fromJson({...e.data})).toList();
     } catch (e, s) {
       AppLogger.error('Error listing documents', e, s);
       rethrow;
@@ -43,7 +41,7 @@ class DatabaseService {
           databaseId: _databaseId,
           collectionId: collectionId,
           documentId: documentId);
-      return fromJson({...doc.data, "id": doc.$id});
+      return fromJson({...doc.data});
     } catch (e, s) {
       AppLogger.error('Error getting document', e, s);
       rethrow;

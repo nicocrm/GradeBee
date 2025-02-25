@@ -71,7 +71,7 @@ class _StudentDetailsScreenState extends State<StudentDetailsScreen>
             ):
             return Scaffold(
               appBar: _StudentAppBar(title: snapshot.data!.name),
-              body: StudentDetails(student: snapshot.data!),
+              body: StudentDetails(student: snapshot.data!, vm: vm),
             );
 
           case AsyncSnapshot(connectionState: ConnectionState.done):

@@ -99,7 +99,8 @@
                 "documents.write"
             ],
             "events": [
-                "databases.*.collections.report_cards.documents.*.create"
+                "databases.*.collections.report_cards.documents.*.create",
+                "databases.*.collections.report_cards.documents.*.update"
             ],
             "schedule": "",
             "timeout": 15,

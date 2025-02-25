@@ -8,7 +8,7 @@ class StudentNote {
   factory StudentNote.fromJson(Map<String, dynamic> json) {
     return StudentNote(
       text: json['text'],
-      id: json['id'],
+      id: json['\$id'],
       when: DateTime.parse(json['when']),
     );
   }

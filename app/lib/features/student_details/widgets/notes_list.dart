@@ -11,28 +11,27 @@ class NotesList extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView.builder(
       itemCount: notes.length,
+      padding: const EdgeInsets.all(16),
       itemBuilder: (context, index) {
-        return _NoteTile(note: notes[index]);
+        final note = notes[index];
+        return Card(
+          margin: const EdgeInsets.only(bottom: 16),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  DateFormat('MMMM d, yyyy').format(note.when),
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 16),
+                Text(note.text),
+              ],
+            ),
+          ),
+        );
       },
-    );
-  }
-}
-
-class _NoteTile extends StatelessWidget {
-  final StudentNote note;
-
-  const _NoteTile({required this.note});
-
-  @override
-  Widget build(BuildContext context) {
-    final formattedDate = DateFormat.yMMMd().format(note.when);
-    return Padding(
-      padding: const EdgeInsets.all(8.0),
-      child: ListTile(
-        title: Text(note.text),
-        subtitle: Text(formattedDate),
-        // Add more properties here if needed, such as leading, trailing, etc.
-      ),
     );
   }
 }

@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../models/student.model.dart';
+import '../vm/student_details_vm.dart';
 import 'report_card_list.dart';
 import 'notes_list.dart';
 
 class StudentDetails extends StatelessWidget {
   final Student student;
-
-  const StudentDetails({super.key, required this.student});
+  final StudentDetailsVM vm;
+  const StudentDetails({super.key, required this.student, required this.vm});
 
   @override
   Widget build(BuildContext context) {
@@ -28,7 +29,7 @@ class StudentDetails extends StatelessWidget {
                 _NotesTab(student: student),
 
                 // Report Card Tab
-                _ReportCardTab(student: student),
+                _ReportCardTab(student: student, vm: vm),
               ],
             ),
           ),
@@ -69,13 +70,15 @@ class _NotesTab extends StatelessWidget {
 
 class _ReportCardTab extends StatelessWidget {
   final Student student;
+  final StudentDetailsVM vm;
 
-  const _ReportCardTab({required this.student});
+  const _ReportCardTab({required this.student, required this.vm});
 
   @override
   Widget build(BuildContext context) {
     return ReportCardList(
       reportCards: student.reportCards,
+      vm: vm,
     );
   }
 }
