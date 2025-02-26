@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:get_it/get_it.dart';
 
+import 'features/student_details/repositories/student_repository.dart';
+import 'features/student_details/services/report_card_service.dart';
 import 'shared/data/appwrite_client.dart';
 import 'shared/data/auth_state.dart';
 import 'shared/data/database.dart';
+import 'shared/data/functions.dart';
 import 'shared/data/storage_service.dart';
 import 'shared/router.dart';
 
@@ -33,6 +36,12 @@ class _MainAppState extends State<MainApp> {
     GetIt.instance.registerSingleton<StorageService>(
         StorageService(appwriteClient, dotenv.env['NOTES_BUCKET_ID']!));
     GetIt.instance.registerSingleton<AuthState>(authState);
+    GetIt.instance
+        .registerSingleton<FunctionService>(FunctionService(appwriteClient));
+    GetIt.instance.registerSingleton<ReportCardService>(
+        ReportCardService(functions: GetIt.instance<FunctionService>()));
+    GetIt.instance.registerSingleton<StudentRepository>(
+        StudentRepository(GetIt.instance<DatabaseService>()));
   }
 
   @override

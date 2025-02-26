@@ -31,6 +31,15 @@ class ReportCard {
       'isGenerated': isGenerated,
     };
   }
+
+  ReportCard copyWith({bool? isGenerated, List<ReportCardSection>? sections}) {
+    return ReportCard(
+      id: id,
+      when: when,
+      sections: sections ?? this.sections,
+      isGenerated: isGenerated ?? this.isGenerated,
+    );
+  }
 }
 
 class ReportCardSection {

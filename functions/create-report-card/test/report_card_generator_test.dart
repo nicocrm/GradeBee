@@ -1,12 +1,21 @@
+import 'package:mockito/annotations.dart';
 import 'package:test/test.dart';
 import 'package:gradebee_models/common.dart';
 import 'package:create_report_card/report_card_generator.dart';
+import 'package:gradebee_function_helpers/helpers.dart';
+
+@GenerateNiceMocks([
+  MockSpec<SimpleLogger>(),
+])
+import 'report_card_generator_test.mocks.dart';
 
 void main() {
   late ReportCardGenerator generator;
+  late MockSimpleLogger mockLogger;
 
   setUp(() {
-    generator = ReportCardGenerator('fake-api-key');
+    mockLogger = MockSimpleLogger();
+    generator = ReportCardGenerator(mockLogger, 'fake-api-key');
   });
 
   group('ReportCardGenerator', () {

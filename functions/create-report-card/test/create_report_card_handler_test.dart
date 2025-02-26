@@ -2,14 +2,13 @@ import 'package:gradebee_function_helpers/helpers.dart';
 import 'package:test/test.dart';
 import 'package:mockito/mockito.dart';
 import 'package:mockito/annotations.dart';
-import 'package:dart_appwrite/dart_appwrite.dart';
 import 'package:gradebee_models/common.dart';
 import 'package:create_report_card/create_report_card_handler.dart';
 import 'package:create_report_card/report_card_generator.dart';
 
 @GenerateNiceMocks([
   MockSpec<ReportCardGenerator>(),
-  MockSpec<Client>(),
+  MockSpec<DatabaseService>(),
   MockSpec<SimpleLogger>(),
 ])
 import 'create_report_card_handler_test.mocks.dart';
@@ -18,13 +17,13 @@ void main() {
   late MockReportCardGenerator mockGenerator;
   late CreateReportCardHandler handler;
   late MockSimpleLogger mockLogger;
-  late MockClient mockClient;
+  late MockDatabaseService mockDatabase;
 
   setUp(() {
     mockGenerator = MockReportCardGenerator();
-    mockClient = MockClient();
+    mockDatabase = MockDatabaseService();
     mockLogger = MockSimpleLogger();
-    handler = CreateReportCardHandler(mockLogger, mockGenerator, mockClient);
+    handler = CreateReportCardHandler(mockLogger, mockGenerator, mockDatabase);
   });
 
   group('processRequest', () {

@@ -22,6 +22,22 @@ class Student {
       reportCards: _reportCardsFromJson(json['report_cards']),
     );
   }
+
+  Student updateReportCard(ReportCard reportCard) {
+    return copyWith(
+        reportCards: reportCards
+            .map((e) => e.id == reportCard.id ? reportCard : e)
+            .toList());
+  }
+
+  Student copyWith({List<ReportCard>? reportCards}) {
+    return Student(
+      id: id,
+      name: name,
+      notes: notes,
+      reportCards: reportCards ?? this.reportCards,
+    );
+  }
 }
 
 List<StudentNote> _studentNotesFromJson(List<dynamic>? json) {

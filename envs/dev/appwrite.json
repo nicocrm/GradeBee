@@ -90,12 +90,13 @@
         },
         {
             "$id": "create-report-card",
-            "execute": [],
+            "execute": ["users"],
             "name": "Create report card",
             "enabled": true,
             "logging": true,
             "runtime": "dart-3.5",
             "scopes": [
+                "documents.read",
                 "documents.write"
             ],
             "events": [

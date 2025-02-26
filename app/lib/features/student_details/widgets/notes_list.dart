@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/student_note.model.dart';
+import '../vm/student_details_vm.dart';
 
 class NotesList extends StatelessWidget {
   final List<StudentNote> notes;
+  final StudentDetailsVM vm;
 
-  const NotesList({super.key, required this.notes});
+  const NotesList({super.key, required this.notes, required this.vm});
 
   @override
   Widget build(BuildContext context) {

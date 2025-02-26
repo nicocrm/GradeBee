@@ -6,9 +6,8 @@ import 'report_card_list.dart';
 import 'notes_list.dart';
 
 class StudentDetails extends StatelessWidget {
-  final Student student;
   final StudentDetailsVM vm;
-  const StudentDetails({super.key, required this.student, required this.vm});
+  const StudentDetails({super.key, required this.vm});
 
   @override
   Widget build(BuildContext context) {
@@ -26,10 +25,10 @@ class StudentDetails extends StatelessWidget {
             child: TabBarView(
               children: [
                 // Notes Tab
-                _NotesTab(student: student),
+                _NotesTab(vm: vm),
 
                 // Report Card Tab
-                _ReportCardTab(student: student, vm: vm),
+                _ReportCardTab(vm: vm),
               ],
             ),
           ),
@@ -56,29 +55,30 @@ class StudentDetails extends StatelessWidget {
 // }
 
 class _NotesTab extends StatelessWidget {
-  final Student student;
+  final StudentDetailsVM vm;
 
-  const _NotesTab({required this.student});
+  const _NotesTab({required this.vm});
 
   @override
   Widget build(BuildContext context) {
-    return NotesList(
-      notes: student.notes,
-    );
+    return ListenableBuilder(
+        listenable: vm,
+        builder: (context, _) => NotesList(notes: vm.student.notes, vm: vm));
   }
 }
 
 class _ReportCardTab extends StatelessWidget {
-  final Student student;
   final StudentDetailsVM vm;
 
-  const _ReportCardTab({required this.student, required this.vm});
+  const _ReportCardTab({required this.vm});
 
   @override
   Widget build(BuildContext context) {
-    return ReportCardList(
-      reportCards: student.reportCards,
-      vm: vm,
-    );
+    return ListenableBuilder(
+        listenable: vm,
+        builder: (context, _) => ReportCardList(
+              reportCards: vm.student.reportCards,
+              vm: vm,
+            ));
   }
 }

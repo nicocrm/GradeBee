@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:get_it/get_it.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../shared/ui/utils/error_mixin.dart';
 import 'models/student.model.dart';
+import 'repositories/student_repository.dart';
+import 'services/report_card_service.dart';
 import 'vm/student_details_vm.dart';
 import 'widgets/student_details.dart';
 
@@ -43,8 +46,10 @@ class _StudentDetailsScreenState extends State<StudentDetailsScreen>
   @override
   void initState() {
     super.initState();
-    vm = StudentDetailsVM(widget.studentId);
-    _studentFuture = vm.getStudent();
+    vm = StudentDetailsVM(widget.studentId,
+        repository: GetIt.instance<StudentRepository>(),
+        reportCardService: GetIt.instance<ReportCardService>());
+    _studentFuture = vm.loadStudent();
   }
 
   @override
@@ -71,7 +76,7 @@ class _StudentDetailsScreenState extends State<StudentDetailsScreen>
             ):
             return Scaffold(
               appBar: _StudentAppBar(title: snapshot.data!.name),
-              body: StudentDetails(student: snapshot.data!, vm: vm),
+              body: StudentDetails(vm: vm),
             );
 
           case AsyncSnapshot(connectionState: ConnectionState.done):

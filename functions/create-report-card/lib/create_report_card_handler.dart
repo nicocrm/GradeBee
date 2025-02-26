@@ -1,23 +1,23 @@
-import 'dart:async';
-import 'dart:io';
-import 'package:dart_appwrite/dart_appwrite.dart';
 import 'package:gradebee_function_helpers/helpers.dart';
 import 'package:gradebee_models/common.dart';
 import 'report_card_generator.dart';
 
 class CreateReportCardHandler {
-  final Client client;
   final SimpleLogger logger;
   final ReportCardGenerator generator;
+  final DatabaseService database;
 
-  CreateReportCardHandler(this.logger, this.generator, this.client);
+  CreateReportCardHandler(this.logger, this.generator, this.database);
 
-  ReportCard parseBody(Map<String, dynamic>? json) {
+  Future<ReportCard> parseBody(Map<String, dynamic>? json) async {
     if (json == null) throw ValidationException("No body");
-    final reportCard = ReportCard.fromJson(json);
-    if (reportCard.isGenerated) {
+    if (json['is_generated'] == true) {
+      // this will be sent when we get the report card as a result of a record create
       throw ValidationException("Report card is already generated");
     }
+    final reportCardId = json['\$id'];
+    final reportCard = await database.get<ReportCard>(
+        "report_cards", ReportCard.fromJson, reportCardId);
     return reportCard;
   }
 
@@ -39,15 +39,14 @@ class CreateReportCardHandler {
   }
 
   Future<void> save(ReportCard output) async {
-    await Databases(client).updateDocument(
-        databaseId: Platform.environment['APPWRITE_DATABASE_ID']!,
-        collectionId: "report_cards",
-        documentId: output.id!,
-        data: {
+    await database.update(
+        "report_cards",
+        {
           "is_generated": output.isGenerated,
           "sections": output.sections.map((e) => e.toJson()).toList(),
           "error": output.error
-        });
+        },
+        output.id!);
   }
 
   Map<String, dynamic> result(ReportCard output) {

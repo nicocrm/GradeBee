@@ -1,27 +1,35 @@
 import 'package:async/async.dart';
+import 'package:flutter/material.dart';
 
 import '../../../shared/ui/command.dart';
 import '../models/report_card.model.dart';
 import '../models/student.model.dart';
 import '../repositories/student_repository.dart';
+import '../services/report_card_service.dart';
 
-class StudentDetailsVM {
+class StudentDetailsVM extends ChangeNotifier {
   final String studentId;
-  final StudentRepository _repository;
+  final StudentRepository repository;
+  final ReportCardService reportCardService;
+  Student? _student;
   late final Command1<void, ReportCard> generateReportCardCommand;
 
-  StudentDetailsVM(this.studentId, [StudentRepository? repository])
-      : _repository = repository ?? StudentRepository() {
+  StudentDetailsVM(this.studentId,
+      {required this.repository, required this.reportCardService}) {
     generateReportCardCommand = Command1(_generateReportCard);
   }
 
-  Future<Student> getStudent() async {
-    return _repository.getStudent(studentId);
+  Student get student => _student!;
+
+  Future<Student> loadStudent() async {
+    _student = await repository.getStudent(studentId);
+    return _student!;
   }
 
   Future<Result<void>> _generateReportCard(ReportCard reportCard) async {
-    reportCard.isGenerated = false;
-    await _repository.updateReportCard(reportCard);
+    reportCard = await reportCardService.generateReportCard(reportCard);
+    _student = _student!.updateReportCard(reportCard);
+    notifyListeners();
     return Result.value(null);
   }
 }

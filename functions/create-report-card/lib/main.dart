@@ -17,11 +17,13 @@ Future<dynamic> main(final context) async {
             Platform.environment['APPWRITE_FUNCTION_API_ENDPOINT'] ?? '')
         .setProject(Platform.environment['APPWRITE_FUNCTION_PROJECT_ID'] ?? '')
         .setKey(context.req.headers['x-appwrite-key'] ?? '');
+    final database =
+        DatabaseService(client, Platform.environment['APPWRITE_DATABASE_ID']!);
 
     final generator =
         ReportCardGenerator(logger, Platform.environment['OPENAI_API_KEY']!);
-    final handler = CreateReportCardHandler(logger, generator, client);
-    final input = handler.parseBody(context.req.bodyJson);
+    final handler = CreateReportCardHandler(logger, generator, database);
+    final input = await handler.parseBody(context.req.bodyJson);
     final output = await handler.processRequest(input);
     await handler.save(output);
     return context.res.json(handler.result(output));

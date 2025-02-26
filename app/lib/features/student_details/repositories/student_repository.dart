@@ -1,5 +1,3 @@
-import 'package:get_it/get_it.dart';
-
 import '../../../shared/data/database.dart';
 import '../../../shared/logger.dart';
 import '../models/report_card.model.dart';
@@ -8,7 +6,7 @@ import '../models/student.model.dart';
 class StudentRepository {
   final DatabaseService _db;
 
-  StudentRepository() : _db = GetIt.instance<DatabaseService>();
+  StudentRepository(this._db);
 
   Future<Student> getStudent(String id) async {
     try {
