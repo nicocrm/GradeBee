@@ -23,6 +23,14 @@ class Student {
     );
   }
 
+  Map<String, dynamic> toJson() {
+    return {
+      '\$id': id,
+      'name': name,
+      'notes': _serializeNotes(notes),
+    };
+  }
+
   Student updateReportCard(ReportCard reportCard) {
     return copyWith(
         reportCards: reportCards
@@ -30,11 +38,16 @@ class Student {
             .toList());
   }
 
-  Student copyWith({List<ReportCard>? reportCards}) {
+  Student addNote(String note) {
+    return copyWith(
+        notes: [...notes, StudentNote(text: note, when: DateTime.now())]);
+  }
+
+  Student copyWith({List<ReportCard>? reportCards, List<StudentNote>? notes}) {
     return Student(
       id: id,
       name: name,
-      notes: notes,
+      notes: notes ?? this.notes,
       reportCards: reportCards ?? this.reportCards,
     );
   }
@@ -58,4 +71,8 @@ List<ReportCard> _reportCardsFromJson(List<dynamic>? json) {
   ];
   reportCards.sort((a, b) => a.when.compareTo(b.when));
   return reportCards;
+}
+
+List<dynamic> _serializeNotes(List<StudentNote> notes) {
+  return notes.map((e) => e.id ?? e.toJson()).toList();
 }

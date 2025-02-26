@@ -10,6 +10,12 @@ class ClassList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView.builder(
+      padding: const EdgeInsets.only(
+        left: 16,
+        right: 16,
+        top: 16,
+        bottom: 80, // Add padding at bottom to prevent FAB overlap
+      ),
       itemCount: classes.length,
       itemBuilder: (context, index) {
         final class_ = classes[index];

@@ -48,19 +48,31 @@ class _ClassListScreenState extends State<ClassListScreen> with ErrorMixin {
               return Center(child: buildErrorText(snapshot.error.toString()));
 
             case AsyncSnapshot(hasData: true):
-              return RefreshIndicator(
-                onRefresh: _refreshClasses,
-                child: ClassList(classes: snapshot.data!),
+              return Stack(
+                children: [
+                  RefreshIndicator(
+                    onRefresh: _refreshClasses,
+                    child: ClassList(classes: snapshot.data!),
+                  ),
+                  Positioned(
+                    bottom: 16,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: FloatingActionButton.extended(
+                        onPressed: () => context.push('/class_list/add'),
+                        label: const Text('Add Class'),
+                        icon: const Icon(Icons.add),
+                      ),
+                    ),
+                  ),
+                ],
               );
 
             default:
               return const Center(child: Text('No data available'));
           }
         },
-      ),
-      floatingActionButton: FloatingActionButton(
-        child: const Icon(Icons.add),
-        onPressed: () => context.push('/class_list/add'),
       ),
     );
   }

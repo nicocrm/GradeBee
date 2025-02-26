@@ -12,4 +12,11 @@ class StudentNote {
       when: DateTime.parse(json['when']),
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'text': text,
+      'when': when.toIso8601String(),
+    };
+  }
 }

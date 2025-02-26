@@ -14,54 +14,58 @@ class StudentList extends StatelessWidget {
       builder: (context, _) {
         final students = vm.currentClass.students;
 
-        return Column(
-          mainAxisSize: MainAxisSize.min,
+        return Stack(
           children: [
-            Flexible(
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: students.length,
-                itemBuilder: (context, index) {
-                  final student = students[index];
-                  return ListTile(
-                    title: Text(student.name),
-                    onTap: () =>
-                        context.push('/student_details', extra: student.id!),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.delete),
-                      onPressed: () => vm.removeStudent(student.name),
-                    ),
-                  );
-                },
+            ListView.builder(
+              shrinkWrap: true,
+              padding: const EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 16,
+                bottom: 80,
+              ),
+              itemCount: students.length,
+              itemBuilder: (context, index) {
+                final student = students[index];
+                return ListTile(
+                  title: Text(student.name),
+                  onTap: () =>
+                      context.push('/student_details', extra: student.id!),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.delete),
+                    onPressed: () => vm.removeStudent(student.name),
+                  ),
+                );
+              },
+            ),
+            Positioned(
+              bottom: 16,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: ListenableBuilder(
+                  listenable: vm.updateClassCommand,
+                  builder: (context, _) {
+                    return FloatingActionButton.extended(
+                      onPressed: vm.updateClassCommand.running
+                          ? null
+                          : () => _showAddStudentDialog(context),
+                      label: vm.updateClassCommand.running
+                          ? const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(),
+                            )
+                          : const Text('Add Student'),
+                      icon: vm.updateClassCommand.running
+                          ? null
+                          : const Icon(Icons.add),
+                    );
+                  },
+                ),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: _AddStudentButton(vm: vm),
-            ),
           ],
-        );
-      },
-    );
-  }
-}
-
-class _AddStudentButton extends StatelessWidget {
-  const _AddStudentButton({required this.vm});
-
-  final ClassDetailsVM vm;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: vm.updateClassCommand,
-      builder: (context, _) {
-        // if (vm.updateClassCommand.running) {
-        //   return SpinnerButton(text: 'Add Student');
-        // }
-        return ElevatedButton(
-          onPressed: () => _showAddStudentDialog(context),
-          child: const Text('Add Student'),
         );
       },
     );

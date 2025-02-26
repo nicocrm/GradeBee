@@ -63,7 +63,11 @@ class _NotesTab extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListenableBuilder(
         listenable: vm,
-        builder: (context, _) => NotesList(notes: vm.student.notes, vm: vm));
+        builder: (context, _) {
+          final sortedNotes = [...vm.student.notes]
+            ..sort((a, b) => b.when.compareTo(a.when));
+          return NotesList(notes: sortedNotes, vm: vm);
+        });
   }
 }
 

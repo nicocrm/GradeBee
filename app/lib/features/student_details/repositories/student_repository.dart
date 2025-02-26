@@ -1,6 +1,5 @@
 import '../../../shared/data/database.dart';
 import '../../../shared/logger.dart';
-import '../models/report_card.model.dart';
 import '../models/student.model.dart';
 
 class StudentRepository {
@@ -17,7 +16,7 @@ class StudentRepository {
     }
   }
 
-  Future<void> updateReportCard(ReportCard reportCard) async {
-    await _db.update('report_cards', reportCard.toJson(), reportCard.id);
+  Future<void> updateStudent(Student student) async {
+    await _db.update('students', student.toJson(), student.id);
   }
 }
