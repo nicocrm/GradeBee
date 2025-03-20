@@ -1,3 +1,4 @@
+from typing import cast
 from datetime import datetime
 from config import databases, database_id
 from appwrite.permission import Permission
@@ -32,14 +33,28 @@ def create_report_card(student_id):
         return None
 
 
+def delete_report_cards(students):
+    for student in students:
+        for report_card in student["report_cards"]:
+            databases.delete_document(
+                database_id=database_id,
+                collection_id="report_cards",
+                document_id=report_card["$id"],
+            )
+            print(f"Deleted report card {report_card['$id']} for student {student['$id']}")
+        student["report_cards"] = []
+
+
 def main():
     try:
         # Fetch all students
-        response = databases.list_documents(
+        response = cast(dict, databases.list_documents(
             database_id=database_id,
             collection_id="students",
             queries=[Query.limit(100)],
-        )
+        ))
+
+        delete_report_cards(response["documents"])
 
         # Filter students with empty report_cards
         students = [s for s in response["documents"] if not s.get("report_cards")]

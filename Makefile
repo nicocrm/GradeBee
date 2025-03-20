@@ -1,6 +1,7 @@
 ENV ?= dev
 WEB_OUTPUTDIR := app/build/web
 PUBLISH_S3_BUCKET := gradebee.bytemypython.com
+AMPLIFY_APP_ID := d3f4jzff8y6lyx
 
 .PHONY: push pull
 push: env
@@ -18,7 +19,7 @@ build-web:
 
 publish-web: env build-web
 	aws s3 sync "$(WEB_OUTPUTDIR)"/ s3://$(PUBLISH_S3_BUCKET)/$(ENV) --acl public-read --delete
-	aws amplify start-deployment --app-id gradebee --branch-name $(ENV) --source-url s3://$(PUBLISH_S3_BUCKET)/$(ENV) 
+	aws amplify start-deployment --app-id $(AMPLIFY_APP_ID) --branch-name $(ENV) --source-url s3://$(PUBLISH_S3_BUCKET)/$(ENV)/ --source-url-type BUCKET_PREFIX
 
 # set up for prod / dev
 .PHONY: env

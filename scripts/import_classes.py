@@ -1,9 +1,11 @@
 import csv
+from typing import cast
 import argparse
 from datetime import datetime
 from config import databases, database_id
 from appwrite.permission import Permission
 from appwrite.role import Role
+from appwrite.query import Query
 
 OWNER_USER_ID = "67b972280034245d5ba1"
 # Day of week mapping
@@ -25,8 +27,15 @@ def expand_day_of_week(short_day):
 def parse_day_and_time(day_of_week_str):
     if "@" in day_of_week_str:
         day, time = day_of_week_str.split("@", 1)
-        return expand_day_of_week(day.strip()), time.strip()
+        return expand_day_of_week(day.strip()), format_time(time.strip())
     return expand_day_of_week(day_of_week_str.strip()), None
+
+
+def format_time(time_str):
+    # Check if the time is in HHMM format
+    if len(time_str) == 4 and time_str.isdigit():
+        return f"{time_str[:2]}:{time_str[2:]}"  # Format as HH:MM
+    return time_str  # Return as is if not in HHMM format
 
 
 def add_student_notes(student, row):
@@ -81,19 +90,37 @@ def load_classes_from_csv(file_path):
 
 def save_class_to_appwrite(class_dict):
     try:
+        # Check if the class already exists
+        existing_classes = cast(
+            dict,
+            databases.list_documents(
+                database_id=database_id,
+                collection_id="classes",
+                queries=[
+                    Query.equal("course", class_dict["course"]),
+                    Query.equal("day_of_week", class_dict["day_of_week"]),
+                    Query.equal("time_block", class_dict["time_block"]),
+                ],
+            ),
+        )
+
+        if existing_classes["total"] > 0:
+            print(f"Class {class_dict['course']} already exists. Skipping save.")
+            return  # Skip saving if the class already exists
+
         # Update permissions
         permissions = [
             Permission.read(Role.user(OWNER_USER_ID)),
             Permission.update(Role.user(OWNER_USER_ID)),
         ]
-        response = databases.create_document(
+        _ = databases.create_document(
             database_id=database_id,
             collection_id="classes",
             document_id="unique()",
             data=class_dict,
             permissions=permissions,
         )
-        print(f"Class {class_dict['course']} saved successfully: {response}")
+        print(f"Class {class_dict['course']} saved successfully")
     except Exception as e:
         print(f"Failed to save class {class_dict['course']}: {e}")
 
@@ -107,7 +134,6 @@ def main():
 
     classes = load_classes_from_csv(args.csv_file)
     for class_dict in classes:
-        print(class_dict)
         save_class_to_appwrite(class_dict)
 
 
