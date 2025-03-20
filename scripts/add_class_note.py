@@ -5,7 +5,9 @@ from tempfile import TemporaryDirectory
 from typing import cast
 from appwrite.query import Query
 from appwrite.input_file import InputFile
-from config import storage, databases, database_id, bucket_id
+from appwrite.permission import Permission
+from appwrite.role import Role
+from config import storage, databases, database_id, bucket_id, default_user_id
 import logging
 import os
 
@@ -95,6 +97,10 @@ def create_note_for_class(class_id, audio_file_id):
                 "when": datetime.now().isoformat(),
                 "voice": audio_file_id,
             },
+            permissions=[
+                Permission.read(Role.user(default_user_id)),
+                Permission.update(Role.user(default_user_id)),
+            ],
         )
         print("Note created successfully.")
     except Exception as e:
@@ -148,10 +154,10 @@ def delete_resources(file_path, class_id):
         sys.exit(1)
 
 
-def main(course, day_of_week, time_block, file_path, delete_flag):
+def upload_voice_note(course, day_of_week, time_block, file_path, delete_existing):
     class_id = get_class_document(course, day_of_week, time_block)
 
-    if delete_flag:
+    if delete_existing:
         delete_resources(file_path, class_id)
     audio_file_id = upload_audio_file(file_path)
     create_note_for_class(class_id, audio_file_id)
@@ -159,7 +165,9 @@ def main(course, day_of_week, time_block, file_path, delete_flag):
 
 if __name__ == "__main__":
     if len(sys.argv) < 5 or len(sys.argv) > 6:
-        print("Usage: python add_class_note.py <course> <day_of_week> <time_block> <file_path> [-d]")
+        print(
+            "Usage: python add_class_note.py <course> <day_of_week> <time_block> <file_path> [-d]"
+        )
         sys.exit(1)
 
     course_name = sys.argv[1]
@@ -168,4 +176,4 @@ if __name__ == "__main__":
     file_path = sys.argv[4]
     delete_flag = "-d" in sys.argv
 
-    main(course_name, day_of_week, time_block, file_path, delete_flag)
+    upload_voice_note(course_name, day_of_week, time_block, file_path, delete_flag)

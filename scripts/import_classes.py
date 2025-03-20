@@ -2,12 +2,11 @@ import csv
 from typing import cast
 import argparse
 from datetime import datetime
-from config import databases, database_id
+from config import databases, database_id, default_user_id
 from appwrite.permission import Permission
 from appwrite.role import Role
 from appwrite.query import Query
 
-OWNER_USER_ID = "67b972280034245d5ba1"
 # Day of week mapping
 DAY_MAPPING = {
     "Mon": "Monday",
@@ -110,8 +109,8 @@ def save_class_to_appwrite(class_dict):
 
         # Update permissions
         permissions = [
-            Permission.read(Role.user(OWNER_USER_ID)),
-            Permission.update(Role.user(OWNER_USER_ID)),
+            Permission.read(Role.user(default_user_id)),
+            Permission.update(Role.user(default_user_id)),
         ]
         _ = databases.create_document(
             database_id=database_id,
