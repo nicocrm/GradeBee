@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../models/student.model.dart';
 import '../vm/student_details_vm.dart';
 import 'report_card_list.dart';
 import 'notes_list.dart';
