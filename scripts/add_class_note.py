@@ -80,7 +80,7 @@ def get_class_document(course, day_of_week, time_block):
         else:
             logging.error("Class not found.")
             sys.exit(1)
-    except Exception as e:
+    except Exception:
         logging.error("Error retrieving class document", exc_info=True)
         sys.exit(1)
 
@@ -103,7 +103,7 @@ def create_note_for_class(class_id, audio_file_id):
             ],
         )
         print("Note created successfully.")
-    except Exception as e:
+    except Exception:
         logging.error("Error creating note", exc_info=True)
         sys.exit(1)
 
