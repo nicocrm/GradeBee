@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../vm/class_details_vm.dart';
+import '../models/pending_note.model.dart';
 
 class NotesList extends StatelessWidget {
   final ClassDetailsVM vm;
@@ -10,9 +11,7 @@ class NotesList extends StatelessWidget {
     return ListenableBuilder(
       listenable: vm,
       builder: (context, _) {
-        final notes = vm.currentClass.notes; // List of current notes
-        final pendingNotes =
-            vm.currentClass.pendingNotes; // List of pending notes
+        final notes = vm.currentClass.notes; // List of all notes
 
         return Column(
           children: [
@@ -21,6 +20,29 @@ class NotesList extends StatelessWidget {
                 itemCount: notes.length,
                 itemBuilder: (context, index) {
                   final note = notes[index];
+
+                  // Handle PendingNote differently if needed
+                  if (note is PendingNote) {
+                    return ListTile(
+                      title: Text('Pending Voice Note'),
+                      subtitle: Text(note.when.toLocal().toString()),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.play_arrow),
+                            onPressed: () => vm.playPendingNote(note),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete),
+                            onPressed: () => vm.removeNote(note),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  // Regular Note display
                   return ListTile(
                     title: Text(note.text), // Displaying the text of the note
                     subtitle: Text(note.when
@@ -28,37 +50,7 @@ class NotesList extends StatelessWidget {
                         .toString()), // Displaying the date and time
                     trailing: IconButton(
                       icon: const Icon(Icons.delete),
-                      onPressed: () =>
-                          vm.removeNote(note), // Assuming each note has an id
-                    ),
-                  );
-                },
-              ),
-            ),
-            const Divider(), // Divider between notes and pending notes
-            Expanded(
-              child: ListView.builder(
-                itemCount: pendingNotes.length,
-                itemBuilder: (context, index) {
-                  final pendingNote = pendingNotes[index];
-                  return ListTile(
-                    title: const Text(
-                        'Pending Note'), // Placeholder text for pending notes
-                    subtitle: Text(pendingNote.when
-                        .toLocal()
-                        .toString()), // Displaying the date and time
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.play_arrow),
-                          onPressed: () => vm.playPendingNote(pendingNote),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.delete),
-                          onPressed: () => vm.removePendingNote(pendingNote),
-                        ),
-                      ],
+                      onPressed: () => vm.removeNote(note),
                     ),
                   );
                 },

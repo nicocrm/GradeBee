@@ -69,14 +69,7 @@ class ClassDetailsVM extends ChangeNotifier with ClassStateMixin {
 
   void removeNote(Note note) {
     _class = _class.copyWith(
-      notes: _class.notes.where((n) => n.id != note.id).toList(),
-    );
-    notifyListeners();
-  }
-
-  void removePendingNote(PendingNote pendingNote) {
-    _class = _class.copyWith(
-      pendingNotes: _class.pendingNotes.where((n) => n != pendingNote).toList(),
+      notes: _class.notes.where((n) => n != note && n.id != note.id).toList(),
     );
     notifyListeners();
   }

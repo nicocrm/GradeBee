@@ -5,6 +5,7 @@ import '../../../shared/data/storage_service.dart';
 import '../../../shared/logger.dart';
 import '../models/class.model.dart';
 import '../models/note.model.dart';
+import '../models/pending_note.model.dart';
 
 class ClassRepository {
   final DatabaseService _db;
@@ -36,7 +37,11 @@ class ClassRepository {
   Future<Class> updateClass(Class class_) async {
     try {
       final newNotes = <Note>[];
-      for (var pendingNote in class_.pendingNotes) {
+      final pendingNotes = class_.notes.whereType<PendingNote>().toList();
+      final regularNotes =
+          class_.notes.where((note) => note is! PendingNote).toList();
+
+      for (var pendingNote in pendingNotes) {
         final fileId = await _storageService.upload(
             pendingNote.recordingPath, "voice_note.m4a");
         // so we have to add them separately or it doesn't trigger the event
@@ -52,8 +57,8 @@ class ClassRepository {
           isSplit: false,
         ));
       }
-      class_ = class_
-          .copyWith(notes: [...class_.notes, ...newNotes], pendingNotes: []);
+
+      class_ = class_.copyWith(notes: [...regularNotes, ...newNotes]);
       await _db.update('classes', class_.toJson(), class_.id!);
       return class_;
     } catch (e, s) {
