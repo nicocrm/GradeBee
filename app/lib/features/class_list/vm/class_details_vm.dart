@@ -87,6 +87,7 @@ class ClassDetailsVM extends ChangeNotifier with ClassStateMixin {
     try {
       _class = _class.addVoiceNote(recordingPath);
       _class = await _repository.updateClass(_class);
+      notifyListeners();
     } catch (e) {
       throw Exception(e);
     }
