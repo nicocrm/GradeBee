@@ -5,7 +5,25 @@ from dotenv import load_dotenv
 import os
 
 # Load environment variables from .env file
-load_dotenv()
+load_dotenv(override=True)
+
+def validate_env_vars():
+    required_vars = [
+        "APPWRITE_ENDPOINT",
+        "APPWRITE_PROJECT_ID",
+        "APPWRITE_API_KEY",
+        "APPWRITE_DATABASE_ID",
+        "NOTES_BUCKET_ID",
+        "DEFAULT_USER_ID"
+    ]
+    
+    missing_vars = [var for var in required_vars if not os.getenv(var)]
+    
+    if missing_vars:
+        raise ValueError(f"Missing required environment variables: {', '.join(missing_vars)}")
+
+# Validate environment variables before proceeding
+validate_env_vars()
 
 client = Client()
 
