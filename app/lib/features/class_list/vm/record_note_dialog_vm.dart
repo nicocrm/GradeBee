@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:record/record.dart';
+import 'package:path_provider/path_provider.dart';
 import 'class_details_vm.dart';
 
 class RecordNoteDialogVM extends ChangeNotifier {
@@ -31,12 +32,16 @@ class RecordNoteDialogVM extends ChangeNotifier {
 
   Future<void> startRecording() async {
     if (await _record.hasPermission()) {
+      final tempDir = await getTemporaryDirectory();
+      final fileName =
+          'voice_note_${DateTime.now().toString().replaceAll(RegExp(r'[^0-9]'), '')}.m4a';
+      final filePath = '${tempDir.path}/$fileName';
+
       await _record.start(
         const RecordConfig(
           encoder: AudioEncoder.aacLc,
         ),
-        path:
-            'voice_note_${DateTime.now().toString().replaceAll(RegExp(r'[^0-9]'), '')}.m4a',
+        path: filePath,
       );
       _startTimer();
     }

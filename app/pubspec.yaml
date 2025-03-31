@@ -26,6 +26,7 @@ dependencies:
   http: ^1.3.0
   record: ^5.2.1
   shared_preferences: ^2.5.2
+  path_provider: ^2.1.2
 
 dependency_overrides:
   flutter_web_auth_2: ^4.1.0
