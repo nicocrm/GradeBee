@@ -212,9 +212,13 @@ def parse_filename(filename: str) -> Tuple[str, str, str]:
     Returns (course, day, time) tuple.
     Supports both abbreviated (e.g., 'Wed') and full day names (e.g., 'Wednesday').
     Ignores letter suffixes (e.g., 'b', 'c') after the time.
+    Ignores (n) suffixes at the end of the filename (e.g., '(1)', '(2)').
     """
     # Remove file extension
     name_without_ext = os.path.splitext(filename)[0]
+    
+    # Remove any (n) suffix from the filename
+    name_without_ext = re.sub(r'\(\d+\)$', '', name_without_ext)
     
     # Split by @ to separate time
     parts = name_without_ext.split('@')
