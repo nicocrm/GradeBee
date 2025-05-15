@@ -84,7 +84,7 @@ Requirements:
 - Stay factual and don't invent information
 - Don't use newlines or bullets
 - Mininum 300 characters
-- Maximum 500 characters
+- Maximum 450 characters
 - Use British English
 - If no information is available for a category, omit it from the output.
 - Use the provided student name
