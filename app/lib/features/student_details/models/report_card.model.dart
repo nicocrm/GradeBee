@@ -1,13 +1,13 @@
 class ReportCard {
-  final String id;
+  final String? id;
   final DateTime when;
   final List<ReportCardSection> sections;
   bool isGenerated;
 
   ReportCard({
-    required this.id,
     required this.when,
     required this.sections,
+    this.id,
     this.isGenerated = false,
   });
 
@@ -26,9 +26,7 @@ class ReportCard {
 
   Map<String, dynamic> toJson() {
     return {
-      'id': id,
       'when': when.toIso8601String(),
-      'isGenerated': isGenerated,
     };
   }
 

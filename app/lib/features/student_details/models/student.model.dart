@@ -28,6 +28,7 @@ class Student {
       '\$id': id,
       'name': name,
       'notes': _serializeNotes(notes),
+      'report_cards': _serializeReportCards(reportCards),
     };
   }
 
@@ -41,6 +42,10 @@ class Student {
   Student addNote(String note) {
     return copyWith(
         notes: [...notes, StudentNote(text: note, when: DateTime.now())]);
+  }
+
+  Student addReportCard(ReportCard reportCard) {
+    return copyWith(reportCards: [...reportCards, reportCard]);
   }
 
   Student copyWith({List<ReportCard>? reportCards, List<StudentNote>? notes}) {
@@ -75,4 +80,8 @@ List<ReportCard> _reportCardsFromJson(List<dynamic>? json) {
 
 List<dynamic> _serializeNotes(List<StudentNote> notes) {
   return notes.map((e) => e.id ?? e.toJson()).toList();
+}
+
+List<dynamic> _serializeReportCards(List<ReportCard> reportCards) {
+  return reportCards.map((e) => e.id ?? e.toJson()).toList();
 }
