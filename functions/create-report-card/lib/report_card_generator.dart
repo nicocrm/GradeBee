@@ -83,10 +83,10 @@ Requirements:
 - Don't get too creative, keep it professional
 - Stay factual and don't invent information
 - Don't use newlines or bullets
-- Mininum 300 characters
+- Mininum 350 characters
 - Maximum 450 characters
+- If the generated text is over 450 characters, summarize it down to 450 characters max
 - Use British English
-- If no information is available for a category, omit it from the output.
 - Use the provided student name
 - Don't mention absence
 - Be specific
