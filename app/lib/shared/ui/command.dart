@@ -9,6 +9,7 @@ import 'package:async/async.dart';
 
 typedef CommandAction0<T> = Future<Result<T>> Function();
 typedef CommandAction1<T, A> = Future<Result<T>> Function(A);
+typedef CommandAction2<T, A, B> = Future<Result<T>> Function(A, B);
 
 /// Facilitates interaction with a ViewModel.
 ///
@@ -18,6 +19,7 @@ typedef CommandAction1<T, A> = Future<Result<T>> Function(A);
 ///
 /// Use [Command0] for actions without arguments.
 /// Use [Command1] for actions with one argument.
+/// Use [Command2] for actions with two arguments.
 ///
 /// Actions must return a [Result].
 ///
@@ -41,8 +43,10 @@ abstract class Command<T> extends ChangeNotifier {
 
   /// Clear last action result
   void clearResult() {
-    _result = null;
-    notifyListeners();
+    if (_result != null) {
+      _result = null;
+      notifyListeners();
+    }
   }
 
   bool get hasError => _result?.asError != null;
@@ -92,5 +96,18 @@ class Command1<T, A> extends Command<T> {
   /// Executes the action with the argument.
   Future<void> execute(A argument) async {
     await _execute(() => _action(argument));
+  }
+}
+
+/// [Command] with two arguments.
+/// Takes a [CommandAction2] as action.
+class Command2<T, A, B> extends Command<T> {
+  Command2(this._action);
+
+  final CommandAction2<T, A, B> _action;
+
+  /// Executes the action with the arguments.
+  Future<void> execute(A argument1, B argument2) async {
+    await _execute(() => _action(argument1, argument2));
   }
 }

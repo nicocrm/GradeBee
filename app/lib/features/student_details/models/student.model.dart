@@ -44,6 +44,27 @@ class Student {
         notes: [...notes, StudentNote(text: note, when: DateTime.now())]);
   }
 
+  Student updateNote(String noteId, String newText) {
+    return copyWith(
+      notes: notes.map((note) {
+        if (note.id == noteId) {
+          return StudentNote(
+            id: note.id,
+            text: newText,
+            when: note.when,
+          );
+        }
+        return note;
+      }).toList(),
+    );
+  }
+
+  Student deleteNote(String noteId) {
+    return copyWith(
+      notes: notes.where((note) => note.id != noteId).toList(),
+    );
+  }
+
   Student addReportCard(ReportCard reportCard) {
     return copyWith(reportCards: [...reportCards, reportCard]);
   }
@@ -79,7 +100,7 @@ List<ReportCard> _reportCardsFromJson(List<dynamic>? json) {
 }
 
 List<dynamic> _serializeNotes(List<StudentNote> notes) {
-  return notes.map((e) => e.id ?? e.toJson()).toList();
+  return notes.map((e) => e.toJson()).toList();
 }
 
 List<dynamic> _serializeReportCards(List<ReportCard> reportCards) {

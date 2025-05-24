@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../../shared/ui/utils/error_mixin.dart';
 import '../models/student_note.model.dart';
 import '../vm/student_details_vm.dart';
 import 'package:flutter/services.dart';
@@ -14,46 +15,71 @@ class NotesList extends StatefulWidget {
   State<NotesList> createState() => _NotesListState();
 }
 
-class _NotesListState extends State<NotesList> {
+class _NotesListState extends State<NotesList> with ErrorMixin {
   final _noteController = TextEditingController();
+  StudentNote? _editingNote;
 
   @override
   void initState() {
     super.initState();
     widget.vm.addNoteCommand.addListener(_handleCommandUpdate);
+    widget.vm.updateNoteCommand.addListener(_handleCommandUpdate);
+    widget.vm.deleteNoteCommand.addListener(_handleCommandUpdate);
   }
 
   @override
   void dispose() {
     widget.vm.addNoteCommand.removeListener(_handleCommandUpdate);
+    widget.vm.updateNoteCommand.removeListener(_handleCommandUpdate);
+    widget.vm.deleteNoteCommand.removeListener(_handleCommandUpdate);
     _noteController.dispose();
     super.dispose();
   }
 
   void _handleCommandUpdate() {
-    final command = widget.vm.addNoteCommand;
-    if (command.error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(command.error!.error.toString()),
-          backgroundColor: Theme.of(context).colorScheme.error,
-        ),
-      );
-    } else if (!command.running && command.value != null) {
+    final addCommand = widget.vm.addNoteCommand;
+    final updateCommand = widget.vm.updateNoteCommand;
+    final deleteCommand = widget.vm.deleteNoteCommand;
+
+    if (addCommand.error != null) {
+      showErrorSnackbar(addCommand.error!.error.toString());
+    } else if (!addCommand.running && addCommand.value != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Note added successfully'),
         ),
       );
     }
+    addCommand.clearResult();
+
+    if (updateCommand.error != null) {
+      showErrorSnackbar(updateCommand.error!.error.toString());
+      updateCommand.clearResult();
+    }
+
+    if (deleteCommand.error != null) {
+      showErrorSnackbar(deleteCommand.error!.error.toString());
+      deleteCommand.clearResult();
+    }
   }
 
   Future<void> _showAddNoteDialog() async {
     _noteController.clear();
+    _editingNote = null;
+    return _showNoteDialog();
+  }
+
+  Future<void> _showEditNoteDialog(StudentNote note) async {
+    _noteController.text = note.text;
+    _editingNote = note;
+    return _showNoteDialog();
+  }
+
+  Future<void> _showNoteDialog() async {
     return showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Add Note'),
+        title: Text(_editingNote == null ? 'Add Note' : 'Edit Note'),
         content: TextField(
           controller: _noteController,
           decoration: const InputDecoration(
@@ -69,9 +95,37 @@ class _NotesListState extends State<NotesList> {
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              widget.vm.addNoteCommand.execute(_noteController.text);
+              if (_editingNote != null) {
+                widget.vm.updateNoteCommand
+                    .execute(_editingNote!.id!, _noteController.text);
+              } else {
+                widget.vm.addNoteCommand.execute(_noteController.text);
+              }
             },
             child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showDeleteConfirmationDialog(StudentNote note) async {
+    return showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Note'),
+        content: const Text('Are you sure you want to delete this note?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              widget.vm.deleteNoteCommand.execute(note.id!);
+            },
+            child: const Text('Delete'),
           ),
         ],
       ),
@@ -106,17 +160,31 @@ class _NotesListState extends State<NotesList> {
                           DateFormat('MMMM d, yyyy').format(note.when),
                           style: Theme.of(context).textTheme.titleLarge,
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.copy),
-                          onPressed: () {
-                            Clipboard.setData(ClipboardData(text: note.text));
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Copied to clipboard'),
-                                duration: Duration(seconds: 2),
-                              ),
-                            );
-                          },
+                        Row(
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.edit),
+                              onPressed: () => _showEditNoteDialog(note),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete),
+                              onPressed: () =>
+                                  _showDeleteConfirmationDialog(note),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.copy),
+                              onPressed: () {
+                                Clipboard.setData(
+                                    ClipboardData(text: note.text));
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Copied to clipboard'),
+                                    duration: Duration(seconds: 2),
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
                         ),
                       ],
                     ),

@@ -14,9 +14,13 @@ class StudentNote {
   }
 
   Map<String, dynamic> toJson() {
-    return {
+    final json = {
       'text': text,
       'when': when.toIso8601String(),
     };
+    if (id != null) {
+      json['\$id'] = id!;
+    }
+    return json;
   }
 }
