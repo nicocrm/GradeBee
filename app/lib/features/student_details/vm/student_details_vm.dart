@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../../shared/ui/command.dart';
 import '../models/report_card.model.dart';
 import '../models/student.model.dart';
+import '../models/student_note.model.dart';
 import '../repositories/student_repository.dart';
 import '../services/report_card_service.dart';
 
@@ -14,7 +15,7 @@ class StudentDetailsVM extends ChangeNotifier {
   Student? _student;
   late final Command1<void, ReportCard> generateReportCardCommand;
   late final Command1<void, String> addNoteCommand;
-  late final Command2<void, String, String> updateNoteCommand;
+  late final Command1<void, StudentNote> updateNoteCommand;
   late final Command1<void, String> deleteNoteCommand;
   late final Command1<void, DateTimeRange> addReportCardCommand;
 
@@ -22,7 +23,7 @@ class StudentDetailsVM extends ChangeNotifier {
       {required this.repository, required this.reportCardService}) {
     generateReportCardCommand = Command1(_generateReportCard);
     addNoteCommand = Command1(_addNote);
-    updateNoteCommand = Command2(_updateNote);
+    updateNoteCommand = Command1(_updateNote);
     deleteNoteCommand = Command1(_deleteNote);
     addReportCardCommand = Command1(_addReportCard);
   }
@@ -49,8 +50,8 @@ class StudentDetailsVM extends ChangeNotifier {
     return Result.value(null);
   }
 
-  Future<Result<void>> _updateNote(String noteId, String newText) async {
-    final newStudent = _student!.updateNote(noteId, newText);
+  Future<Result<void>> _updateNote(StudentNote note) async {
+    final newStudent = _student!.updateNote(note);
     await _updateStudent(newStudent);
     notifyListeners();
     return Result.value(null);

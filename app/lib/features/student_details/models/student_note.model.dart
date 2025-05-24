@@ -13,6 +13,14 @@ class StudentNote {
     );
   }
 
+  StudentNote copyWith({String? text, String? id, DateTime? when}) {
+    return StudentNote(
+      text: text ?? this.text,
+      id: id ?? this.id,
+      when: when ?? this.when,
+    );
+  }
+
   Map<String, dynamic> toJson() {
     final json = {
       'text': text,

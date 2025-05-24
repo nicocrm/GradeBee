@@ -96,8 +96,8 @@ class _NotesListState extends State<NotesList> with ErrorMixin {
             onPressed: () {
               Navigator.pop(context);
               if (_editingNote != null) {
-                widget.vm.updateNoteCommand
-                    .execute(_editingNote!.id!, _noteController.text);
+                widget.vm.updateNoteCommand.execute(
+                    _editingNote!.copyWith(text: _noteController.text));
               } else {
                 widget.vm.addNoteCommand.execute(_noteController.text);
               }

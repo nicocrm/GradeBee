@@ -44,15 +44,11 @@ class Student {
         notes: [...notes, StudentNote(text: note, when: DateTime.now())]);
   }
 
-  Student updateNote(String noteId, String newText) {
+  Student updateNote(StudentNote updated) {
     return copyWith(
       notes: notes.map((note) {
-        if (note.id == noteId) {
-          return StudentNote(
-            id: note.id,
-            text: newText,
-            when: note.when,
-          );
+        if (note.id == updated.id) {
+          return updated;
         }
         return note;
       }).toList(),
