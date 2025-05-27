@@ -15,6 +15,8 @@ class ReportCardGenerator {
     final systemPrompt = createSystemPrompt(reportCard.template.sections);
     final prompt =
         createUserPrompt(reportCard.studentNotes, reportCard.student.name);
+    logger.log("System prompt: $systemPrompt");
+    logger.log("User prompt: $prompt");
     final response = await OpenAI.instance.chat.create(
       model: "gpt-4o-mini",
       messages: [
@@ -38,7 +40,7 @@ class ReportCardGenerator {
       throw Exception('Failed to generate report card');
     }
     final json = content[0].text!;
-    logger.log("Generated report card: $json");
+    logger.log("Generated report card (updated): $json");
     final sections = jsonDecode(json);
     final List<ReportCardSection> reportCardSections = [];
     for (var section in sections) {
@@ -69,6 +71,7 @@ You will need to generate a report card for each student based on the notes and 
 The template will have a list of categories, each with a category title, and a list of examples.
 They will be provided as a list of JSON objects with the following fields:
 - category: the title of the category
+- special_instructions: any special instructions for the category, overriding default instructions
 - examples: a list of examples
 
 The notes will be provided as free-form text, each note separated by a line of dashes.
@@ -96,7 +99,7 @@ Format the response as a JSON array without including any code block delimiters 
 - content: the content of the category.
 
 This is the template with the categories and examples:
-${jsonEncode(sections)}
+${jsonEncode(sections.map((e) => e.toJson()).toList())}
 ''';
   }
 }

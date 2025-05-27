@@ -27,18 +27,25 @@ class ReportCardTemplate {
 
 class ReportCardTemplateSection {
   final String category;
+  final String? specialInstructions;
   final List<String> examples;
 
-  ReportCardTemplateSection({required this.category, required this.examples});
+  ReportCardTemplateSection(
+      {required this.category,
+      this.specialInstructions,
+      required this.examples});
 
   factory ReportCardTemplateSection.fromJson(Map<String, dynamic> json) {
     return ReportCardTemplateSection(
-        category: json["category"], examples: json["example"].cast<String>());
+        category: json["category"],
+        specialInstructions: json["special_instructions"],
+        examples: json["example"].cast<String>());
   }
 
   String toJson() {
     return jsonEncode({
       "category": category,
+      "special_instructions": specialInstructions,
       "examples": examples,
     });
   }
