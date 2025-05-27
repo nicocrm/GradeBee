@@ -201,19 +201,23 @@ class _NotesListState extends State<NotesList> with ErrorMixin {
           left: 0,
           right: 0,
           child: Center(
-            child: FloatingActionButton.extended(
-              onPressed:
-                  widget.vm.addNoteCommand.running ? null : _showAddNoteDialog,
-              label: widget.vm.addNoteCommand.running
-                  ? const SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(),
-                    )
-                  : const Text('Add Note'),
-              icon: widget.vm.addNoteCommand.running
-                  ? null
-                  : const Icon(Icons.add),
+            child: ListenableBuilder(
+              listenable: widget.vm.addNoteCommand,
+              builder: (context, _) => FloatingActionButton.extended(
+                onPressed: widget.vm.addNoteCommand.running
+                    ? null
+                    : _showAddNoteDialog,
+                label: widget.vm.addNoteCommand.running
+                    ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(),
+                      )
+                    : const Text('Add Note'),
+                icon: widget.vm.addNoteCommand.running
+                    ? null
+                    : const Icon(Icons.add),
+              ),
             ),
           ),
         ),

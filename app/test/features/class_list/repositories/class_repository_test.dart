@@ -189,7 +189,7 @@ void main() {
           .thenAnswer((_) async => 'note_id_123');
 
       when(mockDatabaseService.update('classes', any, any))
-          .thenAnswer((_) async => null);
+          .thenAnswer((_) async {});
 
       // Setup SharedPreferences for later verification
       final prefs = await SharedPreferences.getInstance();

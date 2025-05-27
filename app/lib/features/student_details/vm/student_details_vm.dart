@@ -65,12 +65,15 @@ class StudentDetailsVM extends ChangeNotifier {
   }
 
   Future<Result<void>> _addReportCard(DateTimeRange period) async {
+    final template = await reportCardService.getDefaultTemplate();
     final reportCard = ReportCard(
       when: DateTime.now(),
       sections: [],
+      templateId: template,
     );
     final newStudent = _student!.addReportCard(reportCard);
     await _updateStudent(newStudent);
+    await loadStudent();
     notifyListeners();
     return Result.value(null);
   }

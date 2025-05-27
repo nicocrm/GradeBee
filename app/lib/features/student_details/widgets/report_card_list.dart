@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../shared/ui/utils/error_mixin.dart';
 import '../models/report_card.model.dart';
 import '../vm/student_details_vm.dart';
 import 'report_card_detail.dart';
@@ -14,35 +15,44 @@ class ReportCardList extends StatefulWidget {
   State<ReportCardList> createState() => _ReportCardListState();
 }
 
-class _ReportCardListState extends State<ReportCardList> {
+class _ReportCardListState extends State<ReportCardList> with ErrorMixin {
   @override
   void initState() {
     super.initState();
     widget.vm.generateReportCardCommand.addListener(_handleCommandUpdate);
+    widget.vm.addReportCardCommand.addListener(_handleCommandUpdate);
   }
 
   @override
   void dispose() {
     widget.vm.generateReportCardCommand.removeListener(_handleCommandUpdate);
+    widget.vm.addReportCardCommand.removeListener(_handleCommandUpdate);
     super.dispose();
   }
 
   void _handleCommandUpdate() {
-    final command = widget.vm.generateReportCardCommand;
-    if (command.error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(command.error!.error.toString()),
-          backgroundColor: Theme.of(context).colorScheme.error,
-        ),
-      );
-    } else if (!command.running && command.value != null) {
+    final generateCommand = widget.vm.generateReportCardCommand;
+    if (generateCommand.error != null) {
+      showErrorSnackbar(generateCommand.error!.error.toString());
+    } else if (!generateCommand.running && generateCommand.value != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Report card generated successfully'),
         ),
       );
     }
+    generateCommand.clearResult();
+    final addCommand = widget.vm.addReportCardCommand;
+    if (addCommand.error != null) {
+      showErrorSnackbar(addCommand.error!.error.toString());
+    } else if (!addCommand.running && addCommand.value != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Report card added successfully'),
+        ),
+      );
+    }
+    addCommand.clearResult();
   }
 
   @override
@@ -71,23 +81,26 @@ class _ReportCardListState extends State<ReportCardList> {
           left: 0,
           bottom: 16,
           child: Center(
-            child: FloatingActionButton.extended(
-              onPressed: widget.vm.addReportCardCommand.running
-                  ? null
-                  : () => _showCreateReportCardDialog(context),
-              label: widget.vm.addReportCardCommand.running
-                  ? const SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(),
-                    )
-                  : const Text('Add Report Card'),
-              icon: widget.vm.addReportCardCommand.running
-                  ? null
-                  : const Icon(Icons.add),
+            child: ListenableBuilder(
+              listenable: widget.vm.addReportCardCommand,
+              builder: (context, _) => FloatingActionButton.extended(
+                onPressed: widget.vm.addReportCardCommand.running
+                    ? null
+                    : () => _showCreateReportCardDialog(context),
+                label: widget.vm.addReportCardCommand.running
+                    ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(),
+                      )
+                    : const Text('Add Report Card'),
+                icon: widget.vm.addReportCardCommand.running
+                    ? null
+                    : const Icon(Icons.add),
+              ),
             ),
           ),
-        ),
+        )
       ],
     );
   }
@@ -116,7 +129,7 @@ class _ReportCardListState extends State<ReportCardList> {
                   lastDate: now.add(const Duration(days: 365)),
                   initialDate: startDate,
                 );
-                if (picked != null) {
+                if (picked != null && context.mounted) {
                   startDate = picked;
                   Navigator.pop(context);
                   _showCreateReportCardDialog(context);
@@ -135,7 +148,7 @@ class _ReportCardListState extends State<ReportCardList> {
                   lastDate: now.add(const Duration(days: 365)),
                   initialDate: endDate,
                 );
-                if (picked != null) {
+                if (picked != null && context.mounted) {
                   endDate = picked;
                   Navigator.pop(context);
                   _showCreateReportCardDialog(context);

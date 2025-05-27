@@ -2,9 +2,11 @@ class ReportCard {
   final String? id;
   final DateTime when;
   final List<ReportCardSection> sections;
+  final String templateId;
   bool isGenerated;
 
   ReportCard({
+    required this.templateId,
     required this.when,
     required this.sections,
     this.id,
@@ -20,14 +22,17 @@ class ReportCard {
               .map((section) => ReportCardSection.fromJson(section))
               .toList()
           : [],
+      templateId: json['template']['\$id'],
       isGenerated: json['isGenerated'] ?? false,
     );
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'when': when.toIso8601String(),
-    };
+    final json = {'when': when.toIso8601String(), 'template': templateId};
+    if (id != null) {
+      json['\$id'] = id!;
+    }
+    return json;
   }
 
   ReportCard copyWith({bool? isGenerated, List<ReportCardSection>? sections}) {
@@ -36,6 +41,7 @@ class ReportCard {
       when: when,
       sections: sections ?? this.sections,
       isGenerated: isGenerated ?? this.isGenerated,
+      templateId: templateId,
     );
   }
 }

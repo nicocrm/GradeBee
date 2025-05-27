@@ -100,5 +100,5 @@ List<dynamic> _serializeNotes(List<StudentNote> notes) {
 }
 
 List<dynamic> _serializeReportCards(List<ReportCard> reportCards) {
-  return reportCards.map((e) => e.id ?? e.toJson()).toList();
+  return reportCards.map((e) => e.toJson()).toList();
 }

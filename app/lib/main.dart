@@ -38,8 +38,9 @@ class _MainAppState extends State<MainApp> {
     GetIt.instance.registerSingleton<AuthState>(authState);
     GetIt.instance
         .registerSingleton<FunctionService>(FunctionService(appwriteClient));
-    GetIt.instance.registerSingleton<ReportCardService>(
-        ReportCardService(functions: GetIt.instance<FunctionService>()));
+    GetIt.instance.registerSingleton<ReportCardService>(ReportCardService(
+        functions: GetIt.instance<FunctionService>(),
+        database: GetIt.instance<DatabaseService>()));
     GetIt.instance.registerSingleton<StudentRepository>(
         StudentRepository(GetIt.instance<DatabaseService>()));
   }
