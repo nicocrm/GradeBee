@@ -45,7 +45,7 @@ class StudentDetailsVM extends ChangeNotifier {
   Future<Result<void>> _addNote(String note) async {
     final newStudent = _student!.addNote(note);
     await _updateStudent(newStudent);
-    await loadStudent();
+    // await loadStudent();
     notifyListeners();
     return Result.value(null);
   }
@@ -73,15 +73,14 @@ class StudentDetailsVM extends ChangeNotifier {
     );
     final newStudent = _student!.addReportCard(reportCard);
     await _updateStudent(newStudent);
-    await loadStudent();
+    // await loadStudent();
     notifyListeners();
     return Result.value(null);
   }
 
   Future<void> _updateStudent(Student student) async {
     try {
-      await repository.updateStudent(student);
-      _student = student;
+      _student = await repository.updateStudent(student);
     } catch (e) {
       rethrow;
     }

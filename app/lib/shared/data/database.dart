@@ -48,14 +48,15 @@ class DatabaseService {
     }
   }
 
-  Future<void> update(
+  Future<Map<String, dynamic>> update(
       String collectionId, Map<String, dynamic> data, String documentId) async {
     try {
-      await _db.updateDocument(
+      final result = await _db.updateDocument(
           databaseId: _databaseId,
           collectionId: collectionId,
           documentId: documentId,
           data: data);
+      return result.data;
     } catch (e, s) {
       AppLogger.error('Error updating document', e, s);
       rethrow;

@@ -25,6 +25,7 @@ class ReportCardService {
         isGenerated: true,
         sections: (response['sections'] as List)
             .map((e) => ReportCardSection.fromJson(e))
-            .toList());
+            .toList(),
+        wasModified: false);
   }
 }

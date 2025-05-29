@@ -132,6 +132,7 @@ def create_note_for_class(class_id, audio_file_id):
             permissions=[
                 Permission.read(Role.user(default_user_id)),
                 Permission.update(Role.user(default_user_id)),
+                Permission.delete(Role.user(default_user_id)),
             ],
         )
         logging.info("Note created successfully.")

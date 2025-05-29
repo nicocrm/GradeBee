@@ -3,7 +3,8 @@ class ReportCard {
   final DateTime when;
   final List<ReportCardSection> sections;
   final String templateId;
-  bool isGenerated;
+  final bool isGenerated;
+  final bool wasModified;
 
   ReportCard({
     required this.templateId,
@@ -11,6 +12,7 @@ class ReportCard {
     required this.sections,
     this.id,
     this.isGenerated = false,
+    this.wasModified = true,
   });
 
   factory ReportCard.fromJson(Map<String, dynamic> json) {
@@ -24,6 +26,7 @@ class ReportCard {
           : [],
       templateId: json['template']['\$id'],
       isGenerated: json['isGenerated'] ?? false,
+      wasModified: false,
     );
   }
 
@@ -35,13 +38,18 @@ class ReportCard {
     return json;
   }
 
-  ReportCard copyWith({bool? isGenerated, List<ReportCardSection>? sections}) {
+  ReportCard copyWith({
+    bool? isGenerated,
+    List<ReportCardSection>? sections,
+    bool wasModified = true,
+  }) {
     return ReportCard(
       id: id,
       when: when,
       sections: sections ?? this.sections,
       isGenerated: isGenerated ?? this.isGenerated,
       templateId: templateId,
+      wasModified: wasModified,
     );
   }
 }

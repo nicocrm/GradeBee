@@ -16,7 +16,8 @@ class StudentRepository {
     }
   }
 
-  Future<void> updateStudent(Student student) async {
-    await _db.update('students', student.toJson(), student.id);
+  Future<Student> updateStudent(Student student) async {
+    final result = await _db.update('students', student.toJson(), student.id);
+    return Student.fromJson(result);
   }
 }

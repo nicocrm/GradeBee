@@ -96,9 +96,9 @@ List<ReportCard> _reportCardsFromJson(List<dynamic>? json) {
 }
 
 List<dynamic> _serializeNotes(List<StudentNote> notes) {
-  return notes.map((e) => e.toJson()).toList();
+  return notes.map((e) => e.wasModified ? e.toJson() : e.id).toList();
 }
 
 List<dynamic> _serializeReportCards(List<ReportCard> reportCards) {
-  return reportCards.map((e) => e.toJson()).toList();
+  return reportCards.map((e) => e.wasModified ? e.toJson() : e.id).toList();
 }

@@ -2,14 +2,20 @@ class StudentNote {
   final String text;
   final String? id;
   final DateTime when;
+  final bool wasModified;
 
-  StudentNote({required this.text, this.id, required this.when});
+  StudentNote(
+      {required this.text,
+      this.id,
+      required this.when,
+      this.wasModified = true});
 
   factory StudentNote.fromJson(Map<String, dynamic> json) {
     return StudentNote(
       text: json['text'],
       id: json['\$id'],
       when: DateTime.parse(json['when']),
+      wasModified: false,
     );
   }
 
@@ -18,6 +24,7 @@ class StudentNote {
       text: text ?? this.text,
       id: id ?? this.id,
       when: when ?? this.when,
+      wasModified: true,
     );
   }
 
