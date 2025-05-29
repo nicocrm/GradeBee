@@ -41,7 +41,8 @@ def update_document_permissions(databases: Databases, collection_id: str, docume
             document_id=document_id,
             permissions=[
                 f"read(\"user:{default_user_id}\")",
-                f"write(\"user:{default_user_id}\")",
+                f"update(\"user:{default_user_id}\")",
+                f"delete(\"user:{default_user_id}\")",
             ]
         )
         print(f"Updated permissions for document {document_id} in collection {collection_id}")

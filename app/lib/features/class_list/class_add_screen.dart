@@ -54,7 +54,7 @@ class _ClassAddScreenState extends State<ClassAddScreen> with ErrorMixin {
     );
   }
 
-  onSave(BuildContext context) async {
+  Future<void> onSave(BuildContext context) async {
     if (_formKey.currentState!.validate()) {
       setState(() => isSaving = true);
       try {
