@@ -90,7 +90,9 @@
         },
         {
             "$id": "create-report-card",
-            "execute": ["users"],
+            "execute": [
+                "users"
+            ],
             "name": "Create report card",
             "enabled": true,
             "logging": true,
@@ -173,6 +175,14 @@
                     "required": false,
                     "array": false,
                     "size": 20,
+                    "default": null
+                },
+                {
+                    "key": "school_year",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 10,
                     "default": null
                 }
             ],
@@ -309,7 +319,9 @@
         {
             "$id": "student_notes",
             "$permissions": [
-                "create(\"users\")"
+                "create(\"users\")",
+                "update(\"users\")",
+                "delete(\"users\")"
             ],
             "databaseId": "676d6913002126bc091b",
             "name": "student_notes",
@@ -361,7 +373,9 @@
         },
         {
             "$id": "report_cards",
-            "$permissions": [],
+            "$permissions": [
+                "create(\"users\")"
+            ],
             "databaseId": "676d6913002126bc091b",
             "name": "report_cards",
             "enabled": true,
@@ -493,7 +507,9 @@
         },
         {
             "$id": "report_card_sections",
-            "$permissions": [],
+            "$permissions": [
+                "create(\"users\")"
+            ],
             "databaseId": "676d6913002126bc091b",
             "name": "report_card_sections",
             "enabled": true,

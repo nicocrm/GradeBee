@@ -23,10 +23,13 @@ class DatabaseService {
   }
 
   Future<List<T>> list<T>(
-      String collectionId, T Function(Map<String, dynamic>) fromJson) async {
+      String collectionId, T Function(Map<String, dynamic>) fromJson,
+      {List<String>? queries}) async {
     try {
       final result = await _db.listDocuments(
-          databaseId: _databaseId, collectionId: collectionId);
+          databaseId: _databaseId,
+          collectionId: collectionId,
+          queries: queries);
       return result.documents.map((e) => fromJson({...e.data})).toList();
     } catch (e, s) {
       AppLogger.error('Error listing documents', e, s);

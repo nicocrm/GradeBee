@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../../shared/ui/constants.dart';
 import '../vm/class_state_mixin.dart';
 import 'day_of_week_dropdown.dart';
+import 'school_year_dropdown.dart';
 
 class ClassEditDetails extends StatelessWidget {
   const ClassEditDetails({super.key, required this.class_, required this.vm});
@@ -30,6 +31,8 @@ class ClassEditDetails extends StatelessWidget {
           ),
           DayOfWeekDropdown(
               value: class_.dayOfWeek, onChanged: vm.setDayOfWeek),
+          SchoolYearDropdown(
+              value: class_.schoolYear, onChanged: vm.setSchoolYear),
           TextFormField(
             initialValue: class_.timeBlock,
             onChanged: vm.setTimeBlock,

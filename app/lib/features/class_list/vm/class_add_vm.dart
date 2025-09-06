@@ -5,7 +5,8 @@ import 'class_state_mixin.dart';
 
 class ClassAddVM extends ChangeNotifier with ClassStateMixin {
   final ClassRepository _repository;
-  Class _currentClass = Class(course: '', dayOfWeek: null, timeBlock: '');
+  Class _currentClass =
+      Class(course: '', dayOfWeek: null, timeBlock: '', schoolYear: '');
 
   ClassAddVM([ClassRepository? repository])
       : _repository = repository ?? ClassRepository();
@@ -27,6 +28,12 @@ class ClassAddVM extends ChangeNotifier with ClassStateMixin {
   @override
   void setTimeBlock(String time) {
     _currentClass = _currentClass.copyWith(timeBlock: time);
+    notifyListeners();
+  }
+
+  @override
+  void setSchoolYear(String schoolYear) {
+    _currentClass = _currentClass.copyWith(schoolYear: schoolYear);
     notifyListeners();
   }
 

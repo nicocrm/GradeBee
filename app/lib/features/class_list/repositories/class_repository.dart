@@ -1,3 +1,4 @@
+import 'package:appwrite/appwrite.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
@@ -20,7 +21,10 @@ class ClassRepository {
 
   Future<List<Class>> listClasses() async {
     try {
-      return await _db.list('classes', Class.fromJson);
+      return await _db.list('classes', Class.fromJson, queries: [
+        Query.equal('school_year', '2025-2026'),
+        // 'school_year = "2025-2026"',
+      ]);
     } catch (e) {
       AppLogger.error('Error listing classes');
       rethrow;

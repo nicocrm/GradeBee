@@ -13,6 +13,7 @@ class Class {
   final String course;
   final String? dayOfWeek;
   final String timeBlock;
+  final String schoolYear;
   final String? id;
   final List<Student> students;
   final List<Note> notes;
@@ -21,6 +22,7 @@ class Class {
     required this.course,
     required this.dayOfWeek,
     required this.timeBlock,
+    required this.schoolYear,
     this.id,
     this.students = const [],
     this.notes = const [],
@@ -30,6 +32,7 @@ class Class {
     String? course,
     String? dayOfWeek,
     String? timeBlock,
+    String? schoolYear,
     String? id,
     List<Student>? students,
     List<Note>? notes,
@@ -38,6 +41,7 @@ class Class {
       course: course ?? this.course,
       dayOfWeek: dayOfWeek ?? this.dayOfWeek,
       timeBlock: timeBlock ?? this.timeBlock,
+      schoolYear: schoolYear ?? this.schoolYear,
       id: id ?? this.id,
       students: students ?? this.students,
       notes: notes ?? this.notes,
@@ -60,6 +64,7 @@ class Class {
       course: json["course"],
       dayOfWeek: json["day_of_week"],
       timeBlock: json["time_block"] ?? "?",
+      schoolYear: json["school_year"],
       id: json["\$id"],
       students: [for (var e in json["students"]) Student.fromJson(e)],
       notes: [for (var e in json["notes"]) Note.fromJson(e)],

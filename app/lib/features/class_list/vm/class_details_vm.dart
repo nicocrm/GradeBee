@@ -39,6 +39,12 @@ class ClassDetailsVM extends ChangeNotifier with ClassStateMixin {
   }
 
   @override
+  void setSchoolYear(String schoolYear) {
+    _class = _class.copyWith(schoolYear: schoolYear);
+    notifyListeners();
+  }
+
+  @override
   void setDayOfWeek(String dayOfWeek) {
     _class = _class.copyWith(dayOfWeek: dayOfWeek);
     notifyListeners();
