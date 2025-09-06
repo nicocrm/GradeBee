@@ -5,8 +5,41 @@ students.  It is built with Flutter and Appwrite.
 
 ## Development Environment
 
-Run `ENV=dev make pull` to pull the changes from the server into appwrite.json.
-Run `ENV=dev make push` to sync them up.
+### Quick Start
+```bash
+# Set up development environment
+just env dev
+
+# Pull latest configuration from Appwrite
+just pull dev
+
+# Push changes to Appwrite
+just push dev
+```
+
+### Available Commands
+```bash
+# Show all available commands
+just --list
+just help
+
+# Environment management
+just env <name>        # Set environment (dev/prod/test)
+just status            # Show environment status
+
+# Appwrite operations
+just push <env>        # Push to Appwrite
+just pull <env>        # Pull from Appwrite
+just promote           # Promote dev to prod
+
+# Web operations
+just build-web         # Build Flutter web app
+just publish-web <env> # Publish web app
+just deploy <env>      # Full deployment (build + publish)
+
+# Utilities
+just clean             # Clean build artifacts
+```
 
 For appwrite functions:
 
@@ -33,8 +66,21 @@ For appwrite functions:
 
 ### Web
 
-The web application is deployed to S3.  Run `make publish-web ENV=prod` to deploy the prod settings,
-or `make publish-web ENV=dev` to deploy the dev settings.
+The web application is deployed to S3. Use the new Just commands:
+
+```bash
+# Deploy to production
+just deploy prod
+
+# Deploy to development
+just deploy dev
+
+# Or step by step
+just env prod
+just build-web
+just publish-web prod
+```
+
 This will do 3 things:
 
 - build the web application, using flutter
