@@ -12,23 +12,23 @@ import 'package:gradebee/features/class_list/models/student.model.dart';
 import 'package:gradebee/features/class_list/models/pending_note.model.dart';
 import 'package:gradebee/features/class_list/repositories/class_repository.dart';
 import 'package:gradebee/shared/data/database.dart';
-import 'package:gradebee/shared/data/storage_service.dart';
+import 'package:gradebee/shared/data/sync_service.dart';
 
 // Generate mocks for the dependencies
-@GenerateMocks([DatabaseService, StorageService, File])
+@GenerateMocks([DatabaseService, SyncService])
 import 'class_repository_test.mocks.dart';
 
 void main() {
   late MockDatabaseService mockDatabaseService;
-  late MockStorageService mockStorageService;
+  late MockSyncService mockSyncService;
   late ClassRepository repository;
   late Class testClass;
 
   setUp(() {
     TestWidgetsFlutterBinding.ensureInitialized();
     mockDatabaseService = MockDatabaseService();
-    mockStorageService = MockStorageService();
-    repository = ClassRepository(mockDatabaseService, mockStorageService);
+    mockSyncService = MockSyncService();
+    repository = ClassRepository(mockDatabaseService, mockSyncService);
 
     // Setup SharedPreferences for testing
     SharedPreferences.setMockInitialValues({});
@@ -152,90 +152,27 @@ void main() {
           pendingNote.when.toIso8601String());
     });
 
-    test(
-        'cleanupSyncedPendingNotes should remove synced notes from preferences and delete files',
-        () async {
-      // Setup mock file that exists
-      final mockFile = MockFile();
-      when(mockFile.exists()).thenAnswer((_) async => true);
-      when(mockFile.delete()).thenAnswer((_) async => mockFile);
-
-      // Setup SharedPreferences with test data
-      final prefs = await SharedPreferences.getInstance();
-      final notesJson = jsonEncode({
-        'classId': testClass.id,
-        'pendingNotes': [pendingNoteJson],
-      });
-      await prefs.setString('pending_notes_${testClass.id}', notesJson);
-
-      // Call the method to cleanup the synced notes
-      await repository.cleanupSyncedPendingNotes(testClass, [pendingNote]);
-
-      // Verify the result
-      final savedJson = prefs.getString('pending_notes_${testClass.id}');
-      expect(savedJson, isNull); // Should be removed as all notes are synced
-
-      // We can't easily verify the file deletion since we can't mock the File constructor
-      // Skipping file deletion verification
-    });
-
-    test('updateClass should upload pending notes and clean up synced notes',
-        () async {
+    test('updateClass should enqueue pending notes for sync', () async {
       // Setup mocks
-      when(mockStorageService.upload(any, any))
-          .thenAnswer((_) async => 'file_id_123');
-
-      when(mockDatabaseService.insert('notes', any))
-          .thenAnswer((_) async => 'note_id_123');
-
       when(mockDatabaseService.update('classes', any, any))
           .thenAnswer((_) async {});
-
-      // Setup SharedPreferences for later verification
-      final prefs = await SharedPreferences.getInstance();
-      final notesJson = jsonEncode({
-        'classId': testClass.id,
-        'pendingNotes': [pendingNoteJson],
-      });
-      await prefs.setString('pending_notes_${testClass.id}', notesJson);
-
-      // Create a mock file for deletion check
-      final mockFile = MockFile();
-      when(mockFile.exists()).thenAnswer((_) async => true);
-      when(mockFile.delete()).thenAnswer((_) async => mockFile);
 
       // Call the method
       final result = await repository.updateClass(testClass);
 
-      // Verify database operations
-      verify(mockStorageService.upload(
-              pendingNote.recordingPath, 'voice_note.m4a'))
+      // Verify sync service was called for each pending note
+      verify(mockSyncService.enqueuePendingNote(pendingNote, testClass.id!))
           .called(1);
-      verify(mockDatabaseService.insert('notes', any)).called(1);
+
+      // Verify database update was called
       verify(mockDatabaseService.update('classes', any, testClass.id!))
           .called(1);
 
-      // Verify the result
-      expect(result.notes.length, 1);
-      expect(result.notes[0], isA<Note>());
-      expect(result.notes[0].id, 'note_id_123');
-      expect(result.notes[0].voice, 'file_id_123');
-      expect(result.notes[0].when, pendingNote.when);
-
-      // Verify cleanup was attempted (SharedPreferences entry should be gone)
-      final savedJsonAfterUpdate =
-          prefs.getString('pending_notes_${testClass.id}');
-      // Note: In a real test with proper File mocking, this would be null
-      // But since we can't easily mock the File constructor, we can't fully test this
-      // expect(savedJsonAfterUpdate, isNull);
+      // Verify the result only contains regular notes (pending notes are handled by sync service)
+      expect(result.notes.length, 0);
     });
 
     test('getClassWithNotes should retrieve local pending notes', () async {
-      // Setup mock to return the class with pending notes
-      final classWithPendingNote = testClass.copyWith(
-        notes: [pendingNote],
-      );
-
       // Setup SharedPreferences with test data
       final prefs = await SharedPreferences.getInstance();
       final notesJson = jsonEncode({
@@ -272,11 +209,10 @@ void main() {
     });
 
     test('updateClass should propagate errors', () async {
-      // Setup the mock to throw when upload is called
-      when(mockStorageService.upload(any, any))
-          .thenThrow(Exception('Storage error'));
+      when(mockDatabaseService.update('classes', any, any))
+          .thenThrow(Exception('Database error'));
 
-      // Create a class with a pending note to trigger upload
+      // Create a class with a pending note
       final testDateTime = DateTime(2023, 1, 1, 12, 0);
       final pendingNote = PendingNote(
         when: testDateTime,
@@ -288,8 +224,7 @@ void main() {
       );
 
       // Verify that the method throws
-      expect(
-          () => repository.updateClass(classWithPendingNote), throwsException);
+      expect(() => repository.updateClass(classWithPendingNote), throwsException);
     });
 
     test('retrieveLocalPendingNotes should not throw on JSON parse error',

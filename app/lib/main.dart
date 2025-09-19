@@ -9,6 +9,7 @@ import 'shared/data/auth_state.dart';
 import 'shared/data/database.dart';
 import 'shared/data/functions.dart';
 import 'shared/data/storage_service.dart';
+import 'shared/data/sync_service.dart';
 import 'shared/router.dart';
 
 void main() async {
@@ -43,6 +44,7 @@ class _MainAppState extends State<MainApp> {
         database: GetIt.instance<DatabaseService>()));
     GetIt.instance.registerSingleton<StudentRepository>(
         StudentRepository(GetIt.instance<DatabaseService>()));
+    GetIt.instance.registerSingleton<SyncService>(SyncService.instance);
   }
 
   @override

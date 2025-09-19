@@ -5,7 +5,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../../../shared/data/database.dart';
-import '../../../shared/data/storage_service.dart';
+import '../../../shared/data/sync_service.dart';
 import '../../../shared/logger.dart';
 import '../models/class.model.dart';
 import '../models/note.model.dart';
@@ -13,11 +13,13 @@ import '../models/pending_note.model.dart';
 
 class ClassRepository {
   final DatabaseService _db;
-  final StorageService _storageService;
+  final SyncService _syncService;
 
-  ClassRepository([DatabaseService? database, StorageService? storageService])
-      : _db = database ?? GetIt.instance<DatabaseService>(),
-        _storageService = storageService ?? GetIt.instance<StorageService>();
+  ClassRepository([
+    DatabaseService? database,
+    SyncService? syncService,
+  ])  : _db = database ?? GetIt.instance<DatabaseService>(),
+        _syncService = syncService ?? GetIt.instance<SyncService>();
 
   Future<List<Class>> listClasses() async {
     try {
@@ -149,46 +151,19 @@ class ClassRepository {
   Future<Class> updateClass(Class class_) async {
     try {
       final newNotes = <Note>[];
-      final syncedPendingNotes = <PendingNote>[];
       final pendingNotes = class_.notes.whereType<PendingNote>().toList();
-      final regularNotes =
-          class_.notes.where((note) => note is! PendingNote).toList();
+      final regularNotes = class_.notes.where((note) => note is! PendingNote).toList();
 
       // First save pending notes locally in case sync fails
       await savePendingNotesLocally(class_);
 
+      // Enqueue each pending note for background sync
       for (var pendingNote in pendingNotes) {
-        try {
-          final fileId = await _storageService.upload(
-              pendingNote.recordingPath, "voice_note.m4a");
-
-          // So we have to add them separately or it doesn't trigger the event
-          final noteId = await _db.insert('notes', {
-            'voice': fileId,
-            'when': pendingNote.when.toIso8601String(),
-            'class': class_.id,
-          });
-
-          syncedPendingNotes.add(pendingNote);
-          newNotes.add(Note(
-            id: noteId,
-            voice: fileId,
-            when: pendingNote.when,
-            isSplit: false,
-          ));
-        } catch (e, s) {
-          AppLogger.error('Error uploading note', e, s);
-        }
+        _syncService.enqueuePendingNote(pendingNote, class_.id!);
       }
 
-      // Clean up synced notes if any were uploaded successfully
-      if (newNotes.isNotEmpty) {
-        await cleanupSyncedPendingNotes(class_, syncedPendingNotes);
-      }
-
-      class_ = class_.copyWith(notes: [...regularNotes, ...newNotes]);
-      await _db.update('classes', class_.toJson(), class_.id!);
-      return class_;
+      // Return the class with only regular notes (pending notes will be synced in background)
+      return class_.copyWith(notes: regularNotes);
     } catch (e, s) {
       AppLogger.error('Error updating class', e, s);
       rethrow;
