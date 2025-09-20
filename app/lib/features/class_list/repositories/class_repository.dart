@@ -150,9 +150,7 @@ class ClassRepository {
 
   Future<Class> updateClass(Class class_) async {
     try {
-      final newNotes = <Note>[];
       final pendingNotes = class_.notes.whereType<PendingNote>().toList();
-      final regularNotes = class_.notes.where((note) => note is! PendingNote).toList();
 
       // First save pending notes locally in case sync fails
       await savePendingNotesLocally(class_);
@@ -162,8 +160,9 @@ class ClassRepository {
         _syncService.enqueuePendingNote(pendingNote, class_.id!);
       }
 
-      // Return the class with only regular notes (pending notes will be synced in background)
-      return class_.copyWith(notes: regularNotes);
+      // Update the class in the database (does not include notes)
+      await _db.update('classes', class_.toJson(), class_.id!);
+      return class_;
     } catch (e, s) {
       AppLogger.error('Error updating class', e, s);
       rethrow;

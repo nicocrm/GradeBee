@@ -39,6 +39,7 @@ void main() {
       dayOfWeek: 'Monday',
       timeBlock: '9:00 AM',
       students: [Student(name: 'John Doe')],
+      schoolYear: '2025-2026',
       notes: [],
     );
   });
@@ -52,16 +53,17 @@ void main() {
           course: 'Physics',
           dayOfWeek: 'Tuesday',
           timeBlock: '11:00 AM',
+          schoolYear: '2025-2026',
         ),
       ];
 
-      when(mockDatabaseService.list('classes', any))
+      when(mockDatabaseService.list('classes', Class.fromJson, queries: anyNamed('queries')))
           .thenAnswer((_) async => mockClasses);
 
       final result = await repository.listClasses();
 
       expect(result, mockClasses);
-      verify(mockDatabaseService.list('classes', any)).called(1);
+      verify(mockDatabaseService.list('classes', Class.fromJson, queries: anyNamed('queries'))).called(1);
     });
 
     test('addClass should add a class and return it with an ID', () async {
@@ -69,6 +71,7 @@ void main() {
         course: 'New Class',
         dayOfWeek: 'Wednesday',
         timeBlock: '2:00 PM',
+        schoolYear: '2025-2026',
       );
 
       when(mockDatabaseService.insert('classes', any))
@@ -155,7 +158,7 @@ void main() {
     test('updateClass should enqueue pending notes for sync', () async {
       // Setup mocks
       when(mockDatabaseService.update('classes', any, any))
-          .thenAnswer((_) async {});
+          .thenAnswer((_) async => {});
 
       // Call the method
       final result = await repository.updateClass(testClass);
@@ -168,8 +171,8 @@ void main() {
       verify(mockDatabaseService.update('classes', any, testClass.id!))
           .called(1);
 
-      // Verify the result only contains regular notes (pending notes are handled by sync service)
-      expect(result.notes.length, 0);
+      // Verify the result only contains our pending note
+      expect(result.notes.length, 1);
     });
 
     test('getClassWithNotes should retrieve local pending notes', () async {
@@ -195,7 +198,7 @@ void main() {
 
   group('ClassRepository - Error Handling', () {
     test('listClasses should propagate errors', () async {
-      when(mockDatabaseService.list('classes', any))
+      when(mockDatabaseService.list('classes', Class.fromJson, queries: anyNamed('queries')))
           .thenThrow(Exception('Database error'));
 
       expect(() => repository.listClasses(), throwsException);

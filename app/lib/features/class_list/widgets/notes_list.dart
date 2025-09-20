@@ -24,7 +24,8 @@ class NotesList extends StatelessWidget {
                   // Handle PendingNote differently if needed
                   if (note is PendingNote) {
                     return ListTile(
-                      title: Text('Pending Voice Note'),
+                      leading: const Icon(Icons.cloud_upload, color: Colors.orange),
+                      title: const Text('Voice Note (Syncing...)'),
                       subtitle: Text(note.when.toLocal().toString()),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
