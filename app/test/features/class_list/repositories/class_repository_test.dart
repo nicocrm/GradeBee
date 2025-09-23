@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/mockito.dart';
@@ -7,7 +6,6 @@ import 'package:mockito/annotations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:gradebee/features/class_list/models/class.model.dart';
-import 'package:gradebee/features/class_list/models/note.model.dart';
 import 'package:gradebee/features/class_list/models/student.model.dart';
 import 'package:gradebee/features/class_list/models/pending_note.model.dart';
 import 'package:gradebee/features/class_list/repositories/class_repository.dart';

@@ -27,7 +27,7 @@ class DayOfWeekDropdown extends StatelessWidget {
         value != null && daysOfWeek.contains(value) ? value : null;
 
     return DropdownButtonFormField<String>(
-      value: validValue,
+      initialValue: validValue,
       decoration: const InputDecoration(
         labelText: 'Day of Week',
       ),
