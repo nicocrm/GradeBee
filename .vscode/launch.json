@@ -1,0 +1,78 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "app",
+            "cwd": "app",
+            "request": "launch",
+            "type": "dart"
+        },
+        {
+            "name": "app (profile mode)",
+            "cwd": "app",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "profile"
+        },
+        {
+            "name": "app (release mode)",
+            "cwd": "app",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "release"
+        },
+        {
+            "name": "record_test",
+            "cwd": "record_test",
+            "request": "launch",
+            "type": "dart"
+        },
+        {
+            "name": "record_test (profile mode)",
+            "cwd": "record_test",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "profile"
+        },
+        {
+            "name": "record_test (release mode)",
+            "cwd": "record_test",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "release"
+        },
+        {
+            "name": "create-report-card",
+            "cwd": "functions\\create-report-card",
+            "request": "launch",
+            "type": "dart"
+        },
+        {
+            "name": "gradebee-function-helpers",
+            "cwd": "functions\\gradebee-function-helpers",
+            "request": "launch",
+            "type": "dart"
+        },
+        {
+            "name": "gradebee-models",
+            "cwd": "functions\\gradebee-models",
+            "request": "launch",
+            "type": "dart"
+        },
+        {
+            "name": "split-notes-by-student",
+            "cwd": "functions\\split-notes-by-student",
+            "request": "launch",
+            "type": "dart"
+        },
+        {
+            "name": "transcribe-note",
+            "cwd": "functions\\transcribe-note",
+            "request": "launch",
+            "type": "dart"
+        }
+    ]
+}
