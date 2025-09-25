@@ -14,10 +14,11 @@ class AppInitializer {
   
   /// Initialize all services in the current isolate's GetIt instance
   /// Safe to call multiple times - will skip if already initialized
-  static void initializeServices() {
+  static Future<void> initializeServices() async {
     if (_isInitialized) {
       return; // Already initialized in this isolate
     }
+    await dotenv.load(fileName: ".env");
     
     final appwriteClient = client();
     

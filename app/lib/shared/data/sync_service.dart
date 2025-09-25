@@ -1,5 +1,6 @@
 import 'dart:isolate';
 import 'dart:async';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter/foundation.dart' show compute, kIsWeb;
 import 'package:get_it/get_it.dart';
@@ -174,12 +175,17 @@ class SyncServiceIsolate extends SyncService {
 
   Future<void> _startSyncIsolate() async {
     final receivePort = ReceivePort();
-    _isolate = await Isolate.spawn(_syncWorker, receivePort.sendPort);
-    _sendPort = await receivePort.first;
-
-    // Listen for completion messages from worker
+    final token = RootIsolateToken.instance!;
+    _isolate = await Isolate.spawn(_syncWorker, _IsolateData(token: token, answerPort: receivePort.sendPort));
+    
+    // Listen to all messages from the worker
     receivePort.listen((message) {
-      if (message is Map && message['type'] == 'completed') {
+      if (message is SendPort) {
+        // First message is the worker's send port
+        _sendPort = message;
+        AppLogger.info('Sync isolate initialized');
+      } else if (message is Map && message['type'] == 'completed') {
+        // Completion messages
         final noteId = message['noteId'];
         _processingNotes.remove(noteId);
         AppLogger.info('Note processing completed: $noteId');
@@ -187,14 +193,18 @@ class SyncServiceIsolate extends SyncService {
     });
   }
 
-  static void _syncWorker(SendPort sendPort) {
+
+  static void _syncWorker(_IsolateData data) {
     // Initialize services in this isolate's GetIt instance
-    AppInitializer.initializeServices();
+    BackgroundIsolateBinaryMessenger.ensureInitialized(data.token);
     
     final receivePort = ReceivePort();
+    final sendPort = data.answerPort;
     sendPort.send(receivePort.sendPort);
 
     receivePort.listen((noteData) async {
+      await AppInitializer.initializeServices();
+
       final noteId = noteData['noteId'];
       try {
         await SyncService.syncNoteCompute(noteData);
@@ -230,10 +240,20 @@ class SyncServiceIsolate extends SyncService {
   }
 }
 
+class _IsolateData {
+  final RootIsolateToken token;
+  final SendPort answerPort;
+
+  _IsolateData({
+    required this.token,
+    required this.answerPort,
+  });
+}
+
 /// SyncService implementation using Compute for web platforms
 class SyncServiceCompute extends SyncService {
   static Future<void> syncNoteCompute(Map<String, dynamic> noteData) async {
-    AppInitializer.initializeServices();
+    await AppInitializer.initializeServices();
     await SyncService.syncNoteCompute(noteData);
   }
 

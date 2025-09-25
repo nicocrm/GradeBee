@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:get_it/get_it.dart';
 
 import 'shared/data/app_initializer.dart';
+import 'shared/data/auth_state.dart';
 import 'shared/data/sync_service.dart';
 import 'shared/router.dart';
 
 void main() async {
-  await dotenv.load(fileName: ".env");
+  await AppInitializer.initializeServices();
   runApp(MainApp());
 }
 
@@ -24,9 +24,6 @@ class _MainAppState extends State<MainApp> {
   @override
   void initState() {
     super.initState();
-    
-    // Initialize all services using the common initializer
-    AppInitializer.initializeServices();
     
     // Get the auth state that was registered by the initializer
     authState = GetIt.instance<AuthState>();
