@@ -55,6 +55,7 @@ class Class {
       'time_block': timeBlock,
       'students': _serializeStudents(students),
       'notes': _serializeNotes(notes),
+      'school_year': schoolYear,
       "\$id": id,
     };
   }

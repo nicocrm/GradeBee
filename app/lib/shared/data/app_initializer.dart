@@ -14,19 +14,17 @@ class AppInitializer {
   
   /// Initialize all services in the current isolate's GetIt instance
   /// Safe to call multiple times - will skip if already initialized
-  static Future<void> initializeServices() async {
+  static void initializeServices(Map<String, String> environment) {
     if (_isInitialized) {
       return; // Already initialized in this isolate
     }
-    await dotenv.load(fileName: ".env");
-    
-    final appwriteClient = client();
+    final appwriteClient = client(environment);
     
     // Register core services
     GetIt.instance.registerSingleton<DatabaseService>(
-        DatabaseService(appwriteClient, dotenv.env['APPWRITE_DATABASE_ID']!));
+        DatabaseService(appwriteClient, environment['APPWRITE_DATABASE_ID']!));
     GetIt.instance.registerSingleton<StorageService>(
-        StorageService(appwriteClient, dotenv.env['NOTES_BUCKET_ID']!));
+        StorageService(appwriteClient, environment['NOTES_BUCKET_ID']!));
     GetIt.instance.registerSingleton<FunctionService>(
         FunctionService(appwriteClient));
     

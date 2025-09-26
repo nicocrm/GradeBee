@@ -15,25 +15,22 @@ import './app_initializer.dart';
 
 /// Abstract service responsible for background synchronization of pending notes
 abstract class SyncService with WidgetsBindingObserver {
-  static SyncService? _instance;
-  static SyncService get instance => _instance ??= _createInstance();
-
   final Set<String> _processingNotes = <String>{}; // Track notes currently being processed
 
-  SyncService() {
-    initialize();
+  SyncService(Map<String, String> environment) {
+    initialize(environment);
     WidgetsBinding.instance.addObserver(this);
   }
 
-  static SyncService _createInstance() {
+  static SyncService createInstance(Map<String, String> environment) {
     if (kIsWeb) {
-      return SyncServiceCompute();
+      return SyncServiceCompute(environment);
     } else {
-      return SyncServiceIsolate();
+      return SyncServiceIsolate(environment);
     }
   }
 
-  Future<void> initialize() async {
+  Future<void> initialize(Map<String, String> environment) async {
     await _checkForPendingNotes();
   }
 
@@ -167,16 +164,18 @@ class SyncServiceIsolate extends SyncService {
   Isolate? _isolate;
   SendPort? _sendPort;
 
+  SyncServiceIsolate(super.environment);
+
   @override
-  Future<void> initialize() async {
-    await _startSyncIsolate();
-    await super.initialize();
+  Future<void> initialize(Map<String, String> environment) async {
+    await _startSyncIsolate(environment);
+    await super.initialize(environment);
   }
 
-  Future<void> _startSyncIsolate() async {
+  Future<void> _startSyncIsolate(Map<String, String> environment) async {
     final receivePort = ReceivePort();
     final token = RootIsolateToken.instance!;
-    _isolate = await Isolate.spawn(_syncWorker, _IsolateData(token: token, answerPort: receivePort.sendPort));
+    _isolate = await Isolate.spawn(_syncWorker, _IsolateData(token: token, answerPort: receivePort.sendPort, environment: environment));
     
     // Listen to all messages from the worker
     receivePort.listen((message) {
@@ -195,6 +194,7 @@ class SyncServiceIsolate extends SyncService {
 
 
   static void _syncWorker(_IsolateData data) {
+    AppLogger.info('Sync worker started');
     // Initialize services in this isolate's GetIt instance
     BackgroundIsolateBinaryMessenger.ensureInitialized(data.token);
     
@@ -203,7 +203,7 @@ class SyncServiceIsolate extends SyncService {
     sendPort.send(receivePort.sendPort);
 
     receivePort.listen((noteData) async {
-      await AppInitializer.initializeServices();
+      AppInitializer.initializeServices(data.environment);
 
       final noteId = noteData['noteId'];
       try {
@@ -243,17 +243,22 @@ class SyncServiceIsolate extends SyncService {
 class _IsolateData {
   final RootIsolateToken token;
   final SendPort answerPort;
+  final Map<String, String> environment;
 
   _IsolateData({
     required this.token,
     required this.answerPort,
+    required this.environment,
   });
 }
 
 /// SyncService implementation using Compute for web platforms
+/// This assumes that the environment is already initialized and available within the compute worker
+/// (on the web it should not be a problem)
 class SyncServiceCompute extends SyncService {
+  SyncServiceCompute(super.environment);
+
   static Future<void> syncNoteCompute(Map<String, dynamic> noteData) async {
-    await AppInitializer.initializeServices();
     await SyncService.syncNoteCompute(noteData);
   }
 

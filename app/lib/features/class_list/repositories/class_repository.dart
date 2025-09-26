@@ -25,7 +25,7 @@ class ClassRepository {
     try {
       return await _db.list('classes', Class.fromJson, queries: [
         Query.equal('school_year', '2025-2026'),
-        // 'school_year = "2025-2026"',
+        Query.select(['*', 'students.*', 'notes.*'])
       ]);
     } catch (e) {
       AppLogger.error('Error listing classes');

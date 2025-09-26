@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:get_it/get_it.dart';
 
 import 'shared/data/app_initializer.dart';
@@ -7,7 +8,8 @@ import 'shared/data/sync_service.dart';
 import 'shared/router.dart';
 
 void main() async {
-  await AppInitializer.initializeServices();
+  await dotenv.load(fileName: ".env");
+    
   runApp(MainApp());
 }
 
@@ -24,12 +26,13 @@ class _MainAppState extends State<MainApp> {
   @override
   void initState() {
     super.initState();
+    AppInitializer.initializeServices(dotenv.env);
     
     // Get the auth state that was registered by the initializer
     authState = GetIt.instance<AuthState>();
     
-    // Register the sync service
-    GetIt.instance.registerSingleton<SyncService>(SyncService.instance);
+    // Start the sync
+    GetIt.instance.registerSingleton<SyncService>(SyncService.createInstance(dotenv.env));
   }
 
   @override
