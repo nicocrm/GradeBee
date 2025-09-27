@@ -38,7 +38,8 @@ void main() {
       timeBlock: '9:00 AM',
       students: [Student(name: 'John Doe')],
       schoolYear: '2025-2026',
-      notes: [],
+      savedNotes: [],
+      pendingNotes: [],
     );
   });
 
@@ -101,7 +102,7 @@ void main() {
       };
 
       testClass = testClass.copyWith(
-        notes: [pendingNote],
+        pendingNotes: [pendingNote],
       );
     });
 
@@ -137,7 +138,7 @@ void main() {
       await prefs.setString('pending_notes_${testClass.id}', notesJson);
 
       // Create a class without pending notes
-      final classWithoutPendingNotes = testClass.copyWith(notes: []);
+      final classWithoutPendingNotes = testClass.copyWith(pendingNotes: []);
 
       // Call the method
       final result =
@@ -221,7 +222,7 @@ void main() {
       );
 
       final classWithPendingNote = testClass.copyWith(
-        notes: [pendingNote],
+        pendingNotes: [pendingNote],
       );
 
       // Verify that the method throws

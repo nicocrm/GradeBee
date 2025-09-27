@@ -26,7 +26,7 @@ class TestSyncServiceCompute extends SyncService {
   TestSyncServiceCompute({
     required this.mockStorageService,
     required this.mockDatabaseService,
-  });
+  }) : super({});
 
   @override
   void processNote(Map<String, dynamic> noteData) {
@@ -64,7 +64,7 @@ void main() {
     
     // Setup GetIt
     getIt = GetIt.instance;
-    getIt.reset();
+    await getIt.reset();
     
     // Create mocks
     mockDatabaseService = MockDatabaseService();
@@ -85,7 +85,7 @@ void main() {
   });
 
   tearDown(() async {
-    getIt.reset();
+    await getIt.reset();
     AppInitializer.reset();
     syncService.dispose();
     

@@ -8,7 +8,6 @@ import '../../../shared/data/database.dart';
 import '../../../shared/data/sync_service.dart';
 import '../../../shared/logger.dart';
 import '../models/class.model.dart';
-import '../models/note.model.dart';
 import '../models/pending_note.model.dart';
 
 class ClassRepository {
@@ -24,6 +23,7 @@ class ClassRepository {
   Future<List<Class>> listClasses() async {
     try {
       return await _db.list('classes', Class.fromJson, queries: [
+        // hard coded for now...
         Query.equal('school_year', '2025-2026'),
         Query.select(['*', 'students.*', 'notes.*'])
       ]);
@@ -45,13 +45,12 @@ class ClassRepository {
 
   Future<void> savePendingNotesLocally(Class class_) async {
     try {
-      final pendingNotes = class_.notes.whereType<PendingNote>().toList();
-      if (pendingNotes.isEmpty) return;
+      if (class_.pendingNotes.isEmpty) return;
 
       // Convert pending notes to JSON format
       final notesJson = jsonEncode({
         'classId': class_.id,
-        'pendingNotes': pendingNotes
+        'pendingNotes': class_.pendingNotes
             .map((note) => {
                   'recordingPath': note.recordingPath,
                   'when': note.when.toIso8601String(),
@@ -81,12 +80,8 @@ class ClassRepository {
               ))
           .toList();
 
-      return class_.copyWith(
-        notes: [
-          ...class_.notes.where((n) => n is! PendingNote),
-          ...pendingNotesList
-        ],
-      );
+      // Clean separation - just add pending notes to their own list
+      return class_.copyWith(pendingNotes: pendingNotesList);
     } catch (e, s) {
       AppLogger.error('Error retrieving pending notes', e, s);
       return class_;
@@ -97,7 +92,7 @@ class ClassRepository {
   /// 1. Removing them from SharedPreferences
   /// 2. Deleting the associated recording files
   Future<void> cleanupSyncedPendingNotes(
-      Class class_, List<Note> syncedNotes) async {
+      Class class_, List<PendingNote> syncedNotes) async {
     try {
       // Get the current pending notes from SharedPreferences
       final prefs = await SharedPreferences.getInstance();
@@ -114,7 +109,6 @@ class ClassRepository {
 
       // Filter out the synced notes (keeping only unsyncedNotes)
       final syncedFilePaths = syncedNotes
-          .whereType<PendingNote>()
           .map((note) => note.recordingPath)
           .toList();
 
@@ -150,17 +144,15 @@ class ClassRepository {
 
   Future<Class> updateClass(Class class_) async {
     try {
-      final pendingNotes = class_.notes.whereType<PendingNote>().toList();
-
-      // First save pending notes locally in case sync fails
+      // Save pending notes locally
       await savePendingNotesLocally(class_);
 
-      // Enqueue each pending note for background sync
-      for (var pendingNote in pendingNotes) {
+      // Enqueue pending notes for sync
+      for (var pendingNote in class_.pendingNotes) {
         _syncService.enqueuePendingNote(pendingNote, class_.id!);
       }
 
-      // Update the class in the database (does not include notes)
+      // Update class (only saved notes will be serialized)
       await _db.update('classes', class_.toJson(), class_.id!);
       return class_;
     } catch (e, s) {
