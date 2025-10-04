@@ -43,7 +43,7 @@ class _ClassDetailsScreenState extends State<ClassDetailsScreen>
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<Class>(
-      future: vm.getClassWithNotes(),
+      future: vm.getClassDetails(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return buildErrorText(snapshot.error.toString());

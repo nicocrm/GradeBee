@@ -2,14 +2,14 @@ class Note {
   final String text;
   final bool isSplit;
   final DateTime when;
-  final String? id;
+  final String id;
 
   /// id for recording of voice note
   final String? voice;
 
   Note({
     this.text = "",
-    this.id,
+    required this.id,
     this.isSplit = false,
     required this.when,
     this.voice,
@@ -21,6 +21,7 @@ class Note {
       id: json["\$id"],
       isSplit: json["is_split"],
       when: DateTime.parse(json["when"]),
+      voice: json["voice"],
     );
   }
 

@@ -97,7 +97,7 @@ class StudentList extends StatelessWidget {
 
     if (studentName != null && studentName.isNotEmpty) {
       vm.addStudent(studentName);
-      vm.updateClassCommand.execute();
+      await vm.updateClassCommand.execute();
     }
   }
 }

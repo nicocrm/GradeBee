@@ -16,7 +16,8 @@ class Class {
   final String schoolYear;
   final String? id;
   final List<Student> students;
-  final List<Note> notes;
+  final List<Note> savedNotes;      // Only persisted notes
+  final List<PendingNote> pendingNotes;  // Only local pending notes
 
   Class({
     required this.course,
@@ -25,7 +26,8 @@ class Class {
     required this.schoolYear,
     this.id,
     this.students = const [],
-    this.notes = const [],
+    this.savedNotes = const [],
+    this.pendingNotes = const [],
   });
 
   Class copyWith({
@@ -35,7 +37,8 @@ class Class {
     String? schoolYear,
     String? id,
     List<Student>? students,
-    List<Note>? notes,
+    List<Note>? savedNotes,
+    List<PendingNote>? pendingNotes,
   }) {
     return Class(
       course: course ?? this.course,
@@ -44,7 +47,8 @@ class Class {
       schoolYear: schoolYear ?? this.schoolYear,
       id: id ?? this.id,
       students: students ?? this.students,
-      notes: notes ?? this.notes,
+      savedNotes: savedNotes ?? this.savedNotes,
+      pendingNotes: pendingNotes ?? this.pendingNotes,
     );
   }
 
@@ -54,7 +58,8 @@ class Class {
       'day_of_week': dayOfWeek,
       'time_block': timeBlock,
       'students': _serializeStudents(students),
-      'notes': _serializeNotes(notes),
+      'notes': _serializeNotes(savedNotes), // Only saved notes
+      'school_year': schoolYear,
       "\$id": id,
     };
   }
@@ -67,7 +72,8 @@ class Class {
       schoolYear: json["school_year"],
       id: json["\$id"],
       students: [for (var e in json["students"]) Student.fromJson(e)],
-      notes: [for (var e in json["notes"]) Note.fromJson(e)],
+      savedNotes: [for (var e in json["notes"]) Note.fromJson(e)],
+      pendingNotes: const [], // Pending notes are loaded separately
     );
   }
 
@@ -81,8 +87,8 @@ class Class {
 
   Class addVoiceNote(String recordingPath) {
     return copyWith(
-      notes: [
-        ...notes,
+      pendingNotes: [
+        ...pendingNotes,
         PendingNote(
           when: DateTime.now(),
           recordingPath: recordingPath,
@@ -90,4 +96,27 @@ class Class {
       ],
     );
   }
+
+  // Computed property for backward compatibility (if needed)
+  List<Note> get notes => [
+    ...savedNotes,
+    ...pendingNotes,
+  ];
+
+  // If the class still has the note as "pending", remove it from pending and add it to saved
+  Class updateSyncedNote(Note note) {
+    if(!savedNotes.any((n) => n.id == note.id)) {
+      return copyWith(
+        pendingNotes: pendingNotes.where((n) => n.id != note.id).toList(),
+        savedNotes: [...savedNotes, note]
+      );
+    }
+    return this;
+  }
+
+  // // Helper getters for UI convenience
+  // List<Note> get allNotesSorted => [
+  //   ...pendingNotes,  // Pending notes first (most recent)
+  //   ...savedNotes,
+  // ]..sort((a, b) => b.when.compareTo(a.when)); // Most recent first
 }
