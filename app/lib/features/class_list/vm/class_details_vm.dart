@@ -1,5 +1,8 @@
 import 'package:async/async.dart';
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:get_it/get_it.dart';
+import '../../../shared/data/note_sync_event_bus.dart';
 import '../../../shared/ui/command.dart';
 import '../models/class.model.dart';
 import '../models/note.model.dart';
@@ -11,16 +14,23 @@ import 'class_state_mixin.dart';
 class ClassDetailsVM extends ChangeNotifier with ClassStateMixin {
   final ClassRepository _repository;
   final Class _initialClass;
+  final NoteSyncEventBus _noteSyncEventBus;
   Class _class;
   late final Command0 updateClassCommand;
+  late final StreamSubscription<NoteSyncEvent> _syncEventSubscription;
 
   ClassDetailsVM(
     Class initialClass, [
     ClassRepository? repository,
+    NoteSyncEventBus? noteSyncEventBus,
   ])  : _repository = repository ?? ClassRepository(),
+        _noteSyncEventBus = noteSyncEventBus ?? GetIt.instance<NoteSyncEventBus>(),
         _initialClass = initialClass,
         _class = initialClass {
     updateClassCommand = Command0(_updateClass);
+    _syncEventSubscription = _noteSyncEventBus.events.listen((event) {
+      _onNoteSyncEvent(event);
+    });
   }
 
   Class get currentClass => _class;
@@ -103,5 +113,21 @@ class ClassDetailsVM extends ChangeNotifier with ClassStateMixin {
     } catch (e) {
       throw Exception(e);
     }
+  }
+
+  void _onNoteSyncEvent(NoteSyncEvent event) {
+    if(event.type == NoteSyncEventType.syncCompleted) {
+      final updatedClass = _class.updateSyncedNote(event.note);
+      if(updatedClass != _class) {
+        _class = updatedClass;
+        notifyListeners();
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _syncEventSubscription.cancel();
+    super.dispose();
   }
 }

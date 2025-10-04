@@ -9,6 +9,8 @@ import 'shared/router.dart';
 
 void main() async {
   await dotenv.load(fileName: ".env");
+  AppInitializer.initializeServices(dotenv.env);
+  GetIt.instance<SyncService>().checkForPendingNotes();
     
   runApp(MainApp());
 }
@@ -26,13 +28,11 @@ class _MainAppState extends State<MainApp> {
   @override
   void initState() {
     super.initState();
-    AppInitializer.initializeServices(dotenv.env);
     
     // Get the auth state that was registered by the initializer
     authState = GetIt.instance<AuthState>();
     
     // Start the sync
-    GetIt.instance.registerSingleton<SyncService>(SyncService.createInstance(dotenv.env));
   }
 
   @override

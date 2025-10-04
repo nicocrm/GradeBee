@@ -72,4 +72,10 @@ class _ClassAddScreenState extends State<ClassAddScreen> with ErrorMixin {
       }
     }
   }
+
+  @override
+  void dispose() {
+    widget.vm.dispose();
+    super.dispose();
+  }
 }

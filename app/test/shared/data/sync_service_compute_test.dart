@@ -1,4 +1,4 @@
-import 'dart:convert';
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -12,6 +12,8 @@ import 'package:gradebee/shared/data/sync_service.dart';
 import 'package:gradebee/shared/data/database.dart';
 import 'package:gradebee/shared/data/storage_service.dart';
 import 'package:gradebee/shared/data/app_initializer.dart';
+import 'package:gradebee/shared/data/local_storage.dart';
+import 'package:gradebee/shared/data/note_sync_event_bus.dart';
 import 'package:gradebee/shared/logger.dart';
 
 // Generate mocks for the dependencies
@@ -26,26 +28,35 @@ class TestSyncServiceCompute extends SyncService {
   TestSyncServiceCompute({
     required this.mockStorageService,
     required this.mockDatabaseService,
-  }) : super({});
+    LocalStorage<PendingNote>? localStorage,
+  }) : super(NoteSyncEventBus(), localStorage: localStorage);
 
   @override
-  void processNote(Map<String, dynamic> noteData) {
-    // Ensure services are registered in GetIt before calling syncNoteCompute
-    if (!GetIt.instance.isRegistered<StorageService>()) {
-      GetIt.instance.registerSingleton<StorageService>(mockStorageService);
+  void processNote(PendingNote noteData, String classId) {
+    unawaited(processNoteDirectly(noteData, classId));
+  }
+
+  // Override to bypass compute() and call NoteSyncWorker directly
+  Future<NoteSyncEvent> processNoteDirectly(PendingNote noteData, String classId) async {
+    try {
+      final storageService = GetIt.instance<StorageService>();
+      final dbService = GetIt.instance<DatabaseService>();
+      final noteSyncWorker = NoteSyncWorker(storageService, dbService);
+      
+      final result = await noteSyncWorker.uploadNote(noteData);
+      
+      AppLogger.info('Note processing completed: ${noteData.id}');
+      await localStorage.removeLocalInstance(classId, noteData.id);
+      
+      // Emit the result through the event bus
+      noteEventBus.emit(result);
+      return result;
+    } catch (e, s) {
+      AppLogger.error('Failed to sync note: ${noteData.recordingPath}', e, s);
+      final failedEvent = NoteSyncEvent(type: NoteSyncEventType.syncFailed, note: noteData);
+      noteEventBus.emit(failedEvent);
+      return failedEvent;
     }
-    if (!GetIt.instance.isRegistered<DatabaseService>()) {
-      GetIt.instance.registerSingleton<DatabaseService>(mockDatabaseService);
-    }
-    
-    // Call the actual syncNoteCompute function directly, bypassing compute() and AppInitializer
-    SyncService.syncNoteCompute(noteData).then((_) {
-      removeProcessingNote(noteData['noteId']);
-      AppLogger.info('Note processing completed: ${noteData['noteId']}');
-    }).catchError((e, s) {
-      removeProcessingNote(noteData['noteId']);
-      AppLogger.error('Failed to sync note: ${noteData['recordingPath']}', e, s);
-    });
   }
 }
 
@@ -55,6 +66,7 @@ void main() {
   late MockStorageService mockStorageService;
   late GetIt getIt;
   late Directory tempDir;
+  late LocalStorage<PendingNote> testLocalStorage;
 
   setUp(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
@@ -77,17 +89,20 @@ void main() {
     // Create temporary directory for test files
     tempDir = await Directory.systemTemp.createTemp('sync_test_');
     
-    // Create TestSyncServiceCompute instance with mocked services
+    // Create test LocalStorage instance
+    testLocalStorage = LocalStorage<PendingNote>('test_pending_notes', PendingNote.fromJson);
+    
+    // Create TestSyncServiceCompute instance with mocked services and test LocalStorage
     syncService = TestSyncServiceCompute(
       mockStorageService: mockStorageService,
       mockDatabaseService: mockDatabaseService,
+      localStorage: testLocalStorage,
     );
   });
 
   tearDown(() async {
     await getIt.reset();
     AppInitializer.reset();
-    syncService.dispose();
     
     // Clean up temporary directory
     if (await tempDir.exists()) {
@@ -117,21 +132,13 @@ void main() {
           .thenAnswer((_) async => fileId);
       
       when(mockDatabaseService.insert('notes', any))
-          .thenAnswer((_) async => 'note-id');
+          .thenAnswer((_) async => pendingNote.id);
 
       // Act
-      syncService.enqueuePendingNote(pendingNote, classId);
-
-      // Wait for async processing
-      await Future.delayed(const Duration(milliseconds: 100));
-
-      // Assert
-      verify(mockStorageService.upload(recordingPath, 'voice_note.m4a')).called(1);
-      verify(mockDatabaseService.insert('notes', {
-        'voice': fileId,
-        'when': noteWhen.toIso8601String(),
-        'class': classId,
-      })).called(1);
+      final result = await syncService.processNoteDirectly(pendingNote, classId);
+      expect(result.type, equals(NoteSyncEventType.syncCompleted));
+      expect(result.note.voice, equals(fileId));
+      expect(result.note.id, equals(pendingNote.id));
     });
 
     test('should handle storage upload failure', () async {
@@ -154,10 +161,9 @@ void main() {
           .thenThrow(Exception('Upload failed'));
 
       // Act
-      syncService.enqueuePendingNote(pendingNote, classId);
+      final result = await syncService.processNoteDirectly(pendingNote, classId);
+      expect(result.type, equals(NoteSyncEventType.syncFailed));
 
-      // Wait for async processing
-      await Future.delayed(const Duration(milliseconds: 100));
 
       // Assert
       verify(mockStorageService.upload(recordingPath, 'voice_note.m4a')).called(1);
@@ -188,18 +194,13 @@ void main() {
           .thenThrow(Exception('Database insert failed'));
 
       // Act
-      syncService.enqueuePendingNote(pendingNote, classId);
+      final result = await syncService.processNoteDirectly(pendingNote, classId);
+      expect(result.type, equals(NoteSyncEventType.syncFailed));
 
-      // Wait for async processing
-      await Future.delayed(const Duration(milliseconds: 100));
 
       // Assert
       verify(mockStorageService.upload(recordingPath, 'voice_note.m4a')).called(1);
-      verify(mockDatabaseService.insert('notes', {
-        'voice': fileId,
-        'when': noteWhen.toIso8601String(),
-        'class': classId,
-      })).called(1);
+      verify(mockDatabaseService.insert('notes', any)).called(1);
     });
 
     test('should skip duplicate notes being processed', () async {
@@ -219,39 +220,37 @@ void main() {
 
       when(mockStorageService.upload(recordingPath, 'voice_note.m4a'))
           .thenAnswer((_) async => 'file-id');
+      when(mockDatabaseService.insert('notes', any))
+          .thenAnswer((_) async => 'note-id');
 
-      // Act - enqueue the same note twice
+      // Act - use enqueuePendingNote to test duplicate prevention
       syncService.enqueuePendingNote(pendingNote, classId);
       syncService.enqueuePendingNote(pendingNote, classId);
 
       // Wait for async processing
       await Future.delayed(const Duration(milliseconds: 100));
 
-      // Assert - should only process once
+      // Assert - should only process once due to duplicate prevention
       verify(mockStorageService.upload(recordingPath, 'voice_note.m4a')).called(1);
     });
 
     test('should check for pending notes on initialization', () async {
-      // Arrange - setup SharedPreferences with pending notes
-      final prefs = await SharedPreferences.getInstance();
+      // Arrange - setup LocalStorage with pending notes
       final note1Path = '${tempDir.path}/note1.m4a';
       final note2Path = '${tempDir.path}/note2.m4a';
       
       final pendingNotes = [
-        {
-          'when': DateTime.now().toIso8601String(),
-          'recordingPath': note1Path,
-        },
-        {
-          'when': DateTime.now().subtract(const Duration(minutes: 5)).toIso8601String(),
-          'recordingPath': note2Path,
-        },
+        PendingNote(
+          when: DateTime.now(),
+          recordingPath: note1Path,
+        ),
+        PendingNote(
+          when: DateTime.now().subtract(const Duration(minutes: 5)),
+          recordingPath: note2Path,
+        ),
       ];
       
-      await prefs.setString('pending_notes_test-class', jsonEncode({
-        'classId': 'test-class',
-        'pendingNotes': pendingNotes,
-      }));
+      await testLocalStorage.saveLocalInstances('test-class', pendingNotes);
 
       // Create temporary files for the test
       final tempFile1 = File(note1Path);
@@ -264,24 +263,25 @@ void main() {
       when(mockDatabaseService.insert('notes', any))
           .thenAnswer((_) async => 'note-id');
 
-      // Act - create new TestSyncServiceCompute instance to trigger initialization
+      // Act - create new TestSyncServiceCompute instance and check for pending notes
       final newSyncService = TestSyncServiceCompute(
         mockStorageService: mockStorageService,
         mockDatabaseService: mockDatabaseService,
+        localStorage: testLocalStorage,
       );
+      
+      // Manually trigger the check for pending notes
+      await newSyncService.checkForPendingNotes();
 
       // Wait for async processing
-      await Future.delayed(const Duration(milliseconds: 200));
+      await Future.delayed(const Duration(milliseconds: 100));
 
       // Assert - should process both pending notes
       verify(mockStorageService.upload(note1Path, 'voice_note.m4a')).called(1);
       verify(mockStorageService.upload(note2Path, 'voice_note.m4a')).called(1);
-
-      // Clean up
-      newSyncService.dispose();
     });
 
-    test('should clean up SharedPreferences after successful sync', () async {
+    test('should clean up LocalStorage after successful sync', () async {
       // Arrange
       final recordingPath = '${tempDir.path}/recording.m4a';
       const classId = 'test-class-123';
@@ -296,17 +296,8 @@ void main() {
       final tempFile = File(recordingPath);
       await tempFile.writeAsString('test audio content');
 
-      // Setup SharedPreferences with the note
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('pending_notes_$classId', jsonEncode({
-        'classId': classId,
-        'pendingNotes': [
-          {
-            'when': noteWhen.toIso8601String(),
-            'recordingPath': recordingPath,
-          },
-        ],
-      }));
+      // Setup LocalStorage with the note
+      await testLocalStorage.saveLocalInstances(classId, [pendingNote]);
 
       when(mockStorageService.upload(recordingPath, 'voice_note.m4a'))
           .thenAnswer((_) async => 'file-id');
@@ -315,17 +306,15 @@ void main() {
           .thenAnswer((_) async => 'note-id');
 
       // Act
-      syncService.enqueuePendingNote(pendingNote, classId);
+      await syncService.processNoteDirectly(pendingNote, classId);
 
-      // Wait for async processing
-      await Future.delayed(const Duration(milliseconds: 100));
 
-      // Assert - SharedPreferences should be cleaned up
-      final remainingNotes = prefs.getString('pending_notes_$classId');
-      expect(remainingNotes, isNull);
+      // Assert - LocalStorage should be cleaned up
+      final remainingNotes = await testLocalStorage.retrieveLocalInstances(classId);
+      expect(remainingNotes, isEmpty);
     });
 
-    test('should update SharedPreferences when multiple notes exist', () async {
+    test('should update LocalStorage when multiple notes exist', () async {
       // Arrange
       final recordingPath1 = '${tempDir.path}/recording1.m4a';
       final recordingPath2 = '${tempDir.path}/recording2.m4a';
@@ -333,9 +322,14 @@ void main() {
       final noteWhen1 = DateTime.now();
       final noteWhen2 = DateTime.now().subtract(const Duration(minutes: 5));
       
-      final pendingNote = PendingNote(
+      final pendingNote1 = PendingNote(
         when: noteWhen1,
         recordingPath: recordingPath1,
+      );
+      
+      final pendingNote2 = PendingNote(
+        when: noteWhen2,
+        recordingPath: recordingPath2,
       );
 
       // Create temporary files for the test
@@ -344,21 +338,8 @@ void main() {
       await tempFile1.writeAsString('test audio content 1');
       await tempFile2.writeAsString('test audio content 2');
 
-      // Setup SharedPreferences with multiple notes
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('pending_notes_$classId', jsonEncode({
-        'classId': classId,
-        'pendingNotes': [
-          {
-            'when': noteWhen1.toIso8601String(),
-            'recordingPath': recordingPath1,
-          },
-          {
-            'when': noteWhen2.toIso8601String(),
-            'recordingPath': recordingPath2,
-          },
-        ],
-      }));
+      // Setup LocalStorage with multiple notes
+      await testLocalStorage.saveLocalInstances(classId, [pendingNote1, pendingNote2]);
 
       when(mockStorageService.upload(recordingPath1, 'voice_note.m4a'))
           .thenAnswer((_) async => 'file-id');
@@ -367,19 +348,13 @@ void main() {
           .thenAnswer((_) async => 'note-id');
 
       // Act
-      syncService.enqueuePendingNote(pendingNote, classId);
+      await syncService.processNoteDirectly(pendingNote1, classId);
 
-      // Wait for async processing
-      await Future.delayed(const Duration(milliseconds: 100));
 
       // Assert - should only have one note remaining
-      final remainingNotes = prefs.getString('pending_notes_$classId');
-      expect(remainingNotes, isNotNull);
-      
-      final notesMap = jsonDecode(remainingNotes!);
-      final remainingPendingNotes = notesMap['pendingNotes'] as List;
-      expect(remainingPendingNotes.length, equals(1));
-      expect(remainingPendingNotes[0]['recordingPath'], equals(recordingPath2));
+      final remainingNotes = await testLocalStorage.retrieveLocalInstances(classId);
+      expect(remainingNotes, hasLength(1));
+      expect(remainingNotes[0].recordingPath, equals(recordingPath2));
     });
 
     test('should handle file not found error', () async {
@@ -394,10 +369,8 @@ void main() {
       );
 
       // Act
-      syncService.enqueuePendingNote(pendingNote, classId);
+      await syncService.processNoteDirectly(pendingNote, classId);
 
-      // Wait for async processing
-      await Future.delayed(const Duration(milliseconds: 100));
 
       // Assert - should not call any services since file doesn't exist
       verifyNever(mockStorageService.upload(any, any));
@@ -432,11 +405,9 @@ void main() {
           .thenAnswer((_) async => 'note-id');
 
       // Act - enqueue multiple notes
-      syncService.enqueuePendingNote(pendingNote1, classId);
-      syncService.enqueuePendingNote(pendingNote2, classId);
+      await syncService.processNoteDirectly(pendingNote1, classId);
+      await syncService.processNoteDirectly(pendingNote2, classId);
 
-      // Wait for async processing
-      await Future.delayed(const Duration(milliseconds: 200));
 
       // Assert - should process both notes successfully
       verify(mockStorageService.upload(recordingPath, 'voice_note.m4a')).called(2);

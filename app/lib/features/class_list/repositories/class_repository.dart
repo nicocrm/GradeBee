@@ -92,11 +92,11 @@ class ClassRepository {
   /// 1. Removing them from SharedPreferences
   /// 2. Deleting the associated recording files
   Future<void> cleanupSyncedPendingNotes(
-      Class class_, List<PendingNote> syncedNotes) async {
+      String classId, List<PendingNote> syncedNotes) async {
     try {
       // Get the current pending notes from SharedPreferences
       final prefs = await SharedPreferences.getInstance();
-      final notesJson = prefs.getString('pending_notes_${class_.id}');
+      final notesJson = prefs.getString('pending_notes_$classId');
       if (notesJson == null) return;
 
       final notesMap = jsonDecode(notesJson) as Map<String, dynamic>;
@@ -128,14 +128,14 @@ class ClassRepository {
 
       if (unsyncedNotes.isEmpty) {
         // If all notes are synced, remove the entire entry
-        await prefs.remove('pending_notes_${class_.id}');
+        await prefs.remove('pending_notes_$classId');
       } else {
         // Otherwise, update SharedPreferences with remaining unsynced notes
         final updatedJson = jsonEncode({
-          'classId': class_.id,
+          'classId': classId,
           'pendingNotes': unsyncedNotes,
         });
-        await prefs.setString('pending_notes_${class_.id}', updatedJson);
+        await prefs.setString('pending_notes_$classId', updatedJson);
       }
     } catch (e, s) {
       AppLogger.error('Error cleaning up synced pending notes', e, s);

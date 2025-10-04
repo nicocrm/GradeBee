@@ -103,6 +103,17 @@ class Class {
     ...pendingNotes,
   ];
 
+  // If the class still has the note as "pending", remove it from pending and add it to saved
+  Class updateSyncedNote(Note note) {
+    if(!savedNotes.any((n) => n.id == note.id)) {
+      return copyWith(
+        pendingNotes: pendingNotes.where((n) => n.id != note.id).toList(),
+        savedNotes: [...savedNotes, note]
+      );
+    }
+    return this;
+  }
+
   // // Helper getters for UI convenience
   // List<Note> get allNotesSorted => [
   //   ...pendingNotes,  // Pending notes first (most recent)
