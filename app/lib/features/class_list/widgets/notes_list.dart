@@ -12,8 +12,8 @@ class NotesList extends StatelessWidget {
     return ListenableBuilder(
       listenable: vm,
       builder: (context, _) {
-        final pendingNotes = vm.currentClass.pendingNotes;
-        final savedNotes = vm.currentClass.savedNotes;
+        final pendingNotes = vm.sortedPendingNotes;
+        final savedNotes = vm.sortedSavedNotes;
 
         return Column(
           children: [
@@ -21,48 +21,14 @@ class NotesList extends StatelessWidget {
               child: SingleChildScrollView(
                 child: Column(
                   children: [
-                    // Pending Notes Section (at the top)
+                    // Pending Notes Section (at the top, sorted newest first)
                     if (pendingNotes.isNotEmpty) ...[
-                      const Padding(
-                        padding: EdgeInsets.all(16.0),
-                        child: Row(
-                          children: [
-                            Icon(Icons.cloud_upload, color: Colors.orange),
-                            SizedBox(width: 8),
-                            Text(
-                              'Syncing Notes',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.orange,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
                       ...pendingNotes.map((note) => _buildPendingNoteTile(note)),
-                      const Divider(),
+                      if (savedNotes.isNotEmpty) const Divider(),
                     ],
 
-                    // Saved Notes Section
-                    if (savedNotes.isNotEmpty) ...[
-                      const Padding(
-                        padding: EdgeInsets.all(16.0),
-                        child: Row(
-                          children: [
-                            Icon(Icons.check_circle, color: Colors.green),
-                            SizedBox(width: 8),
-                            Text(
-                              'Saved Notes',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.green,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      ...savedNotes.map((note) => _buildSavedNoteTile(note)),
-                    ],
+                    // Saved Notes Section (sorted newest first)
+                    ...savedNotes.map((note) => _buildSavedNoteTile(note)),
 
                     // Empty state
                     if (pendingNotes.isEmpty && savedNotes.isEmpty)
@@ -109,7 +75,6 @@ class NotesList extends StatelessWidget {
 
   Widget _buildSavedNoteTile(Note note) {
     return ListTile(
-      leading: const Icon(Icons.check_circle, color: Colors.green),
       title: Text(note.text.isEmpty ? 'Voice Note' : note.text),
       subtitle: Text(note.when.toLocal().toString()),
       trailing: IconButton(

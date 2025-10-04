@@ -48,6 +48,20 @@ class ClassDetailsVM extends ChangeNotifier with ClassStateMixin {
   Class get currentClass => _class;
   Class get initialClass => _initialClass;
 
+  /// Returns pending notes sorted in reverse chronological order (newest first)
+  List<PendingNote> get sortedPendingNotes {
+    final notes = List<PendingNote>.from(_class.pendingNotes);
+    notes.sort((a, b) => b.when.compareTo(a.when));
+    return notes;
+  }
+
+  /// Returns saved notes sorted in reverse chronological order (newest first)
+  List<Note> get sortedSavedNotes {
+    final notes = List<Note>.from(_class.savedNotes);
+    notes.sort((a, b) => b.when.compareTo(a.when));
+    return notes;
+  }
+
   Future<Class> getClassDetails() async {
     _class = await _repository.getClassDetails(_class);
     notifyListeners();
