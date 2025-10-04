@@ -10,8 +10,8 @@ import 'vm/class_list_vm.dart';
 class ClassListScreen extends StatefulWidget {
   final ClassListVM viewModel;
 
-  ClassListScreen({super.key, ClassListVM? viewModel})
-      : viewModel = viewModel ?? ClassListVM();
+  ClassListScreen({super.key})
+      : viewModel = ClassListVM();
 
   @override
   State<ClassListScreen> createState() => _ClassListScreenState();

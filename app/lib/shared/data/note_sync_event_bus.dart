@@ -35,10 +35,6 @@ class NoteSyncEvent {
 /// Global event bus for note synchronization events
 /// This allows decoupled communication between sync service and UI components
 class NoteSyncEventBus {
-  static final NoteSyncEventBus _instance = NoteSyncEventBus._internal();
-  factory NoteSyncEventBus() => _instance;
-  NoteSyncEventBus._internal();
-
   final StreamController<NoteSyncEvent> _eventController = 
       StreamController<NoteSyncEvent>.broadcast();
 

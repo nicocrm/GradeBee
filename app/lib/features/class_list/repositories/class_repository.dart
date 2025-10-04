@@ -12,7 +12,12 @@ class ClassRepository {
   final DatabaseService _db;
   final LocalStorage<PendingNote> _localStorage;
 
-  ClassRepository(this._db, this._localStorage);
+  ClassRepository([
+    DatabaseService? db,
+    LocalStorage<PendingNote>? localStorage,
+  ]) : _db = db ?? GetIt.instance<DatabaseService>(),
+       _localStorage =
+           localStorage ?? GetIt.instance<LocalStorage<PendingNote>>();
 
   Future<List<Class>> listClasses() async {
     try {
@@ -41,10 +46,11 @@ class ClassRepository {
     }
   }
 
-  Future<Note> addSavedNote(String classId, Note note) async {
+  Future<void> addSavedNote(String classId, Note note) async {
     try {
-      await _db.insert('notes', note.toJson());
-      return note;
+      final json = note.toJson();
+      json['class'] = classId;
+      await _db.insert('notes', json);
     } catch (e) {
       AppLogger.error('Error adding saved note');
       rethrow;

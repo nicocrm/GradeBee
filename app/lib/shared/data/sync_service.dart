@@ -44,6 +44,7 @@ class SyncService {
   }
 
   Future<void> enqueuePendingNote(PendingNote noteData, String classId) async {
+    noteEventBus.emit(NoteSyncEvent(type: NoteSyncEventType.syncStarted, note: noteData));
     if (!_processingNotes.add(noteData.id)) {
       AppLogger.info(
         'Note already being processed, skipping: ${noteData.recordingPath}',
@@ -57,7 +58,7 @@ class SyncService {
 
   Future<void> processNote(PendingNote noteData, String classId) async {
     try {
-      final result = await uploadNote(classId, noteData);
+      final result = await _uploadNote(noteData, classId);
       await _localStorage.removeLocalInstance(classId, noteData.id);
       AppLogger.info('Note processing completed: ${noteData.id}');
       _handleSyncResult(result);
@@ -65,12 +66,12 @@ class SyncService {
       AppLogger.error('Error processing note', e, s);
       // don't clean up, so we can attempt it again
       _handleSyncResult(
-        NoteSyncEvent(type: NoteSyncEventType.syncFailed, note: noteData),
+        NoteSyncEvent(type: NoteSyncEventType.syncFailed, note: noteData, error: e.toString()),
       );
     }
   }
 
-  Future<NoteSyncEvent> uploadNote(String classId, PendingNote noteData) async {
+  Future<NoteSyncEvent> _uploadNote(PendingNote noteData, String classId) async {
     // Verify file exists before attempting upload
     final file = File(noteData.recordingPath);
     if (!await file.exists()) {

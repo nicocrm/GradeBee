@@ -17,7 +17,6 @@ import 'class_repository_test.mocks.dart';
 
 void main() {
   late MockDatabaseService mockDatabaseService;
-  late MockSyncService mockSyncService;
   late ClassRepository repository;
   late Class testClass;
 
@@ -27,9 +26,8 @@ void main() {
 
     TestWidgetsFlutterBinding.ensureInitialized();
     mockDatabaseService = MockDatabaseService();
-    mockSyncService = MockSyncService();
     final localStorage = LocalStorage<PendingNote>('test_pending_notes', PendingNote.fromJson);
-    repository = ClassRepository(mockDatabaseService, mockSyncService, localStorage);
+    repository = ClassRepository(mockDatabaseService, localStorage);
 
     testClass = Class(
       id: 'class123',
@@ -81,43 +79,6 @@ void main() {
       expect(result.id, 'new_id');
       expect(result.course, classWithoutId.course);
       verify(mockDatabaseService.insert('classes', any)).called(1);
-    });
-  });
-
-  group('ClassRepository - Pending Notes', () {
-    late DateTime testDateTime;
-    late PendingNote pendingNote;
-
-    setUp(() {
-      testDateTime = DateTime(2023, 1, 1, 12, 0);
-      pendingNote = PendingNote(
-        when: testDateTime,
-        recordingPath: '/path/to/recording.m4a',
-      );
-
-      testClass = testClass.copyWith(
-        pendingNotes: [pendingNote],
-      );
-    });
-
-    test('updateClass should enqueue pending notes for sync', () async {
-      // Setup mocks
-      when(mockDatabaseService.update('classes', any, any))
-          .thenAnswer((_) async => {});
-
-      // Call the method
-      final result = await repository.updateClass(testClass);
-
-      // Verify sync service was called for each pending note
-      verify(mockSyncService.enqueuePendingNote(pendingNote, testClass.id!))
-          .called(1);
-
-      // Verify database update was called
-      verify(mockDatabaseService.update('classes', any, testClass.id!))
-          .called(1);
-
-      // Verify the result only contains our pending note
-      expect(result.notes.length, 1);
     });
   });
 
