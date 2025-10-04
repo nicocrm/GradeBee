@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:get_it/get_it.dart';
@@ -10,8 +12,7 @@ import 'shared/router.dart';
 void main() async {
   await dotenv.load(fileName: ".env");
   AppInitializer.initializeServices(dotenv.env);
-  GetIt.instance<SyncService>().checkForPendingNotes();
-    
+
   runApp(MainApp());
 }
 
@@ -28,17 +29,26 @@ class _MainAppState extends State<MainApp> {
   @override
   void initState() {
     super.initState();
-    
+
     // Get the auth state that was registered by the initializer
     authState = GetIt.instance<AuthState>();
-    
-    // Start the sync
+    authState.addListener(() {
+      if (authState.isLoggedIn) {
+        unawaited(GetIt.instance<SyncService>().checkForPendingNotes());
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final myApp = MaterialApp.router(routerConfig: router(authState));
     return _EagerLoading(authState: authState, child: myApp);
+  }
+
+  @override
+  void dispose() {
+    authState.dispose();
+    super.dispose();
   }
 }
 
@@ -50,9 +60,7 @@ class _EagerLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final futures = [
-      authState.existingSession(),
-    ];
+    final futures = [authState.existingSession()];
     return FutureBuilder(
       future: Future.wait(futures),
       builder: (context, snapshot) {

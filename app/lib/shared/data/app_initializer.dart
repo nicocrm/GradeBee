@@ -1,8 +1,11 @@
 import 'package:appwrite/appwrite.dart' show Client;
 import 'package:get_it/get_it.dart';
 
+import '../../features/class_list/models/pending_note.model.dart';
+import '../../features/class_list/repositories/class_repository.dart';
 import 'appwrite_client.dart';
 import 'database.dart';
+import 'local_storage.dart';
 import 'note_sync_event_bus.dart';
 import 'storage_service.dart';
 import 'functions.dart';
@@ -23,42 +26,57 @@ class AppInitializer {
     if (_isInitialized) {
       return; // Already initialized in this isolate
     }
-    final appwriteClient = GetIt.instance.registerSingletonIfAbsent<Client>(() => client(environment));
+    final appwriteClient = GetIt.instance.registerSingletonIfAbsent<Client>(
+      () => client(environment),
+    );
 
     // Register core services
-    GetIt.instance.registerSingletonIfAbsent<DatabaseService>(
-      () => DatabaseService(appwriteClient, environment['APPWRITE_DATABASE_ID']!),
+    final databaseService = GetIt.instance
+        .registerSingletonIfAbsent<DatabaseService>(
+          () => DatabaseService(
+            appwriteClient,
+            environment['APPWRITE_DATABASE_ID']!,
+          ),
+        );
+    final storageService = GetIt.instance
+        .registerSingletonIfAbsent<StorageService>(
+          () => StorageService(appwriteClient, environment['NOTES_BUCKET_ID']!),
+        );
+    final functionService = GetIt.instance
+        .registerSingletonIfAbsent<FunctionService>(
+          () => FunctionService(appwriteClient),
+        );
+    GetIt.instance.registerSingletonIfAbsent<AuthState>(
+      () => AuthState(appwriteClient),
     );
-    GetIt.instance.registerSingletonIfAbsent<StorageService>(
-      () => StorageService(appwriteClient, environment['NOTES_BUCKET_ID']!),
-    );
-    GetIt.instance.registerSingletonIfAbsent<FunctionService>(
-      () => FunctionService(appwriteClient),
-    );
-    GetIt.instance.registerSingletonIfAbsent<AuthState>(() => AuthState(appwriteClient));
 
     if (coreOnly) return;
 
     // Register dependent services
     GetIt.instance.registerSingleton<ReportCardService>(
-      ReportCardService(
-        functions: GetIt.instance<FunctionService>(),
-        database: GetIt.instance<DatabaseService>(),
-      ),
+      ReportCardService(functions: functionService, database: databaseService),
     );
     GetIt.instance.registerSingleton<StudentRepository>(
-      StudentRepository(GetIt.instance<DatabaseService>()),
+      StudentRepository(databaseService),
+    );
+    final localPendingNotesStorage = GetIt.instance
+        .registerSingleton<LocalStorage<PendingNote>>(
+          LocalStorage<PendingNote>('pending_notes', PendingNote.fromJson),
+        );
+    final classRepository = GetIt.instance.registerSingleton<ClassRepository>(
+      ClassRepository(databaseService, localPendingNotesStorage),
     );
     // Note sync service
-    GetIt.instance.registerSingleton<NoteSyncEventBus>(NoteSyncEventBus());
-    GetIt.instance.registerSingletonAsync<SyncService>(
-      () async {
-        final syncService = SyncService(
-          GetIt.instance<NoteSyncEventBus>(),
-        );
-        await syncService.checkForPendingNotes();
-        return syncService;
-      }
+    final noteSyncEventBus = GetIt.instance.registerSingleton<NoteSyncEventBus>(
+      NoteSyncEventBus(),
+    );
+    GetIt.instance.registerSingleton<SyncService>(
+      SyncService(
+        noteSyncEventBus,
+        localPendingNotesStorage,
+        storageService,
+        classRepository,
+      ),
     );
 
     _isInitialized = true;

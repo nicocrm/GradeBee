@@ -1,27 +1,76 @@
 import 'dart:async';
-import 'package:flutter/services.dart';
-import 'package:flutter/foundation.dart' show compute;
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:get_it/get_it.dart';
 import 'dart:io';
 import '../../features/class_list/models/note.model.dart';
 import '../../features/class_list/models/pending_note.model.dart';
+import '../../features/class_list/repositories/class_repository.dart';
 import '../logger.dart';
-import './database.dart';
 import './storage_service.dart';
-import './app_initializer.dart';
 import 'local_storage.dart';
 import 'note_sync_event_bus.dart';
 
 class NoteSyncWorker {
   final StorageService storageService;
-  final DatabaseService dbService;
+  final ClassRepository classRepository;
 
-  NoteSyncWorker(this.storageService, this.dbService);
+  NoteSyncWorker(this.storageService, this.classRepository);
+}
 
-  Future<NoteSyncEvent> uploadNote(PendingNote noteData) async {
-    AppLogger.info('Syncing note: ${noteData.recordingPath}');
+class SyncService {
+  final Set<String> _processingNotes =
+      <String>{}; // Track notes currently being processed
+  final NoteSyncEventBus noteEventBus;
+  final LocalStorage<PendingNote> _localStorage;
+  final StorageService _storageService;
+  final ClassRepository classRepository;
 
+  SyncService(
+    this.noteEventBus,
+    this._localStorage,
+    this._storageService,
+    this.classRepository,
+  );
+
+  Future<void> checkForPendingNotes() async {
+    try {
+      final pendingNotes = await _localStorage.retrieveAllLocalInstances();
+      for (final classId in pendingNotes.keys) {
+        for (final pendingNote in pendingNotes[classId]!) {
+          unawaited(enqueuePendingNote(pendingNote, classId));
+        }
+      }
+    } catch (e, s) {
+      AppLogger.error('Error checking for pending notes', e, s);
+    }
+  }
+
+  Future<void> enqueuePendingNote(PendingNote noteData, String classId) async {
+    if (!_processingNotes.add(noteData.id)) {
+      AppLogger.info(
+        'Note already being processed, skipping: ${noteData.recordingPath}',
+      );
+      return;
+    }
+
+    AppLogger.info('Enqueueing new note for sync: ${noteData.recordingPath}');
+    await processNote(noteData, classId);
+  }
+
+  Future<void> processNote(PendingNote noteData, String classId) async {
+    try {
+      final result = await uploadNote(classId, noteData);
+      await _localStorage.removeLocalInstance(classId, noteData.id);
+      AppLogger.info('Note processing completed: ${noteData.id}');
+      _handleSyncResult(result);
+    } catch (e, s) {
+      AppLogger.error('Error processing note', e, s);
+      // don't clean up, so we can attempt it again
+      _handleSyncResult(
+        NoteSyncEvent(type: NoteSyncEventType.syncFailed, note: noteData),
+      );
+    }
+  }
+
+  Future<NoteSyncEvent> uploadNote(String classId, PendingNote noteData) async {
     // Verify file exists before attempting upload
     final file = File(noteData.recordingPath);
     if (!await file.exists()) {
@@ -32,14 +81,17 @@ class NoteSyncWorker {
         error: 'Recording file not found',
       );
     }
-
-    final fileId = await storageService.upload(
+    final fileId = await _storageService.upload(
       noteData.recordingPath,
       "voice_note.m4a",
     );
     final syncedNote = Note.fromJson({...noteData.toJson(), 'voice': fileId});
-
-    await dbService.insert('notes', syncedNote.toJson());
+    await classRepository.addSavedNote(classId, syncedNote);
+    try {
+      await file.delete();
+    } catch (e, s) {
+      AppLogger.error('Error deleting note file', e, s);
+    }
 
     AppLogger.info('Successfully synced note: ${noteData.recordingPath}');
     return NoteSyncEvent(
@@ -47,95 +99,9 @@ class NoteSyncWorker {
       type: NoteSyncEventType.syncCompleted,
     );
   }
-}
-
-class SyncService {
-  final Set<String> _processingNotes =
-      <String>{}; // Track notes currently being processed
-  final NoteSyncEventBus noteEventBus;
-  final LocalStorage<PendingNote> localStorage;
-
-  SyncService(this.noteEventBus, {LocalStorage<PendingNote>? localStorage})
-    : localStorage =
-          localStorage ?? LocalStorage('pending_notes', PendingNote.fromJson);
-
-  Future<void> checkForPendingNotes() async {
-    try {
-      final pendingNotes = await localStorage.retrieveAllLocalInstances();
-      for (final classId in pendingNotes.keys) {
-        for (final pendingNote in pendingNotes[classId]!) {
-          enqueuePendingNote(pendingNote, classId);
-        }
-      }
-    } catch (e, s) {
-      AppLogger.error('Error checking for pending notes', e, s);
-    }
-  }
-
-  void enqueuePendingNote(PendingNote noteData, String classId) {
-    if (_processingNotes.contains(noteData.id)) {
-      AppLogger.info(
-        'Note already being processed, skipping: ${noteData.recordingPath}',
-      );
-      return;
-    }
-
-    AppLogger.info('Enqueueing new note for sync: ${noteData.recordingPath}');
-    _processingNotes.add(noteData.id);
-    processNote(noteData, classId);
-  }
-
-  void processNote(PendingNote noteData, String classId) {
-    final request = _NoteSyncRequest(
-      token: RootIsolateToken.instance!,
-      environment: dotenv.env,
-      noteData: noteData,
-    );
-    unawaited(
-      compute(SyncService._backgroundNoteSync, request)
-          .then((result) async {
-            AppLogger.info('Note processing completed: ${noteData.id}');
-            await localStorage.removeLocalInstance(classId, noteData.id);
-            _handleSyncResult(result);
-          })
-          .catchError((e, s) {
-            AppLogger.error(
-              'Failed to sync note: ${noteData.recordingPath}',
-              e,
-              s,
-            );
-            _handleSyncResult(
-              NoteSyncEvent(type: NoteSyncEventType.syncFailed, note: noteData),
-            );
-          }),
-    );
-  }
-
-  static Future<NoteSyncEvent> _backgroundNoteSync(
-    _NoteSyncRequest request,
-  ) async {
-    // since this can run in isolate, we need to initialize the core services again
-    AppInitializer.initializeServices(request.environment, coreOnly: true);
-    final storageService = GetIt.instance<StorageService>();
-    final dbService = GetIt.instance<DatabaseService>();
-    final noteSyncWorker = NoteSyncWorker(storageService, dbService);
-    return await noteSyncWorker.uploadNote(request.noteData);
-  }
 
   void _handleSyncResult(NoteSyncEvent message) {
     _processingNotes.remove(message.note.id);
     noteEventBus.emit(message);
   }
-}
-
-class _NoteSyncRequest {
-  final RootIsolateToken token;
-  final Map<String, String> environment;
-  final PendingNote noteData;
-
-  _NoteSyncRequest({
-    required this.token,
-    required this.environment,
-    required this.noteData,
-  });
 }

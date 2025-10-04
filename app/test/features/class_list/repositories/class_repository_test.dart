@@ -1,6 +1,5 @@
-import 'dart:convert';
-
 import 'package:flutter_test/flutter_test.dart';
+import 'package:gradebee/shared/data/local_storage.dart';
 import 'package:mockito/mockito.dart';
 import 'package:mockito/annotations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -23,13 +22,14 @@ void main() {
   late Class testClass;
 
   setUp(() {
+    // Setup SharedPreferences for testing
+    SharedPreferences.setMockInitialValues({});
+
     TestWidgetsFlutterBinding.ensureInitialized();
     mockDatabaseService = MockDatabaseService();
     mockSyncService = MockSyncService();
-    repository = ClassRepository(mockDatabaseService, mockSyncService);
-
-    // Setup SharedPreferences for testing
-    SharedPreferences.setMockInitialValues({});
+    final localStorage = LocalStorage<PendingNote>('test_pending_notes', PendingNote.fromJson);
+    repository = ClassRepository(mockDatabaseService, mockSyncService, localStorage);
 
     testClass = Class(
       id: 'class123',
@@ -87,7 +87,6 @@ void main() {
   group('ClassRepository - Pending Notes', () {
     late DateTime testDateTime;
     late PendingNote pendingNote;
-    late Map<String, dynamic> pendingNoteJson;
 
     setUp(() {
       testDateTime = DateTime(2023, 1, 1, 12, 0);
@@ -96,62 +95,9 @@ void main() {
         recordingPath: '/path/to/recording.m4a',
       );
 
-      pendingNoteJson = {
-        'recordingPath': '/path/to/recording.m4a',
-        'when': testDateTime.toIso8601String(),
-      };
-
       testClass = testClass.copyWith(
         pendingNotes: [pendingNote],
       );
-    });
-
-    test(
-        'savePendingNotesLocally should save pending notes to SharedPreferences',
-        () async {
-      await repository.savePendingNotesLocally(testClass);
-
-      final prefs = await SharedPreferences.getInstance();
-      final savedJson = prefs.getString('pending_notes_${testClass.id}');
-
-      expect(savedJson, isNotNull);
-
-      final decodedJson = jsonDecode(savedJson!);
-      expect(decodedJson['classId'], testClass.id);
-      expect(decodedJson['pendingNotes'], isA<List>());
-      expect(decodedJson['pendingNotes'].length, 1);
-
-      final savedNote = decodedJson['pendingNotes'][0];
-      expect(savedNote['recordingPath'], pendingNote.recordingPath);
-      expect(savedNote['when'], pendingNote.when.toIso8601String());
-    });
-
-    test(
-        'retrieveLocalPendingNotes should load pending notes from SharedPreferences',
-        () async {
-      // Setup SharedPreferences with test data
-      final prefs = await SharedPreferences.getInstance();
-      final notesJson = jsonEncode({
-        'classId': testClass.id,
-        'pendingNotes': [pendingNoteJson],
-      });
-      await prefs.setString('pending_notes_${testClass.id}', notesJson);
-
-      // Create a class without pending notes
-      final classWithoutPendingNotes = testClass.copyWith(pendingNotes: []);
-
-      // Call the method
-      final result =
-          await repository.retrieveLocalPendingNotes(classWithoutPendingNotes);
-
-      // Verify the result
-      expect(result.notes.length, 1);
-      expect(result.notes[0], isA<PendingNote>());
-
-      final loadedNote = result.notes[0] as PendingNote;
-      expect(loadedNote.recordingPath, pendingNote.recordingPath);
-      expect(loadedNote.when.toIso8601String(),
-          pendingNote.when.toIso8601String());
     });
 
     test('updateClass should enqueue pending notes for sync', () async {
@@ -172,26 +118,6 @@ void main() {
 
       // Verify the result only contains our pending note
       expect(result.notes.length, 1);
-    });
-
-    test('getClassWithNotes should retrieve local pending notes', () async {
-      // Setup SharedPreferences with test data
-      final prefs = await SharedPreferences.getInstance();
-      final notesJson = jsonEncode({
-        'classId': testClass.id,
-        'pendingNotes': [pendingNoteJson],
-      });
-      await prefs.setString('pending_notes_${testClass.id}', notesJson);
-
-      // Call the method
-      final result = await repository.getClassWithNotes(testClass);
-
-      // Verify the result includes the pending notes
-      expect(result.notes.length, 1);
-      expect(result.notes[0], isA<PendingNote>());
-
-      final loadedNote = result.notes[0] as PendingNote;
-      expect(loadedNote.recordingPath, pendingNote.recordingPath);
     });
   });
 
@@ -227,17 +153,6 @@ void main() {
 
       // Verify that the method throws
       expect(() => repository.updateClass(classWithPendingNote), throwsException);
-    });
-
-    test('retrieveLocalPendingNotes should not throw on JSON parse error',
-        () async {
-      // Setup SharedPreferences with invalid JSON
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('pending_notes_${testClass.id}', 'invalid json');
-
-      // Should return the original class without throwing
-      final result = await repository.retrieveLocalPendingNotes(testClass);
-      expect(result, testClass);
     });
   });
 }

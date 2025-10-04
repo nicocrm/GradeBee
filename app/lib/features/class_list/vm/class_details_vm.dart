@@ -2,7 +2,10 @@ import 'package:async/async.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
+import '../../../shared/data/database.dart';
 import '../../../shared/data/note_sync_event_bus.dart';
+import '../../../shared/data/sync_service.dart';
+import '../../../shared/data/local_storage.dart';
 import '../../../shared/ui/command.dart';
 import '../models/class.model.dart';
 import '../models/note.model.dart';
@@ -18,15 +21,24 @@ class ClassDetailsVM extends ChangeNotifier with ClassStateMixin {
   Class _class;
   late final Command0 updateClassCommand;
   late final StreamSubscription<NoteSyncEvent> _syncEventSubscription;
+  final SyncService _syncService;
 
   ClassDetailsVM(
     Class initialClass, [
     ClassRepository? repository,
     NoteSyncEventBus? noteSyncEventBus,
-  ])  : _repository = repository ?? ClassRepository(),
-        _noteSyncEventBus = noteSyncEventBus ?? GetIt.instance<NoteSyncEventBus>(),
-        _initialClass = initialClass,
-        _class = initialClass {
+    SyncService? syncService,
+  ]) : _repository =
+           repository ??
+           ClassRepository(
+             GetIt.instance<DatabaseService>(),
+             GetIt.instance<LocalStorage<PendingNote>>(),
+           ),
+       _syncService = syncService ?? GetIt.instance<SyncService>(),
+       _noteSyncEventBus =
+           noteSyncEventBus ?? GetIt.instance<NoteSyncEventBus>(),
+       _initialClass = initialClass,
+       _class = initialClass {
     updateClassCommand = Command0(_updateClass);
     _syncEventSubscription = _noteSyncEventBus.events.listen((event) {
       _onNoteSyncEvent(event);
@@ -36,8 +48,8 @@ class ClassDetailsVM extends ChangeNotifier with ClassStateMixin {
   Class get currentClass => _class;
   Class get initialClass => _initialClass;
 
-  Future<Class> getClassWithNotes() async {
-    _class = await _repository.getClassWithNotes(_class);
+  Future<Class> getClassDetails() async {
+    _class = await _repository.getClassDetails(_class);
     notifyListeners();
     return _class;
   }
@@ -71,7 +83,10 @@ class ClassDetailsVM extends ChangeNotifier with ClassStateMixin {
       throw Exception('Student already exists');
     }
     _class = _class.copyWith(
-      students: [..._class.students, Student(name: student)],
+      students: [
+        ..._class.students,
+        Student(name: student),
+      ],
     );
     notifyListeners();
   }
@@ -90,7 +105,9 @@ class ClassDetailsVM extends ChangeNotifier with ClassStateMixin {
       );
     } else {
       _class = _class.copyWith(
-        savedNotes: _class.savedNotes.where((n) => n != note && n.id != note.id).toList(),
+        savedNotes: _class.savedNotes
+            .where((n) => n != note && n.id != note.id)
+            .toList(),
       );
     }
     notifyListeners();
@@ -109,6 +126,7 @@ class ClassDetailsVM extends ChangeNotifier with ClassStateMixin {
     try {
       _class = _class.addVoiceNote(recordingPath);
       _class = await _repository.updateClass(_class);
+      await _syncService.enqueuePendingNote(_class.pendingNotes.last, _class.id!);
       notifyListeners();
     } catch (e) {
       throw Exception(e);
@@ -116,9 +134,9 @@ class ClassDetailsVM extends ChangeNotifier with ClassStateMixin {
   }
 
   void _onNoteSyncEvent(NoteSyncEvent event) {
-    if(event.type == NoteSyncEventType.syncCompleted) {
+    if (event.type == NoteSyncEventType.syncCompleted) {
       final updatedClass = _class.updateSyncedNote(event.note);
-      if(updatedClass != _class) {
+      if (updatedClass != _class) {
         _class = updatedClass;
         notifyListeners();
       }
