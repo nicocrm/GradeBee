@@ -125,8 +125,9 @@ class ClassDetailsVM extends ChangeNotifier with ClassStateMixin {
   Future<void> addVoiceNote(String recordingPath) async {
     try {
       _class = _class.addVoiceNote(recordingPath);
-      _class = await _repository.updateClass(_class);
-      await _syncService.enqueuePendingNote(_class.pendingNotes.last, _class.id!);
+      final pendingNote = _class.pendingNotes.last;
+      _class = await _repository.saveLocalPendingNotes(_class);
+      unawaited(_syncService.enqueuePendingNote(pendingNote, _class.id!));
       notifyListeners();
     } catch (e) {
       throw Exception(e);

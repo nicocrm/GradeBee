@@ -69,9 +69,13 @@ class ClassRepository {
     }
   }
 
+  Future<Class> saveLocalPendingNotes(Class class_) async {
+    await _localStorage.saveLocalInstances(class_.id!, class_.pendingNotes);
+    return class_;
+  }
+
   Future<Class> updateClass(Class class_) async {
     try {
-      await _localStorage.saveLocalInstances(class_.id!, class_.pendingNotes);
       await _db.update('classes', class_.toJson(), class_.id!);
       return class_;
     } catch (e, s) {
