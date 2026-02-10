@@ -35,7 +35,10 @@ COURSE_MAPPING = {
     'Pam and Paul': 'Pam & Paul',
     
     # Oliver (no variations)
-    'Oliver': 'Oliver'
+    'Oliver': 'Oliver',
+    # Marcia (no variations)
+    'Marcia': 'Marcia',
+    'Timezone': 'Time Zone'
 }
 
 def standardize_course_name(course: str) -> str:
@@ -113,7 +116,7 @@ def get_class_document(course, day_of_week, time_block):
         else:
             raise ValueError(f"Class not found for course: {course}, day: {day_of_week}, time: {time_block}")
     except Exception as e:
-        logging.error(f"Error retrieving class document: {str(e)}")
+        logging.error(f"Error retrieving class document: {str(e)}", exc_info=True)
         raise
 
 
