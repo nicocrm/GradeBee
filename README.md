@@ -7,6 +7,9 @@ students.  It is built with Flutter and Appwrite.
 
 ### Quick Start
 ```bash
+# Log in to appwrite
+npx appwrite-cli login
+
 # Set up development environment
 just env dev
 

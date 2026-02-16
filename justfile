@@ -83,13 +83,13 @@ status:
 @push env_name:
     #!/usr/bin/env bash
     echo "📤 Pushing to Appwrite..."
-    appwrite push
+    npx appwrite-cli push
     echo "✅ Push completed"
 
 @pull env_name:
     #!/usr/bin/env bash
     echo "📥 Pulling from Appwrite..."
-    appwrite pull
+    npx appwrite-cli pull
     cp appwrite.json "envs/{{env_name}}/appwrite.json"
     echo "✅ Pull completed and saved to envs/{{env_name}}/"
 
