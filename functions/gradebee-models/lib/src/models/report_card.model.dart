@@ -64,9 +64,9 @@ class ReportCard {
       // will need to fetch notes only for a certain period in the future
       studentNotes: json['student']['notes'] != null
           ? (json['student']['notes'] as List)
-              // HACK to include only notes after 2025-03-29
+              // HACK to include only notes after 2026-01-01
               .where((note) => DateTime.parse(note['\$createdAt'])
-                  .isAfter(DateTime.parse('2025-03-29')))
+                  .isAfter(DateTime.parse('2026-01-01')))
               .map((note) => note['text'].toString())
               .toList()
           : [],

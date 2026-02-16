@@ -32,7 +32,7 @@ class CreateReportCardHandler {
           "Report card generated: ${reportCard.id} with sections: ${sections.join(", ")}");
     } catch (e, s) {
       logger.error("${e.toString()}\n$s");
-      reportCard.error = "Error splitting notes";
+      reportCard.error = "Error generating card";
       reportCard.isGenerated = false;
     }
     return reportCard;
