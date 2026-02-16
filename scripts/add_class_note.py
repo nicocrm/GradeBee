@@ -19,6 +19,7 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
+SCHOOL_YEAR = "2025-2026"
 # Course name mapping (variations to standardized names)
 COURSE_MAPPING = {
     # Mousy variations
@@ -108,6 +109,7 @@ def get_class_document(course, day_of_week, time_block):
                     Query.equal("course", course),
                     Query.equal("day_of_week", day_of_week),
                     Query.equal("time_block", time_block),
+                    Query.equal("school_year", SCHOOL_YEAR),
                 ],
             ),
         )
