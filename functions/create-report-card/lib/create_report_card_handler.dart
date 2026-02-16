@@ -1,3 +1,4 @@
+import 'package:dart_appwrite/dart_appwrite.dart';
 import 'package:gradebee_function_helpers/helpers.dart';
 import 'package:gradebee_models/common.dart';
 import 'report_card_generator.dart';
@@ -17,7 +18,10 @@ class CreateReportCardHandler {
     }
     final reportCardId = json['\$id'];
     final reportCard = await database.get<ReportCard>(
-        "report_cards", ReportCard.fromJson, reportCardId);
+        "report_cards", ReportCard.fromJson, reportCardId,
+        [
+          Query.select(['*', 'sections.*', 'template.*', 'template.sections.*', 'student.*', 'student.notes.*'])
+        ]);
     return reportCard;
   }
 
