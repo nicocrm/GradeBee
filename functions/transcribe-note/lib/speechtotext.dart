@@ -11,6 +11,13 @@ class Speechtotext {
     String prompt = names.join(", ");
     final result = await OpenAI.instance.audio
         .createTranscription(file: audio, model: "whisper-1", prompt: prompt);
-    return result.text;
+    // Handling different transcription response formats
+    if (result is OpenAITranscriptionModel) {
+      return result.text;
+    }
+    // if (result is OpenAITranscriptionVerboseModel) {
+    //   return result.text;
+    // }
+    throw Exception("Invalid response from transcription");
   }
 }

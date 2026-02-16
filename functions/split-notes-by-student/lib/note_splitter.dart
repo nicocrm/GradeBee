@@ -43,7 +43,7 @@ ${note.text}
             OpenAIChatCompletionChoiceMessageContentItemModel.text(userPrompt)
           ]);
       final chatCompletion = await OpenAI.instance.chat.create(
-        model: 'gpt-4o',
+        model: 'gpt-5.2',
         messages: [systemMessage, userMessage],
       );
 

@@ -85,7 +85,7 @@ void main() {
       final result = await handler.processRequest(reportCard);
 
       expect(result.isGenerated, false);
-      expect(result.error, 'Error splitting notes');
+      expect(result.error, 'Error generating');
       expect(result.sections, isEmpty);
       verify(mockGenerator.generateReportCard(reportCard)).called(1);
       verify(mockLogger.error(any)).called(1);

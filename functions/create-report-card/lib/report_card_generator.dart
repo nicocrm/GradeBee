@@ -18,7 +18,7 @@ class ReportCardGenerator {
     logger.log("System prompt: $systemPrompt");
     logger.log("User prompt: $prompt");
     final response = await OpenAI.instance.chat.create(
-      model: "gpt-4o-mini",
+      model: "gpt-5.2",
       messages: [
         OpenAIChatCompletionChoiceMessageModel(
           role: OpenAIChatMessageRole.system,
@@ -87,7 +87,7 @@ Requirements:
 - Stay factual and don't invent information
 - Don't use newlines or bullets
 - Mininum 350 characters
-- Maximum 450 characters
+- Maximum 420 characters
 - If the generated text is over 450 characters, summarize it down to 450 characters max
 - Use British English
 - Use the provided student name
