@@ -47,7 +47,7 @@ Future<void> main(List<String> args) async {
     final source = await initializeReportCard(
         database, results['student'], results['template']);
 
-    final processed = await handler.processRequest(source);
+    final processed = await handler.processRequest(CreateReportCardRequest(source));
     if (processed.isGenerated) {
       final insertedId =
           await database.insert('report_cards', processed.toJson());

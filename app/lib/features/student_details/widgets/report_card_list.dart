@@ -20,12 +20,14 @@ class _ReportCardListState extends State<ReportCardList> with ErrorMixin {
   void initState() {
     super.initState();
     widget.vm.generateReportCardCommand.addListener(_handleCommandUpdate);
+    widget.vm.regenerateReportCardCommand.addListener(_handleCommandUpdate);
     widget.vm.addReportCardCommand.addListener(_handleCommandUpdate);
   }
 
   @override
   void dispose() {
     widget.vm.generateReportCardCommand.removeListener(_handleCommandUpdate);
+    widget.vm.regenerateReportCardCommand.removeListener(_handleCommandUpdate);
     widget.vm.addReportCardCommand.removeListener(_handleCommandUpdate);
     super.dispose();
   }
@@ -42,6 +44,17 @@ class _ReportCardListState extends State<ReportCardList> with ErrorMixin {
       );
     }
     generateCommand.clearResult();
+    final regenerateCommand = widget.vm.regenerateReportCardCommand;
+    if (regenerateCommand.error != null) {
+      showErrorSnackbar(regenerateCommand.error!.error.toString());
+    } else if (!regenerateCommand.running && regenerateCommand.value != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Report card regenerated successfully'),
+        ),
+      );
+    }
+    regenerateCommand.clearResult();
     final addCommand = widget.vm.addReportCardCommand;
     if (addCommand.error != null) {
       showErrorSnackbar(addCommand.error!.error.toString());

@@ -50,15 +50,15 @@ void main() {
         ReportCardSection(category: 'Section 2', text: 'Content 2'),
       ];
 
-      when(mockGenerator.generateReportCard(reportCard))
+      when(mockGenerator.generateReportCard(any, feedback: anyNamed('feedback')))
           .thenAnswer((_) async => generatedSections);
 
-      final result = await handler.processRequest(reportCard);
+      final result = await handler.processRequest(CreateReportCardRequest(reportCard));
 
       expect(result.isGenerated, true);
       expect(result.error, null);
       expect(result.sections, equals(generatedSections));
-      verify(mockGenerator.generateReportCard(reportCard)).called(1);
+      verify(mockGenerator.generateReportCard(reportCard, feedback: null)).called(1);
     });
 
     test('handles error during generation', () async {
@@ -79,16 +79,53 @@ void main() {
         studentNotes: [],
       );
 
-      when(mockGenerator.generateReportCard(reportCard))
+      when(mockGenerator.generateReportCard(any, feedback: anyNamed('feedback')))
           .thenThrow(Exception('Test error'));
 
-      final result = await handler.processRequest(reportCard);
+      final result = await handler.processRequest(CreateReportCardRequest(reportCard));
 
       expect(result.isGenerated, false);
-      expect(result.error, 'Error generating');
+      expect(result.error, 'Error generating card');
       expect(result.sections, isEmpty);
-      verify(mockGenerator.generateReportCard(reportCard)).called(1);
+      verify(mockGenerator.generateReportCard(reportCard, feedback: null)).called(1);
       verify(mockLogger.error(any)).called(1);
+    });
+
+    test('successfully regenerates report card with feedback', () async {
+      final reportCard = ReportCard(
+        id: '123',
+        sections: [
+          ReportCardSection(category: 'Section 1', text: 'Original content'),
+        ],
+        isGenerated: true,
+        when: DateTime.now(),
+        template: ReportCardTemplate(
+          id: '123',
+          name: 'Test Template',
+          sections: [],
+        ),
+        student: Student(
+          id: '123',
+          name: 'John Doe',
+        ),
+        studentNotes: [],
+      );
+
+      final generatedSections = [
+        ReportCardSection(category: 'Section 1', text: 'Revised content'),
+      ];
+
+      when(mockGenerator.generateReportCard(any, feedback: anyNamed('feedback')))
+          .thenAnswer((_) async => generatedSections);
+
+      final result = await handler.processRequest(
+          CreateReportCardRequest(reportCard, 'Make it more positive'));
+
+      expect(result.isGenerated, true);
+      expect(result.sections, equals(generatedSections));
+      verify(mockGenerator.generateReportCard(
+              reportCard, feedback: 'Make it more positive'))
+          .called(1);
     });
   });
 }

@@ -11,10 +11,12 @@ class ReportCardGenerator {
   }
 
   Future<List<ReportCardSection>> generateReportCard(
-      ReportCard reportCard) async {
-    final systemPrompt = createSystemPrompt(reportCard.template.sections);
-    final prompt =
-        createUserPrompt(reportCard.studentNotes, reportCard.student.name);
+      ReportCard reportCard, {String? feedback}) async {
+    final systemPrompt = createSystemPrompt(reportCard.template.sections,
+        isRegeneration: feedback != null);
+    final prompt = createUserPrompt(
+        reportCard.studentNotes, reportCard.student.name,
+        currentDraft: reportCard.sections, feedback: feedback);
     logger.log("System prompt: $systemPrompt");
     logger.log("User prompt: $prompt");
     final response = await OpenAI.instance.chat.create(
@@ -52,19 +54,42 @@ class ReportCardGenerator {
     return reportCardSections;
   }
 
-  createUserPrompt(List<String> studentNotes, String studentName) {
-    return '''
+  createUserPrompt(List<String> studentNotes, String studentName,
+      {List<ReportCardSection>? currentDraft, String? feedback}) {
+    var prompt = '''
 This is the student name: $studentName
 This is the list of student notes:
 ${studentNotes.join("\n-------------\n\n\n")}
 ''';
+    if (currentDraft != null && currentDraft.isNotEmpty) {
+      prompt += '''
+
+Current draft of the report card:
+${jsonEncode(currentDraft.map((s) => {'category': s.category, 'content': s.text}).toList())}
+''';
+      if (feedback != null && feedback.isNotEmpty) {
+        prompt += '''
+
+Feedback from the teacher: $feedback
+Please revise the report card based on this feedback while keeping the same structure and format.
+''';
+      } else {
+        prompt += '''
+
+Please revise the report card. You may refine or improve it based on the notes and template.
+''';
+      }
+    }
+    return prompt;
   }
 
-  createSystemPrompt(List<ReportCardTemplateSection> sections) {
+  createSystemPrompt(List<ReportCardTemplateSection> sections,
+      {bool isRegeneration = false}) {
     return '''
 You are a helpful assistant that generates report cards.
 
 You will be given a student name, a list of student notes, and a template for the report card.
+${isRegeneration ? 'You may also be given a current draft and feedback from the teacher. In that case, revise the report card accordingly.' : ''}
 
 You will need to generate a report card for each student based on the notes and the template.
 

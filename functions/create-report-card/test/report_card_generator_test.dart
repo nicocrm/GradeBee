@@ -24,13 +24,33 @@ void main() {
       final notes = ['Note 1', 'Note 2', 'Note 3'];
 
       // Act
-      final result = generator.createUserPrompt(notes, 'Test Template');
+      final result = generator.createUserPrompt(notes, 'Test Student');
 
       // Assert
       expect(result, contains('Note 1'));
       expect(result, contains('Note 2'));
       expect(result, contains('Note 3'));
       expect(result, contains('-------------'));
+    });
+
+    test('createUserPrompt should include current draft and feedback when provided', () {
+      // Arrange
+      final notes = ['Note 1'];
+      final currentDraft = [
+        ReportCardSection(category: 'Progress', text: 'Current text'),
+      ];
+      const feedback = 'Make it more concise';
+
+      // Act
+      final result = generator.createUserPrompt(
+          notes, 'Test Student', currentDraft: currentDraft, feedback: feedback);
+
+      // Assert
+      expect(result, contains('Current draft of the report card'));
+      expect(result, contains('Progress'));
+      expect(result, contains('Current text'));
+      expect(result, contains('Feedback from the teacher: Make it more concise'));
+      expect(result, contains('Please revise the report card based on this feedback'));
     });
 
     test('createSystemPrompt should include template information', () {
@@ -52,6 +72,20 @@ void main() {
       // Assert
       expect(result, contains('You are a helpful assistant'));
       expect(result, contains('Academic Progress'));
+    });
+
+    test('createSystemPrompt should include regeneration hint when isRegeneration', () {
+      final sections = [
+        ReportCardTemplateSection(
+          category: 'Progress',
+          examples: ['Example'],
+        ),
+      ];
+
+      final result = generator.createSystemPrompt(sections, isRegeneration: true);
+
+      expect(result, contains('current draft and feedback'));
+      expect(result, contains('revise the report card accordingly'));
     });
   });
 }
