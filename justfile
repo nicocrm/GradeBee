@@ -150,6 +150,36 @@ build-web:
     echo "Environment: {{env_name}}"
     echo "Ready for development!"
 
+# Run all tests (Flutter app + Dart functions)
+test:
+    #!/usr/bin/env bash
+    set -e
+    echo "🧪 Running all tests..."
+    echo ""
+    
+    echo "📦 functions/gradebee-models..."
+    cd functions/gradebee-models && dart test && cd ../..
+    echo ""
+    
+    echo "📦 functions/split-notes-by-student..."
+    cd functions/split-notes-by-student && dart test && cd ../..
+    echo ""
+    
+    echo "📦 functions/create-report-card..."
+    cd functions/create-report-card && dart run build_runner build --delete-conflicting-outputs 2>/dev/null || true
+    dart test && cd ../..
+    echo ""
+    
+    if command -v flutter &>/dev/null; then
+        echo "📱 app (Flutter)..."
+        cd app && flutter test && cd ..
+        echo ""
+    else
+        echo "⚠️  Skipping Flutter app tests (flutter not in PATH)"
+    fi
+    
+    echo "✅ All tests passed!"
+
 # Clean build artifacts
 clean:
     #!/usr/bin/env bash
@@ -182,6 +212,9 @@ help:
     echo "    just build-web         Build Flutter web app"
     echo "    just publish-web       Publish web app (current env)"
     echo "    just deploy            Full deployment (current env)"
+    echo ""
+    echo "  Testing:"
+    echo "    just test              Run all tests"
     echo ""
     echo "  Utilities:"
     echo "    just clean             Clean build artifacts"
