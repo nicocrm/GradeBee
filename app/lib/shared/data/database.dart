@@ -3,65 +3,67 @@ import 'package:appwrite/appwrite.dart';
 import '../logger.dart';
 
 class DatabaseService {
-  final Databases _db;
+  final TablesDB _db;
   final String _databaseId;
 
-  DatabaseService(Client client, this._databaseId) : _db = Databases(client);
+  DatabaseService(Client client, this._databaseId) : _db = TablesDB(client);
 
-  Future<String> insert(String collectionId, Map<String, dynamic> data) async {
+  Future<String> insert(String tableId, Map<String, dynamic> data) async {
     try {
-      final doc = await _db.createDocument(
+      final row = await _db.createRow(
           databaseId: _databaseId,
-          collectionId: collectionId,
-          documentId: ID.unique(),
+          tableId: tableId,
+          rowId: ID.unique(),
           data: data);
-      return doc.$id;
+      return row.$id;
     } catch (e, s) {
-      AppLogger.error('Error creating document', e, s);
+      AppLogger.error('Error creating row', e, s);
       rethrow;
     }
   }
 
   Future<List<T>> list<T>(
-      String collectionId, T Function(Map<String, dynamic>) fromJson,
+      String tableId, T Function(Map<String, dynamic>) fromJson,
       {List<String>? queries}) async {
     try {
-      final result = await _db.listDocuments(
+      final result = await _db.listRows(
           databaseId: _databaseId,
-          collectionId: collectionId,
+          tableId: tableId,
           queries: queries);
-      return result.documents.map((e) => fromJson({...e.data})).toList();
+      return result.rows.map((e) => fromJson({...e.data})).toList();
     } catch (e, s) {
-      AppLogger.error('Error listing documents', e, s);
+      AppLogger.error('Error listing rows', e, s);
       rethrow;
     }
   }
 
-  Future<T> get<T>(String collectionId,
-      T Function(Map<String, dynamic>) fromJson, String documentId) async {
+  Future<T> get<T>(String tableId,
+      T Function(Map<String, dynamic>) fromJson, String rowId,
+      {List<String>? queries}) async {
     try {
-      final doc = await _db.getDocument(
+      final row = await _db.getRow(
           databaseId: _databaseId,
-          collectionId: collectionId,
-          documentId: documentId);
-      return fromJson({...doc.data});
+          tableId: tableId,
+          rowId: rowId,
+          queries: queries);
+      return fromJson({...row.data});
     } catch (e, s) {
-      AppLogger.error('Error getting document', e, s);
+      AppLogger.error('Error getting row', e, s);
       rethrow;
     }
   }
 
   Future<Map<String, dynamic>> update(
-      String collectionId, Map<String, dynamic> data, String documentId) async {
+      String tableId, Map<String, dynamic> data, String rowId) async {
     try {
-      final result = await _db.updateDocument(
+      final result = await _db.updateRow(
           databaseId: _databaseId,
-          collectionId: collectionId,
-          documentId: documentId,
+          tableId: tableId,
+          rowId: rowId,
           data: data);
       return result.data;
     } catch (e, s) {
-      AppLogger.error('Error updating document', e, s);
+      AppLogger.error('Error updating row', e, s);
       rethrow;
     }
   }

@@ -26,7 +26,7 @@ class ClassRepository {
         Class.fromJson,
         queries: [
           // hard coded for now...
-          Query.equal('school_year', '2025-2026'),
+          Query.equal('school_year', ['2025-2026']),
           Query.select(['*', 'students.*', 'notes.*']),
         ],
       );

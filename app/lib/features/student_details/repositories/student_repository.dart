@@ -1,3 +1,5 @@
+import 'package:appwrite/appwrite.dart';
+
 import '../../../shared/data/database.dart';
 import '../../../shared/logger.dart';
 import '../models/student.model.dart';
@@ -9,7 +11,20 @@ class StudentRepository {
 
   Future<Student> getStudent(String id) async {
     try {
-      return await _db.get('students', Student.fromJson, id);
+      return await _db.get(
+        'students',
+        Student.fromJson,
+        id,
+        queries: [
+          Query.select([
+            '*',
+            'notes.*',
+            'report_cards.*',
+            'report_cards.template.*',
+            'report_cards.sections.*',
+          ]),
+        ],
+      );
     } catch (e) {
       AppLogger.error('Error getting student');
       rethrow;
@@ -17,7 +32,7 @@ class StudentRepository {
   }
 
   Future<Student> updateStudent(Student student) async {
-    final result = await _db.update('students', student.toJson(), student.id);
-    return Student.fromJson(result);
+    await _db.update('students', student.toJson(), student.id);
+    return getStudent(student.id);
   }
 }

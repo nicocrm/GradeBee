@@ -24,7 +24,7 @@ class ReportCard {
               .map((section) => ReportCardSection.fromJson(section))
               .toList()
           : [],
-      templateId: json['template']['\$id'],
+      templateId: _templateIdFromJson(json['template']),
       isGenerated: json['isGenerated'] ?? false,
       wasModified: false,
     );
@@ -52,6 +52,14 @@ class ReportCard {
       wasModified: wasModified,
     );
   }
+}
+
+String _templateIdFromJson(dynamic template) {
+  if (template is String) return template;
+  if (template is Map && template['\$id'] != null) {
+    return template['\$id'] as String;
+  }
+  throw ArgumentError('ReportCard template must be expanded or an ID string');
 }
 
 class ReportCardSection {

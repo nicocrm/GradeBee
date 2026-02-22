@@ -82,7 +82,7 @@ class Class {
   }
 
   static List _serializeNotes(List<Note> notes) {
-    return notes.map((e) => e.id ?? e.toJson()).toList();
+    return notes.map((e) => e.id).toList();
   }
 
   Class addVoiceNote(String recordingPath) {
