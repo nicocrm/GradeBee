@@ -40,9 +40,29 @@ just build-web         # Build Flutter web app
 just publish-web <env> # Publish web app
 just deploy <env>      # Full deployment (build + publish)
 
+# Testing
+just test              # Run all tests (Flutter app + Dart functions)
+
 # Utilities
 just clean             # Clean build artifacts
 ```
+
+### Running Tests
+
+```bash
+# Run all tests (recommended)
+just test
+
+# Run Flutter app tests (requires Flutter SDK)
+cd app && flutter test
+
+# Run Dart function tests
+cd functions/gradebee-models && dart test
+cd functions/split-notes-by-student && dart test   # requires OPENAI_API_KEY in .env or environment
+cd functions/create-report-card && dart test      # run `dart run build_runner build` first if mocks are missing
+```
+
+The `split-notes-by-student` tests call the OpenAI API. Ensure `OPENAI_API_KEY` is set (e.g. in `envs/dev/.env` or as an environment variable) when running those tests.
 
 For appwrite functions:
 
