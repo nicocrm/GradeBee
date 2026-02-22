@@ -23,8 +23,8 @@ Future<dynamic> main(final context) async {
     final generator =
         ReportCardGenerator(logger, Platform.environment['OPENAI_API_KEY']!);
     final handler = CreateReportCardHandler(logger, generator, database);
-    final input = await handler.parseBody(context.req.bodyJson);
-    final output = await handler.processRequest(input);
+    final request = await handler.parseBody(context.req.bodyJson);
+    final output = await handler.processRequest(request);
     await handler.save(output);
     return context.res.json(handler.result(output));
   } on ValidationException catch (e) {

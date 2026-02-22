@@ -14,6 +14,16 @@ class ReportCardDetail extends StatelessWidget {
     required this.vm,
   });
 
+  void _showRegenerateDialog(BuildContext context, ReportCard reportCard) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => _RegenerateDialog(
+        reportCard: reportCard,
+        vm: vm,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Card(
@@ -63,14 +73,17 @@ class ReportCardDetail extends StatelessWidget {
             const SizedBox(height: 16),
             Center(
               child: ListenableBuilder(
-                listenable: vm.generateReportCardCommand,
+                listenable: Listenable.merge([
+                  vm.generateReportCardCommand,
+                  vm.regenerateReportCardCommand,
+                ]),
                 builder: (context, _) {
+                  final isRegenerating = vm.regenerateReportCardCommand.running;
                   return ElevatedButton.icon(
-                    onPressed: vm.generateReportCardCommand.running
+                    onPressed: isRegenerating
                         ? null
-                        : () async => await vm.generateReportCardCommand
-                            .execute(reportCard),
-                    icon: vm.generateReportCardCommand.running
+                        : () => _showRegenerateDialog(context, reportCard),
+                    icon: isRegenerating
                         ? const SizedBox(
                             width: 20,
                             height: 20,
@@ -79,9 +92,7 @@ class ReportCardDetail extends StatelessWidget {
                             ),
                           )
                         : const Icon(Icons.refresh),
-                    label: Text(vm.generateReportCardCommand.running
-                        ? 'Regenerating...'
-                        : 'Regenerate'),
+                    label: Text(isRegenerating ? 'Regenerating...' : 'Regenerate'),
                   );
                 },
               ),
@@ -89,6 +100,66 @@ class ReportCardDetail extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _RegenerateDialog extends StatefulWidget {
+  final ReportCard reportCard;
+  final StudentDetailsVM vm;
+
+  const _RegenerateDialog({
+    required this.reportCard,
+    required this.vm,
+  });
+
+  @override
+  State<_RegenerateDialog> createState() => _RegenerateDialogState();
+}
+
+class _RegenerateDialogState extends State<_RegenerateDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Regenerate Report Card'),
+      content: TextField(
+        controller: _controller,
+        decoration: const InputDecoration(
+          hintText: 'What would you like to change? (optional)',
+          border: OutlineInputBorder(),
+          alignLabelWithHint: true,
+        ),
+        maxLines: 4,
+        minLines: 2,
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () {
+            Navigator.pop(context);
+            widget.vm.regenerateReportCardCommand.execute(
+                widget.reportCard, _controller.text.trim());
+          },
+          child: const Text('Regenerate'),
+        ),
+      ],
     );
   }
 }

@@ -14,6 +14,7 @@ class StudentDetailsVM extends ChangeNotifier {
   final ReportCardService reportCardService;
   Student? _student;
   late final Command1<void, ReportCard> generateReportCardCommand;
+  late final Command2<void, ReportCard, String> regenerateReportCardCommand;
   late final Command1<void, String> addNoteCommand;
   late final Command1<void, StudentNote> updateNoteCommand;
   late final Command1<void, String> deleteNoteCommand;
@@ -22,6 +23,7 @@ class StudentDetailsVM extends ChangeNotifier {
   StudentDetailsVM(this.studentId,
       {required this.repository, required this.reportCardService}) {
     generateReportCardCommand = Command1(_generateReportCard);
+    regenerateReportCardCommand = Command2(_regenerateReportCard);
     addNoteCommand = Command1(_addNote);
     updateNoteCommand = Command1(_updateNote);
     deleteNoteCommand = Command1(_deleteNote);
@@ -37,6 +39,15 @@ class StudentDetailsVM extends ChangeNotifier {
 
   Future<Result<void>> _generateReportCard(ReportCard reportCard) async {
     reportCard = await reportCardService.generateReportCard(reportCard);
+    _student = _student!.updateReportCard(reportCard);
+    notifyListeners();
+    return Result.value(null);
+  }
+
+  Future<Result<void>> _regenerateReportCard(
+      ReportCard reportCard, String feedback) async {
+    reportCard = await reportCardService.regenerateReportCard(reportCard,
+        feedback: feedback.isEmpty ? null : feedback);
     _student = _student!.updateReportCard(reportCard);
     notifyListeners();
     return Result.value(null);

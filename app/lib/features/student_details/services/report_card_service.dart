@@ -28,4 +28,22 @@ class ReportCardService {
             .toList(),
         wasModified: false);
   }
+
+  Future<ReportCard> regenerateReportCard(ReportCard reportCard,
+      {String? feedback}) async {
+    final response = await functions.execute('create-report-card', {
+      "\$id": reportCard.id,
+      "regenerate": true,
+      "feedback": feedback ?? "",
+    });
+    if (response['status'] == 'error') {
+      throw Exception(response['message']);
+    }
+    return reportCard.copyWith(
+        isGenerated: true,
+        sections: (response['sections'] as List)
+            .map((e) => ReportCardSection.fromJson(e))
+            .toList(),
+        wasModified: false);
+  }
 }
