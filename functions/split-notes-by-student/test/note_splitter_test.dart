@@ -1,12 +1,15 @@
 import 'package:dotenv/dotenv.dart';
+import 'package:gradebee_function_helpers/helpers.dart';
 import 'package:gradebee_models/common.dart';
+import 'package:logging/logging.dart';
 import 'package:split_notes_by_student/note_splitter.dart';
 import 'package:test/test.dart';
 
 void main() {
   group('Note Splitter', () {
     final env = DotEnv()..load(["../../.env"]);
-    final noteSplitter = NoteSplitter(env['OPENAI_API_KEY']!);
+    final logger = SimpleLogger(Logger('note_splitter_test'));
+    final noteSplitter = NoteSplitter(logger, env['OPENAI_API_KEY']!);
 
     test('if student name is not found, it should be ignored', () async {
       final note = Note(

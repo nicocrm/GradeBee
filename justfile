@@ -81,17 +81,15 @@ status:
 
 # Appwrite operations
 @push env_name:
-    #!/usr/bin/env bash
-    echo "📤 Pushing to Appwrite..."
+    @echo "📤 Pushing to Appwrite..."
     npx appwrite-cli push
-    echo "✅ Push completed"
+    @echo "✅ Push completed"
 
 @pull env_name:
-    #!/usr/bin/env bash
-    echo "📥 Pulling from Appwrite..."
+    @echo "📥 Pulling from Appwrite..."
     npx appwrite-cli pull
     cp appwrite.json "envs/{{env_name}}/appwrite.json"
-    echo "✅ Pull completed and saved to envs/{{env_name}}/"
+    @echo "✅ Pull completed and saved to envs/{{env_name}}/"
 
 # Promote dev configuration to production
 promote:
@@ -109,84 +107,59 @@ promote:
 
 # Web build and deploy
 build-web:
-    #!/usr/bin/env bash
-    echo "🔨 Building Flutter web app..."
+    @echo "🔨 Building Flutter web app..."
     cd app && flutter build web
-    cd ..
-    echo "✅ Web build completed"
+    @echo "✅ Web build completed"
 
 @publish-web env_name:
-    #!/usr/bin/env bash
-    echo "🌐 Publishing web app to S3..."
-    aws s3 sync "{{web_outputdir}}"/ "s3://{{publish_s3_bucket}}/{{env_name}}" --acl public-read --delete
-    echo "✅ S3 sync completed"
+    @echo "🌐 Publishing web app to S3..."
+    aws s3 sync "{{web_outputdir}}/" "s3://{{publish_s3_bucket}}/{{env_name}}" --acl public-read --delete
+    @echo "✅ S3 sync completed"
     
-    echo "🚀 Starting Amplify deployment..."
+    @echo "🚀 Starting Amplify deployment..."
     aws amplify start-deployment --app-id "{{amplify_app_id}}" --branch-name "{{env_name}}" --source-url "s3://{{publish_s3_bucket}}/{{env_name}}/" --source-url-type BUCKET_PREFIX
-    echo "✅ Amplify deployment started"
+    @echo "✅ Amplify deployment started"
 
 # Full deployment (build + publish)
-@deploy env_name:
-    #!/usr/bin/env bash
-    echo "🔨 Building Flutter web app..."
-    cd app && flutter build web
-    cd ..
-    echo "✅ Web build completed"
-    
-    echo "🌐 Publishing web app to S3..."
-    aws s3 sync "{{web_outputdir}}"/ "s3://{{publish_s3_bucket}}/{{env_name}}" --acl public-read --delete
-    echo "✅ S3 sync completed"
-    
-    echo "🚀 Starting Amplify deployment..."
-    aws amplify start-deployment --app-id "{{amplify_app_id}}" --branch-name "{{env_name}}" --source-url "s3://{{publish_s3_bucket}}/{{env_name}}/" --source-url-type BUCKET_PREFIX
-    echo "✅ Amplify deployment started"
-    
-    echo "🎉 Full deployment completed for {{env_name}}!"
+@deploy env_name: build-web (publish-web env_name)
+    @echo "🎉 Full deployment completed for {{env_name}}!"
 
 # Development helpers
 @dev-setup env_name:
-    #!/usr/bin/env bash
-    echo "🛠️  Setting up development environment..."
-    echo "Environment: {{env_name}}"
-    echo "Ready for development!"
+    @echo "🛠️  Setting up development environment..."
+    @echo "Environment: {{env_name}}"
+    @echo "Ready for development!"
 
 # Run all tests (Flutter app + Dart functions)
 test:
-    #!/usr/bin/env bash
-    set -e
     echo "🧪 Running all tests..."
     echo ""
     
     echo "📦 functions/gradebee-models..."
-    cd functions/gradebee-models && dart test && cd ../..
+    cd functions/gradebee-models && dart test
     echo ""
     
     echo "📦 functions/split-notes-by-student..."
-    cd functions/split-notes-by-student && dart test && cd ../..
+    cd functions/split-notes-by-student && dart test
     echo ""
     
     echo "📦 functions/create-report-card..."
     cd functions/create-report-card && dart run build_runner build --delete-conflicting-outputs 2>/dev/null || true
-    dart test && cd ../..
+    cd functions/create-report-card && dart test
     echo ""
     
-    if command -v flutter &>/dev/null; then
-        echo "📱 app (Flutter)..."
-        cd app && flutter test && cd ..
-        echo ""
-    else
-        echo "⚠️  Skipping Flutter app tests (flutter not in PATH)"
-    fi
+    echo "📱 app (Flutter)..."
+    cd app && flutter test
+    echo ""
     
     echo "✅ All tests passed!"
 
 # Clean build artifacts
 clean:
-    #!/usr/bin/env bash
-    echo "🧹 Cleaning build artifacts..."
+    @echo "🧹 Cleaning build artifacts..."
     rm -rf app/build/
     rm -f app/.env functions/.env .env appwrite.json
-    echo "✅ Clean completed"
+    @echo "✅ Clean completed"
 
 # Show help with all available commands
 help:

@@ -1,14 +1,16 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:dart_appwrite/dart_appwrite.dart';
+import 'package:gradebee_function_helpers/helpers.dart';
 import 'package:gradebee_models/common.dart';
 import 'note_splitter.dart';
 
 class SplitNoteHandler {
+  final SimpleLogger logger;
   final Client client;
   final dynamic context;
 
-  SplitNoteHandler(this.context)
+  SplitNoteHandler(this.logger, this.context)
       : client = Client()
             .setEndpoint(
                 Platform.environment['APPWRITE_FUNCTION_API_ENDPOINT'] ?? '')
@@ -29,12 +31,12 @@ class SplitNoteHandler {
   Future<Note> processRequest(Note note) async {
     try {
       final splitter =
-          NoteSplitter(Platform.environment['OPENAI_API_KEY'] ?? '');
+          NoteSplitter(logger, Platform.environment['OPENAI_API_KEY'] ?? '');
       note.studentNotes = await splitter.splitNotesByStudent(note).toList();
       note.isSplit = true;
       note.error = null;
     } catch (e, s) {
-      context.error("${e.toString()}\n$s");
+      logger.error("${e.toString()}\n$s");
       note.error = "Error splitting notes";
       note.isSplit = false;
     }
