@@ -5,9 +5,8 @@ import 'report_card_generator.dart';
 
 class CreateReportCardRequest {
   final ReportCard reportCard;
-  final String? feedback;
 
-  CreateReportCardRequest(this.reportCard, [this.feedback]);
+  CreateReportCardRequest(this.reportCard);
 }
 
 class CreateReportCardHandler {
@@ -20,8 +19,7 @@ class CreateReportCardHandler {
   Future<CreateReportCardRequest> parseBody(Map<String, dynamic>? json) async {
     if (json == null) throw ValidationException("No body");
     final isRegenerate = json['regenerate'] == true;
-    final hasFeedback = json['feedback'] != null;
-    if (json['is_generated'] == true && !isRegenerate && !hasFeedback) {
+    if (json['is_generated'] == true && !isRegenerate) {
       // this will be sent when we get the report card as a result of a record create
       throw ValidationException("Report card is already generated");
     }
@@ -32,15 +30,17 @@ class CreateReportCardHandler {
         [
           Query.select(['*', 'sections.*', 'template.*', 'template.sections.*', 'student.*', 'student.notes.*'])
         ]);
-    final feedback = hasFeedback ? json['feedback'] as String? : null;
-    return CreateReportCardRequest(reportCard, feedback);
+    return CreateReportCardRequest(reportCard);
   }
 
   Future<ReportCard> processRequest(CreateReportCardRequest request) async {
     final reportCard = request.reportCard;
+    final feedback = reportCard.feedback != null && reportCard.feedback!.isNotEmpty
+        ? reportCard.feedback
+        : null;
     try {
       final sections = await generator.generateReportCard(
-          reportCard, feedback: request.feedback);
+          reportCard, feedback: feedback);
       reportCard.sections.clear();
       reportCard.sections.addAll(sections);
       reportCard.isGenerated = true;

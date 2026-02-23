@@ -91,7 +91,46 @@ void main() {
       verify(mockLogger.error(any)).called(1);
     });
 
-    test('successfully regenerates report card with feedback', () async {
+    test('successfully regenerates report card with feedback from document',
+        () async {
+      final reportCard = ReportCard(
+        id: '123',
+        sections: [
+          ReportCardSection(category: 'Section 1', text: 'Original content'),
+        ],
+        isGenerated: true,
+        when: DateTime.now(),
+        template: ReportCardTemplate(
+          id: '123',
+          name: 'Test Template',
+          sections: [],
+        ),
+        student: Student(
+          id: '123',
+          name: 'John Doe',
+        ),
+        studentNotes: [],
+        feedback: 'Make it more positive',
+      );
+
+      final generatedSections = [
+        ReportCardSection(category: 'Section 1', text: 'Revised content'),
+      ];
+
+      when(mockGenerator.generateReportCard(any, feedback: anyNamed('feedback')))
+          .thenAnswer((_) async => generatedSections);
+
+      final result =
+          await handler.processRequest(CreateReportCardRequest(reportCard));
+
+      expect(result.isGenerated, true);
+      expect(result.sections, equals(generatedSections));
+      verify(mockGenerator.generateReportCard(
+              reportCard, feedback: 'Make it more positive'))
+          .called(1);
+    });
+
+    test('regenerates report card with null feedback as no feedback', () async {
       final reportCard = ReportCard(
         id: '123',
         sections: [
@@ -118,13 +157,11 @@ void main() {
       when(mockGenerator.generateReportCard(any, feedback: anyNamed('feedback')))
           .thenAnswer((_) async => generatedSections);
 
-      final result = await handler.processRequest(
-          CreateReportCardRequest(reportCard, 'Make it more positive'));
+      final result =
+          await handler.processRequest(CreateReportCardRequest(reportCard));
 
       expect(result.isGenerated, true);
-      expect(result.sections, equals(generatedSections));
-      verify(mockGenerator.generateReportCard(
-              reportCard, feedback: 'Make it more positive'))
+      verify(mockGenerator.generateReportCard(reportCard, feedback: null))
           .called(1);
     });
   });
