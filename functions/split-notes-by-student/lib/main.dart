@@ -1,13 +1,15 @@
 import 'dart:async';
 import 'package:gradebee_models/common.dart';
+import 'package:gradebee_function_helpers/helpers.dart';
 import 'split_note_handler.dart';
 
 /// This Appwrite function will be executed whenever a note is created or updated with a "text" field.
 /// It will split the note into individual notes for each student and save them to the database.
 /// The "isSplit" field will be set to true.
 Future<dynamic> main(final context) async {
+  final logger = setupLogging('split-notes-by-student', context);
   try {
-    final handler = SplitNoteHandler(context);
+    final handler = SplitNoteHandler(logger, context);
     final input = handler.parseBody(context.req.bodyJson);
     final output = await handler.processRequest(input);
     await handler.save(output);

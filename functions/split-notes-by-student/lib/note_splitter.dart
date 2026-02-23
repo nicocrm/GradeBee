@@ -1,10 +1,13 @@
 import 'dart:convert';
 
-import 'package:gradebee_models/common.dart';
 import 'package:dart_openai/dart_openai.dart';
+import 'package:gradebee_function_helpers/helpers.dart';
+import 'package:gradebee_models/common.dart';
 
 class NoteSplitter {
-  NoteSplitter(String apiKey) {
+  final SimpleLogger logger;
+
+  NoteSplitter(this.logger, String apiKey) {
     OpenAI.apiKey = apiKey;
   }
 
@@ -20,6 +23,7 @@ Use the following student names:
 ${studentsByName.keys.join(", ")}
 
 Approximate the spelling of the student's name if necessary.
+Keep the corrected student's name in the note.
 If a student in the note is not in the above list, do not create a note for that student.
 For each student mentioned, create a separate note with only the information relevant to that student.
 If a student is mentioned multiple times, create one combined note for that student.

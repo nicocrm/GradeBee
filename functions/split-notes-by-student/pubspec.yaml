@@ -10,6 +10,8 @@ dependencies:
   dart_openai: ^6.1.1
   gradebee_models:
     path: ../gradebee-models
+  gradebee_function_helpers:
+    path: ../gradebee-function-helpers
 
 dev_dependencies:
   dotenv: ^4.2.0
