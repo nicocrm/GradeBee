@@ -37,6 +37,7 @@ class ReportCard {
   String? error;
   final Student student;
   final List<String> studentNotes;
+  final String? feedback;
 
   ReportCard({
     this.id,
@@ -47,6 +48,7 @@ class ReportCard {
     required this.studentNotes,
     this.isGenerated = false,
     this.error,
+    this.feedback,
   });
 
   factory ReportCard.fromJson(Map<String, dynamic> json) {
@@ -70,6 +72,7 @@ class ReportCard {
               .map((note) => note['text'].toString())
               .toList()
           : [],
+      feedback: json['feedback'] as String?,
     );
   }
 

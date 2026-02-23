@@ -29,12 +29,16 @@ class ReportCardService {
         wasModified: false);
   }
 
-  Future<ReportCard> regenerateReportCard(ReportCard reportCard,
-      {String? feedback}) async {
+  Future<void> updateFeedbackOnReportCard(ReportCard reportCard,
+      String feedback) async {
+    await database.update(
+        'report_cards', {'feedback': feedback}, reportCard.id!);
+  }
+
+  Future<ReportCard> regenerateReportCard(ReportCard reportCard) async {
     final response = await functions.execute('create-report-card', {
       "\$id": reportCard.id,
       "regenerate": true,
-      "feedback": feedback ?? "",
     });
     if (response['status'] == 'error') {
       throw Exception(response['message']);
