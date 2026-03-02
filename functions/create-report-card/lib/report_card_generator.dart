@@ -12,11 +12,13 @@ class ReportCardGenerator {
 
   Future<List<ReportCardSection>> generateReportCard(
       ReportCard reportCard, {String? feedback}) async {
+    final hasFeedback = feedback != null && feedback.isNotEmpty;
     final systemPrompt = createSystemPrompt(reportCard.template.sections,
-        isRegeneration: feedback != null);
+        isRegeneration: hasFeedback);
     final prompt = createUserPrompt(
         reportCard.studentNotes, reportCard.student.name,
-        currentDraft: reportCard.sections, feedback: feedback);
+        currentDraft: hasFeedback ? reportCard.sections : null,
+        feedback: feedback);
     logger.log("System prompt: $systemPrompt");
     logger.log("User prompt: $prompt");
     final response = await OpenAI.instance.chat.create(
@@ -61,24 +63,18 @@ This is the student name: $studentName
 This is the list of student notes:
 ${studentNotes.join("\n-------------\n\n\n")}
 ''';
-    if (currentDraft != null && currentDraft.isNotEmpty) {
+    if (currentDraft != null &&
+        currentDraft.isNotEmpty &&
+        feedback != null &&
+        feedback.isNotEmpty) {
       prompt += '''
 
 Current draft of the report card:
 ${jsonEncode(currentDraft.map((s) => {'category': s.category, 'content': s.text}).toList())}
-''';
-      if (feedback != null && feedback.isNotEmpty) {
-        prompt += '''
 
 Feedback from the teacher: $feedback
 Please revise the report card based on this feedback while keeping the same structure and format.
 ''';
-      } else {
-        prompt += '''
-
-Please revise the report card. You may refine or improve it based on the notes and template.
-''';
-      }
     }
     return prompt;
   }

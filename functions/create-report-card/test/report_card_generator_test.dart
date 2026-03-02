@@ -74,6 +74,32 @@ void main() {
       expect(result, contains('Academic Progress'));
     });
 
+    test('createUserPrompt should not include current draft when no feedback provided', () {
+      final notes = ['Note 1'];
+      final currentDraft = [
+        ReportCardSection(category: 'Progress', text: 'Current text'),
+      ];
+
+      final result = generator.createUserPrompt(
+          notes, 'Test Student', currentDraft: currentDraft);
+
+      expect(result, isNot(contains('Current draft of the report card')));
+      expect(result, isNot(contains('Current text')));
+    });
+
+    test('createUserPrompt should not include current draft when feedback is empty', () {
+      final notes = ['Note 1'];
+      final currentDraft = [
+        ReportCardSection(category: 'Progress', text: 'Current text'),
+      ];
+
+      final result = generator.createUserPrompt(
+          notes, 'Test Student', currentDraft: currentDraft, feedback: '');
+
+      expect(result, isNot(contains('Current draft of the report card')));
+      expect(result, isNot(contains('Current text')));
+    });
+
     test('createSystemPrompt should include regeneration hint when isRegeneration', () {
       final sections = [
         ReportCardTemplateSection(
