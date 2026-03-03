@@ -46,9 +46,8 @@ class StudentDetailsVM extends ChangeNotifier {
 
   Future<Result<void>> _regenerateReportCard(
       ReportCard reportCard, String feedback) async {
-    if (feedback.isNotEmpty) {
-      await reportCardService.updateFeedbackOnReportCard(reportCard, feedback);
-    }
+    await reportCardService.updateFeedbackOnReportCard(
+        reportCard, feedback.isEmpty ? null : feedback);
     reportCard = await reportCardService.regenerateReportCard(reportCard);
     _student = _student!.updateReportCard(reportCard);
     notifyListeners();

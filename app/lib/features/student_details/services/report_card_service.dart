@@ -30,7 +30,7 @@ class ReportCardService {
   }
 
   Future<void> updateFeedbackOnReportCard(ReportCard reportCard,
-      String feedback) async {
+      String? feedback) async {
     await database.update(
         'report_cards', {'feedback': feedback}, reportCard.id!);
   }
