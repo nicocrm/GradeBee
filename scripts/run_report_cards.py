@@ -24,6 +24,7 @@ def create_report_card(student_id):
             data=report_card_data,
             permissions=[
                 Permission.read(Role.user("67b972280034245d5ba1")),
+                Permission.update(Role.user("67b972280034245d5ba1")),
             ],
         )
         print(f"Created report card for student {student_id}")

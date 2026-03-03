@@ -23,6 +23,7 @@ class ReportCardGenerator {
     logger.log("User prompt: $prompt");
     final response = await OpenAI.instance.chat.create(
       model: "gpt-5.2",
+      temperature: 1.2,
       messages: [
         OpenAIChatCompletionChoiceMessageModel(
           role: OpenAIChatMessageRole.system,
@@ -104,12 +105,12 @@ Requirements:
 - use only the following categories: ${sections.map((e) => e.category).join(", ")}
 - Ensure each report is tailored to the student's notes while maintaining the tone and style of the template.
 - Keep similar length to examples
-- Don't get too creative, keep it professional
+- Keep a professional tone
+- Vary sentence structure and phrasing across reports
 - Stay factual and don't invent information
 - Don't use newlines or bullets
 - Mininum 350 characters
 - Maximum 420 characters
-- If the generated text is over 450 characters, summarize it down to 450 characters max
 - Use British English
 - Use the provided student name
 - Don't mention absence
