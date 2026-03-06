@@ -77,6 +77,29 @@ python run_report_cards.py
 
 Deletes all existing report cards first, then creates new ones for each student.
 
+### move_student_and_resplit_notes.py
+
+One-time script to move a student from the wrong class to the correct class and re-split class notes so the student receives their assigned content. Use when notes were recorded against the correct class but the split didn't assign content because the student wasn't in the roster.
+
+**Usage:**
+```bash
+# Move "Emma" to Pam & Paul Monday 9:00 (unambiguous)
+uv run python scripts/move_student_and_resplit_notes.py --student "Emma" --class "Pam & Paul" --slot "Monday 9:00"
+
+# Dry run (no changes)
+uv run python scripts/move_student_and_resplit_notes.py --student "Emma" --class "Pam & Paul" --slot "Monday 9:00" --dry-run
+
+# Disambiguate when name matches multiple students
+uv run python scripts/move_student_and_resplit_notes.py --student "John" --class "Mousy" --slot "Wednesday 10:00" --from-class "Pam & Paul" --from-slot "Monday 9:00"
+
+# Test with first N notes only
+uv run python scripts/move_student_and_resplit_notes.py --student "Emma" --class "Pam & Paul" --slot "Monday 9:00" --limit 2
+```
+
+**Arguments:** `--student` (required), `--class` (target course), `--slot` (target time slot, e.g. "Monday 9:00"), `--from-class` / `--from-slot` (source class when name is ambiguous), `--dry-run`, `--limit N`.
+
+See `docs/plans/PLAN_move_student_and_resplit_notes.md` for full specification.
+
 ### update_appwrite_project.py
 
 Copies Appwrite project configuration between environments while preserving target's project ID and name.
@@ -98,3 +121,12 @@ python update_note_permissions.py
 ```
 
 Only updates documents with no permissions or `user:None` permissions.
+
+### update_report_card_permissions.py
+
+One-time script to update permissions on all report cards, overwriting any existing permissions with the default user's permissions.
+
+**Usage:**
+```bash
+python update_report_card_permissions.py
+```
