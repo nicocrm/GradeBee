@@ -15,6 +15,10 @@ migrate_working_dir/
 # we generate that one from the envs
 /appwrite.json
 
+# React web app
+web/node_modules/
+web/dist/
+
 # IntelliJ related
 *.iml
 *.ipr

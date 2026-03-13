@@ -124,6 +124,15 @@ build-web:
 @deploy env_name: build-web (publish-web env_name)
     @echo "🎉 Full deployment completed for {{env_name}}!"
 
+# React web app
+build-web-react:
+    @echo "Building React web app..."
+    cd web && npm run build
+    @echo "React web build completed"
+
+dev-react:
+    cd web && npm run dev
+
 # Development helpers
 @dev-setup env_name:
     @echo "🛠️  Setting up development environment..."
