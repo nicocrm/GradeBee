@@ -65,7 +65,7 @@ func getGoogleOAuthToken(userID string) (string, error) {
 	clerkSecretKey := os.Getenv("CLERK_SECRET_KEY")
 
 	url := fmt.Sprintf("https://api.clerk.com/v1/users/%s/oauth_access_tokens/oauth_google", userID)
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+	req, err := http.NewRequest(http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return "", fmt.Errorf("creating oauth request: %w", err)
 	}

@@ -1,0 +1,27 @@
+# golangci-lint config - enforces error handling and common Go best practices
+# Run with: golangci-lint run
+
+run:
+  timeout: 5m
+  modules-download-mode: readonly
+
+linters:
+  enable:
+    - errcheck      # Report unchecked errors (must handle all returned errors)
+    - errorlint     # Find code that could be problematic with error wrapping
+    - gocritic      # Opinionated checks including error-handling patterns
+linters-settings:
+  errcheck:
+    check-type-assertions: true   # Report unchecked type assertions
+    check-blank: true             # Report assignments to blank identifier
+    exclude-functions:
+      - (io.Closer).Close        # Common to ignore in defer
+      - (*os.File).Close
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - style
+      - performance
+    disabled-checks:
+      - hugeParam
+      - rangeValCopy
