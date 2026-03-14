@@ -1,0 +1,5 @@
+region           = "fr-par"
+frontend_url     = "https://gradebee.example.com"
+clerk_secret_key = "sk_live_xxx"
+project_id        = ""  # from Scaleway console
+openai_api_key    = "sk-proj..."
