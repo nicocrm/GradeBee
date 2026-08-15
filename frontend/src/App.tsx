@@ -10,6 +10,10 @@ import HintBanner from './components/HintBanner'
 import FeedbackButton from './components/FeedbackButton'
 import PrivacyPreferencesLink from './components/PrivacyPreferencesLink'
 
+
+// Feature flag: when enabled, the Reports tab is restricted to Clerk org admins.
+// Unset/false keeps the tab visible to every Group member (current behavior).
+const REPORTS_ADMIN_ONLY = import.meta.env.VITE_FEATURE_REPORTS_ADMIN_ONLY === 'true'
 function BeeIcon({ size = 28 }: { size?: number }) {
   return (
     <svg
@@ -141,12 +145,23 @@ function SignedInContent({ activeTab, setActiveTab, setShowGuide }: {
         >
           🎙️ Notes
         </button>
-        <button
-          className={`toolbar-link ${activeTab === 'reports' ? 'active' : ''}`}
-          onClick={() => setActiveTab('reports')}
-        >
-          📝 Reports
-        </button>
+        {REPORTS_ADMIN_ONLY ? (
+          <Show when={(has) => has({ role: 'org:admin' })}>
+            <button
+              className={`toolbar-link ${activeTab === 'reports' ? 'active' : ''}`}
+              onClick={() => setActiveTab('reports')}
+            >
+              📝 Reports
+            </button>
+          </Show>
+        ) : (
+          <button
+            className={`toolbar-link ${activeTab === 'reports' ? 'active' : ''}`}
+            onClick={() => setActiveTab('reports')}
+          >
+            📝 Reports
+          </button>
+        )}
       </nav>
       {activeTab === 'notes' ? (
         <>
@@ -155,6 +170,11 @@ function SignedInContent({ activeTab, setActiveTab, setShowGuide }: {
           <JobStatus pollNowRef={jobPollNowRef} />
           <AudioUpload onUploadDone={() => jobPollNowRef.current?.()} />
         </>
+      ) : REPORTS_ADMIN_ONLY ? (
+        <Show when={(has) => has({ role: 'org:admin' })}>
+          <HintBanner storageKey="gradebee:hint:reports">Select students and a date range to generate report cards from your accumulated notes.</HintBanner>
+          <ReportGeneration />
+        </Show>
       ) : (
         <>
           <HintBanner storageKey="gradebee:hint:reports">Select students and a date range to generate report cards from your accumulated notes.</HintBanner>
