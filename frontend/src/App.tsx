@@ -1,4 +1,4 @@
-import { Show, SignInButton, UserButton, useUser } from '@clerk/react'
+import { Show, SignInButton, UserButton, useAuth, useUser } from '@clerk/react'
 import { useState, useEffect, useRef } from 'react'
 import { motion } from 'motion/react'
 import StudentList from './components/StudentList'
@@ -123,6 +123,8 @@ function SignedInContent({ activeTab, setActiveTab, setShowGuide }: {
 }) {
   const jobPollNowRef = useRef<(() => void) | null>(null)
   const { user } = useUser()
+  const { has } = useAuth()
+  const reportsLocked = REPORTS_ADMIN_ONLY && !has({ role: 'org:admin' })
 
   // Auto-show guide on first visit
   useEffect(() => {
@@ -131,6 +133,14 @@ function SignedInContent({ activeTab, setActiveTab, setShowGuide }: {
       localStorage.setItem('gradebee:seenGuide', '1')
     }
   }, [setShowGuide])
+
+  // If the flag/role state makes Reports locked while it's the active tab
+  // (e.g. role change mid-session), fall back to Notes.
+  useEffect(() => {
+    if (reportsLocked && activeTab === 'reports') {
+      setActiveTab('notes')
+    }
+  }, [reportsLocked, activeTab, setActiveTab])
 
   return (
     <motion.div
@@ -145,23 +155,14 @@ function SignedInContent({ activeTab, setActiveTab, setShowGuide }: {
         >
           🎙️ Notes
         </button>
-        {REPORTS_ADMIN_ONLY ? (
-          <Show when={(has) => has({ role: 'org:admin' })}>
-            <button
-              className={`toolbar-link ${activeTab === 'reports' ? 'active' : ''}`}
-              onClick={() => setActiveTab('reports')}
-            >
-              📝 Reports
-            </button>
-          </Show>
-        ) : (
-          <button
-            className={`toolbar-link ${activeTab === 'reports' ? 'active' : ''}`}
-            onClick={() => setActiveTab('reports')}
-          >
-            📝 Reports
-          </button>
-        )}
+        <button
+          className={`toolbar-link ${activeTab === 'reports' ? 'active' : ''}`}
+          onClick={() => setActiveTab('reports')}
+          disabled={reportsLocked}
+          title={reportsLocked ? 'This feature is not enabled yet.' : undefined}
+        >
+          📝 Reports
+        </button>
       </nav>
       {activeTab === 'notes' ? (
         <>
@@ -170,11 +171,6 @@ function SignedInContent({ activeTab, setActiveTab, setShowGuide }: {
           <JobStatus pollNowRef={jobPollNowRef} />
           <AudioUpload onUploadDone={() => jobPollNowRef.current?.()} />
         </>
-      ) : REPORTS_ADMIN_ONLY ? (
-        <Show when={(has) => has({ role: 'org:admin' })}>
-          <HintBanner storageKey="gradebee:hint:reports">Select students and a date range to generate report cards from your accumulated notes.</HintBanner>
-          <ReportGeneration />
-        </Show>
       ) : (
         <>
           <HintBanner storageKey="gradebee:hint:reports">Select students and a date range to generate report cards from your accumulated notes.</HintBanner>
