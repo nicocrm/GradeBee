@@ -87,7 +87,7 @@ evals/
     reports/<case>/
       notes.json                  student notes
       examples.json               example report cards (optional; tone/vocabulary only)
-      report_instructions.txt     Level's report specification — required, drives structure/content
+      report_instructions.txt     Level's report specification — required for any live test case, drives structure/content (absent on the four cases parked for #54)
       instructions.txt            ad-hoc per-run instructions (optional; override report_instructions where they conflict)
 ```
 
