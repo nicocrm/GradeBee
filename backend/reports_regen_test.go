@@ -35,6 +35,10 @@ func (s *stubReportGenerator) Regenerate(_ context.Context, req RegenerateReport
 func clerkReq(r *http.Request, userID string) *http.Request {
 	ctx := clerk.ContextWithSessionClaims(r.Context(), &clerk.SessionClaims{
 		RegisteredClaims: clerk.RegisteredClaims{Subject: userID},
+		Claims: clerk.Claims{
+			ActiveOrganizationID:   "test-group",
+			ActiveOrganizationRole: "org:member",
+		},
 	})
 	return r.WithContext(ctx)
 }
@@ -46,8 +50,7 @@ func TestHandleRegenerateReport_LooksUpFromDB(t *testing.T) {
 	reportRepo := &ReportRepo{db: db}
 	ctx := context.Background()
 
-	cls, err := classRepo.Create(ctx, "user_abc", "Thursday Timezone", "")
-	require.NoError(t, err)
+	cls := newTestClass(t, classRepo, "test-group", "user_abc", "Thursday Timezone", "")
 	stu, err := studentRepo.Create(ctx, cls.ID, "Maxence")
 	require.NoError(t, err)
 	instructions := "be concise"
@@ -64,12 +67,15 @@ func TestHandleRegenerateReport_LooksUpFromDB(t *testing.T) {
 		regenerateResp: &GenerateReportResponse{ReportID: 99, HTML: "<p>new</p>"},
 	}
 
+	levelRepo := &LevelRepo{db: db}
+	require.NoError(t, levelRepo.UpdateReportInstructions(ctx, "test-group", cls.LevelID, "Write three sections."))
 	serviceDeps = &mockDepsAll{
 		db:          db,
 		classRepo:   classRepo,
 		studentRepo: studentRepo,
 		reportRepo:  reportRepo,
 		reportGen:   gen,
+		levelRepo:   levelRepo,
 	}
 
 	body, err := json.Marshal(map[string]string{"feedback": "make it shorter"})
@@ -98,8 +104,7 @@ func TestHandleGenerateReports_ResponseShape(t *testing.T) {
 	reportRepo := &ReportRepo{db: db}
 	ctx := context.Background()
 
-	cls, err := classRepo.Create(ctx, "user_abc", "Art", "")
-	require.NoError(t, err)
+	cls := newTestClass(t, classRepo, "test-group", "user_abc", "Art", "")
 	stu, err := studentRepo.Create(ctx, cls.ID, "Alice")
 	require.NoError(t, err)
 
@@ -107,6 +112,8 @@ func TestHandleGenerateReports_ResponseShape(t *testing.T) {
 		generateResp: &GenerateReportResponse{ReportID: 42, HTML: "<p>hi</p>"},
 	}
 
+	levelRepo := &LevelRepo{db: db}
+	require.NoError(t, levelRepo.UpdateReportInstructions(ctx, "test-group", cls.LevelID, "Write three sections."))
 	serviceDeps = &mockDepsAll{
 		db:          db,
 		classRepo:   classRepo,
@@ -114,6 +121,7 @@ func TestHandleGenerateReports_ResponseShape(t *testing.T) {
 		noteRepo:    noteRepo,
 		reportRepo:  reportRepo,
 		reportGen:   gen,
+		levelRepo:   levelRepo,
 	}
 
 	reqBody, err := json.Marshal(map[string]any{
@@ -182,8 +190,7 @@ func TestHandleRegenerateReport_ResponseShape(t *testing.T) {
 	reportRepo := &ReportRepo{db: db}
 	ctx := context.Background()
 
-	cls, err := classRepo.Create(ctx, "user_abc", "Science", "")
-	require.NoError(t, err)
+	cls := newTestClass(t, classRepo, "test-group", "user_abc", "Science", "")
 	stu, err := studentRepo.Create(ctx, cls.ID, "Bob")
 	require.NoError(t, err)
 	rpt := &Report{
@@ -197,8 +204,10 @@ func TestHandleRegenerateReport_ResponseShape(t *testing.T) {
 	gen := &stubReportGenerator{
 		regenerateResp: &GenerateReportResponse{ReportID: 77, HTML: "<p>new</p>", CreatedAt: "2026-04-03T00:00:00Z"},
 	}
+	levelRepo := &LevelRepo{db: db}
+	require.NoError(t, levelRepo.UpdateReportInstructions(ctx, "test-group", cls.LevelID, "Write three sections."))
 	serviceDeps = &mockDepsAll{
-		db: db, classRepo: classRepo, studentRepo: studentRepo, reportRepo: reportRepo, reportGen: gen,
+		db: db, classRepo: classRepo, studentRepo: studentRepo, reportRepo: reportRepo, reportGen: gen, levelRepo: levelRepo,
 	}
 
 	body, err := json.Marshal(map[string]string{"feedback": "shorter"})
@@ -237,8 +246,7 @@ func TestHandleGetReport_IncludesStudentAndClass(t *testing.T) {
 	reportRepo := &ReportRepo{db: db}
 	ctx := context.Background()
 
-	cls, err := classRepo.Create(ctx, "user_abc", "History", "")
-	require.NoError(t, err)
+	cls := newTestClass(t, classRepo, "test-group", "user_abc", "History", "")
 	stu, err := studentRepo.Create(ctx, cls.ID, "Carol")
 	require.NoError(t, err)
 	rpt := &Report{StudentID: stu.ID, StartDate: "2026-01-01", EndDate: "2026-03-31", HTML: "<p>report</p>"}
@@ -257,10 +265,10 @@ func TestHandleGetReport_IncludesStudentAndClass(t *testing.T) {
 	require.Equal(t, http.StatusOK, rec.Code, "body = %s", rec.Body.String())
 
 	var resp struct {
-		ID      int64  `json:"id"`
-		Student string `json:"student"`
+		ID        int64  `json:"id"`
+		Student   string `json:"student"`
 		ClassName string `json:"className"`
-		HTML    string `json:"html"`
+		HTML      string `json:"html"`
 	}
 	require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
 	assert.Equal(t, "Carol", resp.Student)
