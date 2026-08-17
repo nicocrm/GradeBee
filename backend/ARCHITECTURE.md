@@ -412,8 +412,11 @@ backend/evals/
       expected.json             expected students + must_quote_substrings
     reports/<case>/
       notes.json                student notes
-      examples.json             example report cards (optional)
-      instructions.txt          additional prompt instructions (optional)
+      examples.json             example report cards (optional; tone/vocabulary only)
+      report_instructions.txt   Level's report specification (structure/sections; drives content). Absent
+                                 on the four cases parked for #54, which have no live test entry.
+      instructions.txt          ad-hoc per-run instructions (optional; override report_instructions
+                                 where they conflict)
 ```
 
 ### Running evals
