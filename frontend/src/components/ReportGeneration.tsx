@@ -63,6 +63,7 @@ export default function ReportGeneration() {
   const [examplesLoading, setExamplesLoading] = useState(true)
   const [examplesError, setExamplesError] = useState<string | null>(null)
   const [levels, setLevels] = useState<LevelItem[]>([])
+  const [levelsError, setLevelsError] = useState<string | null>(null)
   const { openPicker } = useDrivePicker()
 
   const loadExamples = useCallback(async () => {
@@ -80,7 +81,9 @@ export default function ReportGeneration() {
   useEffect(() => { loadExamples() }, [loadExamples])
 
   useEffect(() => {
-    listLevels(getToken).then(({ levels }) => setLevels(levels)).catch(() => {})
+    listLevels(getToken)
+      .then(({ levels }) => setLevels(levels))
+      .catch((e: unknown) => setLevelsError(e instanceof Error ? e.message : 'Failed to load Levels'))
   }, [getToken])
 
   // Poll while any example is still processing.
@@ -212,7 +215,7 @@ export default function ReportGeneration() {
   )
 
   async function handleGenerate() {
-    if (selectedCount === 0 || !startDate || !endDate || unsetLevels.length > 0) return
+    if (selectedCount === 0 || !startDate || !endDate || unsetLevels.length > 0 || !!levelsError) return
     setGenerating(true)
     setError(null)
     setResults([])
@@ -306,6 +309,12 @@ export default function ReportGeneration() {
         )}
       </div>
 
+      {levelsError && (
+        <p className="report-level-blocker-text" data-testid="levels-load-error">
+          Could not load Levels: {levelsError}. Reload the page to try again.
+        </p>
+      )}
+
       {/* Level report instructions — one read-only block per distinct selected Level */}
       {selectedLevels.length > 0 && (
         <div className="report-levels">
@@ -362,7 +371,7 @@ export default function ReportGeneration() {
       <button
         className="report-generate-btn"
         onClick={handleGenerate}
-        disabled={generating || selectedCount === 0 || !startDate || !endDate || unsetLevels.length > 0}
+        disabled={generating || selectedCount === 0 || !startDate || !endDate || unsetLevels.length > 0 || !!levelsError}
       >
         {generating ? (
           <span className="btn-loading"><span className="honeycomb-spinner honeycomb-spinner-inline"><span className="hex" /><span className="hex" /><span className="hex" /></span> Generating...</span>
