@@ -65,7 +65,7 @@ make bin/eval-cli
 ./bin/eval-cli '{"vars":{"transcript":"Alice read well today.","classes":[{"name":"Grade 3A","students":["Alice Chen"]}]},"config":{"task":"build-extract-prompt"}}'
 
 # Build report prompt (exec-prompt mode)
-./bin/eval-cli '{"vars":{"student_name":"Alice Chen","class_name":"Grade 3A","notes":[{"date":"2026-01-15","summary":"Strong reading fluency."}],"examples":[],"instructions":""},"config":{"task":"build-report-prompt"}}'
+./bin/eval-cli '{"vars":{"student_name":"Alice Chen","class_name":"Grade 3A","notes":[{"date":"2026-01-15","summary":"Strong reading fluency."}],"examples":[],"report_instructions":"Two sections: Progress, Behaviour. Each with a Comment paragraph.","instructions":""},"config":{"task":"build-report-prompt"}}'
 ```
 
 ## Directory layout
@@ -86,8 +86,9 @@ evals/
       expected.json               expected students + must_quote_substrings
     reports/<case>/
       notes.json                  student notes
-      examples.json               example report cards (optional)
-      instructions.txt            additional instructions (optional)
+      examples.json               example report cards (optional; tone/vocabulary only)
+      report_instructions.txt     Level's report specification — required, drives structure/content
+      instructions.txt            ad-hoc per-run instructions (optional; override report_instructions where they conflict)
 ```
 
 ## Adding a fixture
@@ -99,3 +100,20 @@ evals/
 ## Baseline lifecycle
 
 `baseline.json` is a single committed file overwritten by `make eval-baseline`. The PR diff is the audit trail for deliberate score changes.
+
+## Report instructions authority
+
+Reports are instruction-driven: a Level's `report_instructions` defines the required
+structure, sections, and content, and the model must follow it. Style examples
+(`examples.json`) illustrate tone and vocabulary only — a report is not marked down
+for structural divergence from the examples as long as it follows
+`report_instructions`. Ad-hoc `instructions` (a teacher's per-run override) outrank
+`report_instructions` where they conflict. Grounding-to-notes is graded as a
+separate, unchanged axis regardless of instructions.
+
+`promptfooconfig.report.yaml` passes `report_instructions` and `instructions` as
+separate vars per test case and grades both with one shared rubric template
+(`rubric_template` YAML anchor) rather than a bespoke rubric per fixture — the
+rubric never hardcodes a structure or length rule that belongs in
+`report_instructions` itself; it says "as instructed" and lets the var carry the
+specifics.
