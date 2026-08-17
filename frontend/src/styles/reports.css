@@ -129,7 +129,7 @@
 }
 
 .upload-levelnames-file::before {
-  content: "\1F4C4";
+  content: '\1F4C4';
   font-size: 0.85rem;
   line-height: 1;
   flex-shrink: 0;
@@ -177,7 +177,10 @@
   font-size: 0.88rem;
   color: var(--ink);
   cursor: pointer;
-  transition: background 0.12s, border-color 0.12s, box-shadow 0.12s;
+  transition:
+    background 0.12s,
+    border-color 0.12s,
+    box-shadow 0.12s;
 }
 
 .level-names-option:hover {
@@ -204,7 +207,10 @@
   font-size: 0.68rem;
   line-height: 1;
   flex-shrink: 0;
-  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  transition:
+    background 0.12s,
+    border-color 0.12s,
+    color 0.12s;
 }
 
 .level-names-option.is-selected {
@@ -404,10 +410,9 @@
 }
 
 .example-status-badge.failed {
-  background: #FED7D7;
+  background: #fed7d7;
   color: var(--error-red);
 }
-
 
 /* --- Report generation --- */
 /* ============================================
@@ -445,7 +450,7 @@
   font-weight: 500;
 }
 
-.report-period input[type="date"] {
+.report-period input[type='date'] {
   font-family: var(--font-body);
   font-size: 0.95rem;
   padding: 0.5rem 0.75rem;
@@ -458,7 +463,7 @@
   box-sizing: border-box;
 }
 
-.report-period input[type="date"]:focus {
+.report-period input[type='date']:focus {
   outline: none;
   border-color: var(--honey);
   box-shadow: 0 0 0 3px rgba(232, 163, 23, 0.12);
@@ -529,8 +534,8 @@
   padding: 0.2rem 0;
 }
 
-.report-student-item input[type="checkbox"],
-.report-class-header input[type="checkbox"] {
+.report-student-item input[type='checkbox'],
+.report-class-header input[type='checkbox'] {
   accent-color: var(--honey);
   width: 16px;
   height: 16px;
@@ -562,6 +567,51 @@
 
 .report-instructions {
   margin-bottom: 1.25rem;
+}
+
+/* --- Per-Level report instructions (generation screen) --- */
+.report-levels {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-bottom: 1.25rem;
+}
+
+.report-level-block {
+  border: 1px solid var(--comb);
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+  background: var(--chalk);
+}
+
+.report-level-block-blocker {
+  border-color: var(--error-red);
+  background: rgba(192, 57, 43, 0.06);
+}
+
+.report-level-name {
+  margin: 0 0 0.35rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.report-level-blocker-text {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--error-red);
+}
+
+.report-level-instructions summary {
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--ink-muted);
+}
+
+.report-level-instructions-text {
+  margin: 0.5rem 0 0;
+  font-size: 0.85rem;
+  white-space: pre-wrap;
+  color: var(--ink);
 }
 
 .report-generate-btn {
@@ -624,7 +674,6 @@
   }
 }
 
-
 /* --- Report viewer (paragraph copy, thumbs) --- */
 /* ============================================
    Report Viewer
@@ -685,7 +734,10 @@
   color: var(--ink-muted);
   cursor: pointer;
   opacity: 0;
-  transition: opacity 0.12s, background 0.12s, color 0.12s;
+  transition:
+    opacity 0.12s,
+    background 0.12s,
+    color 0.12s;
   user-select: none;
 }
 
@@ -782,7 +834,6 @@
   color: var(--ink-muted);
 }
 
-
 /* --- Report result cards --- */
 /* ============================================
    Report Result Cards (Generation)
@@ -826,7 +877,6 @@
 .report-result-card .report-viewer {
   padding: 0.75rem 1rem 1rem;
 }
-
 
 /* --- Report history --- */
 /* ============================================
@@ -938,7 +988,7 @@
 }
 
 @media (max-width: 640px) {
-.report-viewer-frame {
+  .report-viewer-frame {
     padding: 1rem;
     border-radius: 0;
     margin: 0 -1rem;
@@ -965,4 +1015,3 @@
     width: 100%;
   }
 }
-
