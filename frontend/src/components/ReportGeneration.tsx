@@ -202,6 +202,17 @@ export default function ReportGeneration() {
     return Array.from(byId.values())
   }, [classes, selected, levels])
 
+  // True while a selected student's Class references a levelId not present in
+  // the loaded Levels list (still loading, or the load failed) — treat as
+  // unresolved rather than silently passing the gate.
+  const hasUnresolvedLevel = useMemo(() => {
+    for (const c of classes) {
+      if (!c.students.some(s => selected.has(s.id))) continue
+      if (!levels.some(l => l.id === c.levelId)) return true
+    }
+    return false
+  }, [classes, selected, levels])
+
   const selectedLevelNames = useMemo(
     () => selectedLevels.map(l => l.name),
     [selectedLevels]
@@ -215,7 +226,7 @@ export default function ReportGeneration() {
   )
 
   async function handleGenerate() {
-    if (selectedCount === 0 || !startDate || !endDate || unsetLevels.length > 0 || !!levelsError) return
+    if (selectedCount === 0 || !startDate || !endDate || unsetLevels.length > 0 || !!levelsError || hasUnresolvedLevel) return
     setGenerating(true)
     setError(null)
     setResults([])
@@ -310,9 +321,9 @@ export default function ReportGeneration() {
       </div>
 
       {levelsError && (
-        <p className="report-level-blocker-text" data-testid="levels-load-error">
-          Could not load Levels: {levelsError}. Reload the page to try again.
-        </p>
+        <div className="report-error" data-testid="levels-load-error">
+          <p>⚠️ Could not load Levels: {levelsError}. Reload the page to try again.</p>
+        </div>
       )}
 
       {/* Level report instructions — one read-only block per distinct selected Level */}
@@ -371,7 +382,7 @@ export default function ReportGeneration() {
       <button
         className="report-generate-btn"
         onClick={handleGenerate}
-        disabled={generating || selectedCount === 0 || !startDate || !endDate || unsetLevels.length > 0 || !!levelsError}
+        disabled={generating || selectedCount === 0 || !startDate || !endDate || unsetLevels.length > 0 || !!levelsError || hasUnresolvedLevel}
       >
         {generating ? (
           <span className="btn-loading"><span className="honeycomb-spinner honeycomb-spinner-inline"><span className="hex" /><span className="hex" /><span className="hex" /></span> Generating...</span>

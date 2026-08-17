@@ -278,3 +278,28 @@ describe('ReportGeneration — Level instructions gate', () => {
     expect(screen.getByRole('button', { name: /Generate/ })).toBeDisabled()
   })
 })
+
+describe('ReportGeneration — Levels load failure', () => {
+  it('surfaces a listLevels() failure and disables Generate', async () => {
+    mockListClasses.mockResolvedValue({
+      classes: [{ id: 1, name: 'Math 101', levelId: 1, levelName: 'Math 101', scheduleName: '', studentCount: 2 }],
+    })
+    mockListStudents.mockResolvedValue({
+      students: [
+        { id: 10, name: 'Alice', classId: 1 },
+        { id: 11, name: 'Bob', classId: 1 },
+      ],
+    })
+    mockListLevels.mockRejectedValue(new Error('network down'))
+    const { default: ReportGeneration } = await import('../ReportGeneration')
+    const user = userEvent.setup()
+    render(<ReportGeneration />)
+    await waitFor(() => screen.getByText('Math 101'))
+
+    await user.click(screen.getByText('Math 101', { selector: 'strong' }))
+    await waitFor(() => {
+      expect(screen.getByTestId('levels-load-error')).toHaveTextContent('network down')
+    })
+    expect(screen.getByRole('button', { name: /Generate/ })).toBeDisabled()
+  })
+})
