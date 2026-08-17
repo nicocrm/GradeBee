@@ -93,7 +93,7 @@ evals/
 
 ## Adding a fixture
 
-1. Create `fixtures/{extraction,reports}/<descriptive-name>/` with the required files.
+1. Create `fixtures/{extraction,reports}/<descriptive-name>/` with the required files — for a report fixture that means `report_instructions.txt` (the Level's report specification; a report fixture with no live test entry has no `report_instructions.txt`, since the hard gate forbids generating from one).
 2. Add a test entry in the appropriate config file (`promptfooconfig.extract.yaml` or `promptfooconfig.report.yaml`) with flat `vars` (no `body` wrapper).
 3. Run `make eval` (or `make eval-extract` / `make eval-report`) to see the score; if correct, run `make eval-baseline`.
 
