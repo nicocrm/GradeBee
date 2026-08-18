@@ -43,6 +43,12 @@ export class AliasConflictError extends Error {
 }
 
 const apiUrl = import.meta.env.VITE_API_URL
+// The seven weekday names a Class's Day may take, Monday first — mirrors
+// the backend's CHECK constraint (classes.day, sql/014_require_day.sql) and
+// validDays in repo_class.go. Full names are shown in the selector; class
+// display names abbreviate to the first three letters (done server-side).
+export const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as const
+
 
 // --- Class CRUD ---
 
@@ -60,6 +66,7 @@ export async function listClasses(
 
 export async function createClass(
   levelId: number,
+  day: string,
   timeSlot: string,
   getToken: () => Promise<string | null>
 ): Promise<ClassItem> {
@@ -70,7 +77,7 @@ export async function createClass(
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ levelId, timeSlot }),
+    body: JSON.stringify({ levelId, day, timeSlot }),
   })
   const body = await resp.json()
   if (!resp.ok) throw new Error(body.error || 'Failed to create class')
@@ -80,6 +87,7 @@ export async function createClass(
 export async function renameClass(
   id: number,
   levelId: number,
+  day: string,
   timeSlot: string,
   getToken: () => Promise<string | null>
 ): Promise<void> {
@@ -90,7 +98,7 @@ export async function renameClass(
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ levelId, timeSlot }),
+    body: JSON.stringify({ levelId, day, timeSlot }),
   })
   if (!resp.ok) {
     const body = await resp.json().catch(() => ({}))

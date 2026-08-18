@@ -325,6 +325,7 @@ export interface Class {
   name: string;
   levelId: number /* int64 */;
   levelName: string;
+  day: string;
   timeSlot: string;
   position: number /* int */;
   createdAt: string;
