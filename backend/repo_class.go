@@ -29,13 +29,31 @@ type ClassWithCount struct {
 	StudentCount int `json:"studentCount"`
 }
 
+// classDisplayNameSQL is the shared SQL expression for a Class's display
+// name: the Level's name, plus "-schedule" when a schedule is set. Every
+// query that needs the display name — read or lookup — must use this
+// expression rather than reimplementing it, so it can never drift from
+// deriveClassDisplayName, its Go equivalent used by the create path.
+const classDisplayNameSQL = `l.name || CASE WHEN c.schedule_name <> '' THEN '-' || c.schedule_name ELSE '' END`
+
 // classSelectColumns is the shared SELECT list used by every read query: the
 // stored columns, the Level's bare name, and the derived display name
 // (Level's name, plus "-schedule" when a schedule is set).
 const classSelectColumns = `
 	c.id, c.user_id,
-	l.name || CASE WHEN c.schedule_name <> '' THEN '-' || c.schedule_name ELSE '' END,
+	` + classDisplayNameSQL + `,
 	c.level_id, l.name, c.schedule_name, c.position, c.created_at`
+
+// deriveClassDisplayName composes a Class's display name from its Level's
+// name and schedule name. This is the Go equivalent of classDisplayNameSQL
+// — used by the create path, which builds the name in Go before there is a
+// row to re-select — and both must always agree.
+func deriveClassDisplayName(levelName, scheduleName string) string {
+	if scheduleName == "" {
+		return levelName
+	}
+	return levelName + "-" + scheduleName
+}
 
 // List returns all classes for a user, ordered by position then the derived
 // name, including the count of students in each class.
@@ -94,10 +112,7 @@ func (r *ClassRepo) Create(ctx context.Context, groupID, userID string, levelID 
 		return Class{}, fmt.Errorf("create class: %w", err)
 	}
 	c.LevelName = levelName
-	c.Name = levelName
-	if scheduleName != "" {
-		c.Name = levelName + "-" + scheduleName
-	}
+	c.Name = deriveClassDisplayName(levelName, scheduleName)
 	return c, nil
 }
 

@@ -63,3 +63,16 @@ func TestClassRepo_DuplicateLevelSchedule(t *testing.T) {
 	_, err = repo.Create(t.Context(), "org1", "user1", level.ID, "Thursday")
 	assert.True(t, errors.Is(err, ErrDuplicate), "expected ErrDuplicate, got %v", err)
 }
+
+func TestClassRepo_CreateNameMatchesReadName(t *testing.T) {
+	db := setupTestDB(t)
+	repo := &ClassRepo{db: db}
+	level := newTestLevel(t, db, "org1", "Mousy")
+
+	created, err := repo.Create(t.Context(), "org1", "user1", level.ID, "Thursday")
+	require.NoError(t, err)
+
+	read, err := repo.GetByID(t.Context(), created.ID)
+	require.NoError(t, err)
+	assert.Equal(t, read.Name, created.Name, "create-path name must match the read-path derived name")
+}
