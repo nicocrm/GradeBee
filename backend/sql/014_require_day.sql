@@ -117,6 +117,39 @@ INSERT INTO classes (id, user_id, level_id, day, time_slot, position, created_at
         position, created_at
     FROM classes_old;
 
+-- 5b. Guard: abort naming the first class whose stripped time_slot still
+--     contains a day token case-insensitively (e.g. original text was
+--     lowercase/uppercase, so the case-sensitive REPLACE chain above missed
+--     it) — would otherwise leave a doubled display name like
+--     "Marcia · Wed · wed@14:10".
+CREATE TEMP TABLE _require_day_leftover_guard(x);
+CREATE TEMP TRIGGER _require_day_leftover_guard_check BEFORE INSERT ON _require_day_leftover_guard
+BEGIN
+    SELECT RAISE(ABORT, 'migration 014: class id=' ||
+        (SELECT id FROM classes WHERE
+            INSTR(LOWER(time_slot), 'mon') > 0 OR INSTR(LOWER(time_slot), 'tue') > 0 OR
+            INSTR(LOWER(time_slot), 'wed') > 0 OR INSTR(LOWER(time_slot), 'thu') > 0 OR
+            INSTR(LOWER(time_slot), 'fri') > 0 OR INSTR(LOWER(time_slot), 'sat') > 0 OR
+            INSTR(LOWER(time_slot), 'sun') > 0
+            LIMIT 1) ||
+        ' still has a day token left in time_slot after stripping: ' ||
+        (SELECT time_slot FROM classes WHERE
+            INSTR(LOWER(time_slot), 'mon') > 0 OR INSTR(LOWER(time_slot), 'tue') > 0 OR
+            INSTR(LOWER(time_slot), 'wed') > 0 OR INSTR(LOWER(time_slot), 'thu') > 0 OR
+            INSTR(LOWER(time_slot), 'fri') > 0 OR INSTR(LOWER(time_slot), 'sat') > 0 OR
+            INSTR(LOWER(time_slot), 'sun') > 0
+            LIMIT 1))
+    WHERE (SELECT COUNT(*) FROM classes WHERE
+            INSTR(LOWER(time_slot), 'mon') > 0 OR INSTR(LOWER(time_slot), 'tue') > 0 OR
+            INSTR(LOWER(time_slot), 'wed') > 0 OR INSTR(LOWER(time_slot), 'thu') > 0 OR
+            INSTR(LOWER(time_slot), 'fri') > 0 OR INSTR(LOWER(time_slot), 'sat') > 0 OR
+            INSTR(LOWER(time_slot), 'sun') > 0
+          ) > 0;
+END;
+INSERT INTO _require_day_leftover_guard VALUES (1);
+DROP TRIGGER _require_day_leftover_guard_check;
+DROP TABLE _require_day_leftover_guard;
+
 CREATE TABLE students (
     id          INTEGER PRIMARY KEY,
     class_id    INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,

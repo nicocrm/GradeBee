@@ -88,6 +88,21 @@ func TestClassRepo_CreateInvalidDayRejected(t *testing.T) {
 	assert.True(t, errors.Is(err, ErrInvalidDay), "expected ErrInvalidDay for empty day, got %v", err)
 }
 
+func TestClassRepo_UpdateInvalidDayRejected(t *testing.T) {
+	db := setupTestDB(t)
+	repo := &ClassRepo{db: db}
+	level := newTestLevel(t, db, "org1", "Mousy")
+
+	c, err := repo.Create(t.Context(), "org1", "user1", level.ID, "Thursday", "")
+	require.NoError(t, err)
+
+	err = repo.Update(t.Context(), "org1", "user1", c.ID, level.ID, "Someday", "")
+	assert.True(t, errors.Is(err, ErrInvalidDay), "expected ErrInvalidDay, got %v", err)
+
+	err = repo.Update(t.Context(), "org1", "user1", c.ID, level.ID, "", "")
+	assert.True(t, errors.Is(err, ErrInvalidDay), "expected ErrInvalidDay for empty day, got %v", err)
+}
+
 func TestClassRepo_CreateNameMatchesReadName(t *testing.T) {
 	db := setupTestDB(t)
 	repo := &ClassRepo{db: db}
