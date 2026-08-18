@@ -23,11 +23,13 @@
 --
 -- Uses the table-rebuild pattern (SQLite can't add a CHECK constraint or
 -- change a UNIQUE index via ALTER TABLE) — see 006_students_name_nocase.sql
--- and 011_class_level_id.sql for the same pattern. Only classes itself needs
--- rebuilding here; no other table's schema changes, so child tables (students,
--- student_aliases) are left alone — SQLite auto-retargets their FK text at
--- the renamed "classes_old", and rebuilding classes back to "classes" retargets
--- them back without touching their own definitions.
+-- and 011_class_level_id.sql for the same pattern. Renaming classes retargets
+-- every child table's FK text at "classes_old" (students, student_aliases,
+-- and transitively notes, reports via students) — see 011 for the same
+-- cascade — so all five tables are rebuilt here, exactly as 011 rebuilt them
+-- when classes was the table being replaced. Their own definitions are
+-- unchanged; only the referenced table name needs to end up back at
+-- "classes".
 
 PRAGMA foreign_keys = OFF;
 
@@ -81,7 +83,16 @@ DROP TABLE _require_day_guard;
 -- whenever two classes at the same Level strip down to the same leftover
 -- text (e.g. two bare-day classes both stripping to ''), even though their
 -- new (day, time_slot) pairs are distinct.
-ALTER TABLE classes RENAME TO classes_old;
+--
+-- Renaming classes retargets students/student_aliases's FK text at
+-- "classes_old"; rebuilding students (unchanged schema, just re-pointed at
+-- the new "classes") in turn retargets notes/reports at "students_old". All
+-- five tables are rebuilt below, exactly as 011_class_level_id.sql did.
+ALTER TABLE classes         RENAME TO classes_old;
+ALTER TABLE students        RENAME TO students_old;
+ALTER TABLE student_aliases RENAME TO student_aliases_old;
+ALTER TABLE notes           RENAME TO notes_old;
+ALTER TABLE reports         RENAME TO reports_old;
 
 CREATE TABLE classes (
     id            INTEGER PRIMARY KEY,
@@ -106,9 +117,74 @@ INSERT INTO classes (id, user_id, level_id, day, time_slot, position, created_at
         position, created_at
     FROM classes_old;
 
+CREATE TABLE students (
+    id          INTEGER PRIMARY KEY,
+    class_id    INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+    name        TEXT NOT NULL,
+    created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+
+INSERT INTO students (id, class_id, name, created_at)
+    SELECT id, class_id, name, created_at FROM students_old;
+
+CREATE TABLE student_aliases (
+    id         INTEGER PRIMARY KEY,
+    student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    class_id   INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+    alias      TEXT    NOT NULL COLLATE NOCASE,
+    created_at TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    UNIQUE(class_id, alias)
+);
+
+INSERT INTO student_aliases (id, student_id, class_id, alias, created_at)
+    SELECT id, student_id, class_id, alias, created_at FROM student_aliases_old;
+
+CREATE TABLE notes (
+    id          INTEGER PRIMARY KEY,
+    student_id  INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    date        TEXT NOT NULL,
+    summary     TEXT NOT NULL,
+    transcript  TEXT,
+    source      TEXT NOT NULL DEFAULT 'auto',
+    created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    updated_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    model_version TEXT,
+    prompt_hash    TEXT
+);
+
+INSERT INTO notes (id, student_id, date, summary, transcript, source, created_at, updated_at, model_version, prompt_hash)
+    SELECT id, student_id, date, summary, transcript, source, created_at, updated_at, model_version, prompt_hash
+    FROM notes_old;
+
+CREATE TABLE reports (
+    id           INTEGER PRIMARY KEY,
+    student_id   INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    start_date   TEXT NOT NULL,
+    end_date     TEXT NOT NULL,
+    html         TEXT NOT NULL,
+    instructions TEXT,
+    created_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    model_version TEXT,
+    prompt_hash    TEXT
+);
+
+INSERT INTO reports (id, student_id, start_date, end_date, html, instructions, created_at, model_version, prompt_hash)
+    SELECT id, student_id, start_date, end_date, html, instructions, created_at, model_version, prompt_hash
+    FROM reports_old;
+
+DROP TABLE reports_old;
+DROP TABLE notes_old;
+DROP TABLE student_aliases_old;
+DROP TABLE students_old;
 DROP TABLE classes_old;
 
 CREATE INDEX idx_classes_user  ON classes(user_id);
 CREATE INDEX idx_classes_level ON classes(level_id);
+CREATE UNIQUE INDEX idx_students_class_name_nocase ON students(class_id, name COLLATE NOCASE);
+CREATE INDEX idx_student_aliases_class_alias ON student_aliases(class_id, alias);
+CREATE INDEX idx_student_aliases_student     ON student_aliases(student_id);
+CREATE INDEX idx_notes_student    ON notes(student_id);
+CREATE INDEX idx_notes_date       ON notes(student_id, date);
+CREATE INDEX idx_reports_student  ON reports(student_id);
 
 PRAGMA foreign_keys = ON;
