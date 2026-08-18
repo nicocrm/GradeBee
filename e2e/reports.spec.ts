@@ -109,7 +109,7 @@ test.describe('Report generation', () => {
           status: 200,
           contentType: 'application/json',
           body: JSON.stringify({
-            classes: [{ id: 1, levelId: 1, name: 'Math · Group A', levelName: 'Math', timeSlot: 'Group A', studentCount: 1 }],
+            classes: [{ id: 1, levelId: 1, name: 'Math · Mon · Group A', levelName: 'Math', day: 'Monday', timeSlot: 'Group A', studentCount: 1 }],
           }),
         })
       } else {

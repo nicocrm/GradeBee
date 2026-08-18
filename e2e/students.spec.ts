@@ -14,8 +14,8 @@ test.describe('Student list', () => {
           contentType: 'application/json',
           body: JSON.stringify({
             classes: [
-              { id: 1, levelId: 1, name: '5A', levelName: '5A', timeSlot: '', studentCount: 2 },
-              { id: 2, levelId: 2, name: '5B', levelName: '5B', timeSlot: '', studentCount: 2 },
+              { id: 1, levelId: 1, name: '5A · Mon', levelName: '5A', day: 'Monday', timeSlot: '', studentCount: 2 },
+              { id: 2, levelId: 2, name: '5B · Mon', levelName: '5B', day: 'Monday', timeSlot: '', studentCount: 2 },
             ],
           }),
         })
