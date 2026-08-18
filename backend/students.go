@@ -58,14 +58,14 @@ func handleCreateClass(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		LevelID      int64  `json:"levelId"`
-		ScheduleName string `json:"scheduleName"`
+		LevelID  int64  `json:"levelId"`
+		TimeSlot string `json:"timeSlot"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.LevelID == 0 {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "levelId is required"})
 		return
 	}
-	c, err := serviceDeps.GetClassRepo().Create(r.Context(), groupID, userID, req.LevelID, req.ScheduleName)
+	c, err := serviceDeps.GetClassRepo().Create(r.Context(), groupID, userID, req.LevelID, req.TimeSlot)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "level not found"})
@@ -98,14 +98,14 @@ func handleUpdateClass(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		LevelID      int64  `json:"levelId"`
-		ScheduleName string `json:"scheduleName"`
+		LevelID  int64  `json:"levelId"`
+		TimeSlot string `json:"timeSlot"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.LevelID == 0 {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "levelId is required"})
 		return
 	}
-	if err := serviceDeps.GetClassRepo().Update(r.Context(), groupID, userID, id, req.LevelID, req.ScheduleName); err != nil {
+	if err := serviceDeps.GetClassRepo().Update(r.Context(), groupID, userID, id, req.LevelID, req.TimeSlot); err != nil {
 		if errors.Is(err, ErrNotFound) {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "class or level not found"})
 			return

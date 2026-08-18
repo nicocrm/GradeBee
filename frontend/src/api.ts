@@ -60,7 +60,7 @@ export async function listClasses(
 
 export async function createClass(
   levelId: number,
-  scheduleName: string,
+  timeSlot: string,
   getToken: () => Promise<string | null>
 ): Promise<ClassItem> {
   const token = await getToken()
@@ -70,7 +70,7 @@ export async function createClass(
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ levelId, scheduleName }),
+    body: JSON.stringify({ levelId, timeSlot }),
   })
   const body = await resp.json()
   if (!resp.ok) throw new Error(body.error || 'Failed to create class')
@@ -80,7 +80,7 @@ export async function createClass(
 export async function renameClass(
   id: number,
   levelId: number,
-  scheduleName: string,
+  timeSlot: string,
   getToken: () => Promise<string | null>
 ): Promise<void> {
   const token = await getToken()
@@ -90,7 +90,7 @@ export async function renameClass(
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ levelId, scheduleName }),
+    body: JSON.stringify({ levelId, timeSlot }),
   })
   if (!resp.ok) {
     const body = await resp.json().catch(() => ({}))

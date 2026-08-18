@@ -13,14 +13,14 @@ type ClassRepo struct{ db *sql.DB }
 // stored — both are derived from the referenced Level's name, so renaming a
 // Level immediately changes every Class's display name.
 type Class struct {
-	ID           int64  `json:"id"`
-	UserID       string `json:"userId"`
-	Name         string `json:"name"`
-	LevelID      int64  `json:"levelId"`
-	LevelName    string `json:"levelName"`
-	ScheduleName string `json:"scheduleName"`
-	Position     int    `json:"position"`
-	CreatedAt    string `json:"createdAt"`
+	ID        int64  `json:"id"`
+	UserID    string `json:"userId"`
+	Name      string `json:"name"`
+	LevelID   int64  `json:"levelId"`
+	LevelName string `json:"levelName"`
+	TimeSlot  string `json:"timeSlot"`
+	Position  int    `json:"position"`
+	CreatedAt string `json:"createdAt"`
 }
 
 // ClassWithCount is a Class with its student count.
@@ -30,29 +30,29 @@ type ClassWithCount struct {
 }
 
 // classDisplayNameSQL is the shared SQL expression for a Class's display
-// name: the Level's name, plus "-schedule" when a schedule is set. Every
+// name: the Level's name, plus " · time slot" when a time slot is set. Every
 // query that needs the display name — read or lookup — must use this
 // expression rather than reimplementing it, so it can never drift from
 // deriveClassDisplayName, its Go equivalent used by the create path.
-const classDisplayNameSQL = `l.name || CASE WHEN c.schedule_name <> '' THEN '-' || c.schedule_name ELSE '' END`
+const classDisplayNameSQL = `l.name || CASE WHEN c.time_slot <> '' THEN ' · ' || c.time_slot ELSE '' END`
 
 // classSelectColumns is the shared SELECT list used by every read query: the
 // stored columns, the Level's bare name, and the derived display name
-// (Level's name, plus "-schedule" when a schedule is set).
+// (Level's name, plus " · time slot" when a time slot is set).
 const classSelectColumns = `
 	c.id, c.user_id,
 	` + classDisplayNameSQL + `,
-	c.level_id, l.name, c.schedule_name, c.position, c.created_at`
+	c.level_id, l.name, c.time_slot, c.position, c.created_at`
 
 // deriveClassDisplayName composes a Class's display name from its Level's
-// name and schedule name. This is the Go equivalent of classDisplayNameSQL
-// — used by the create path, which builds the name in Go before there is a
+// name and time slot. This is the Go equivalent of classDisplayNameSQL —
+// used by the create path, which builds the name in Go before there is a
 // row to re-select — and both must always agree.
-func deriveClassDisplayName(levelName, scheduleName string) string {
-	if scheduleName == "" {
+func deriveClassDisplayName(levelName, timeSlot string) string {
+	if timeSlot == "" {
 		return levelName
 	}
-	return levelName + "-" + scheduleName
+	return levelName + " · " + timeSlot
 }
 
 // List returns all classes for a user, ordered by position then the derived
@@ -74,7 +74,7 @@ func (r *ClassRepo) List(ctx context.Context, userID string) ([]ClassWithCount, 
 	var result []ClassWithCount
 	for rows.Next() {
 		var c ClassWithCount
-		if err := rows.Scan(&c.ID, &c.UserID, &c.Name, &c.LevelID, &c.LevelName, &c.ScheduleName, &c.Position, &c.CreatedAt, &c.StudentCount); err != nil {
+		if err := rows.Scan(&c.ID, &c.UserID, &c.Name, &c.LevelID, &c.LevelName, &c.TimeSlot, &c.Position, &c.CreatedAt, &c.StudentCount); err != nil {
 			return nil, fmt.Errorf("scan class: %w", err)
 		}
 		result = append(result, c)
@@ -86,7 +86,7 @@ func (r *ClassRepo) List(ctx context.Context, userID string) ([]ClassWithCount, 
 // groupID. Position is set to max+1. Returns ErrNotFound if levelID does not
 // belong to groupID — the only place a cross-Group Level reference can be
 // forged, so the check belongs here rather than in a caller that might forget.
-func (r *ClassRepo) Create(ctx context.Context, groupID, userID string, levelID int64, scheduleName string) (Class, error) {
+func (r *ClassRepo) Create(ctx context.Context, groupID, userID string, levelID int64, timeSlot string) (Class, error) {
 	var levelName string
 	err := r.db.QueryRowContext(ctx,
 		"SELECT name FROM levels WHERE id = ? AND group_id = ?", levelID, groupID,
@@ -100,11 +100,11 @@ func (r *ClassRepo) Create(ctx context.Context, groupID, userID string, levelID 
 
 	var c Class
 	err = r.db.QueryRowContext(ctx, `
-		INSERT INTO classes (user_id, level_id, schedule_name, position)
+		INSERT INTO classes (user_id, level_id, time_slot, position)
 		VALUES (?, ?, ?, COALESCE((SELECT MAX(position) FROM classes WHERE user_id = ?), 0) + 1)
-		RETURNING id, user_id, level_id, schedule_name, position, created_at`,
-		userID, levelID, scheduleName, userID,
-	).Scan(&c.ID, &c.UserID, &c.LevelID, &c.ScheduleName, &c.Position, &c.CreatedAt)
+		RETURNING id, user_id, level_id, time_slot, position, created_at`,
+		userID, levelID, timeSlot, userID,
+	).Scan(&c.ID, &c.UserID, &c.LevelID, &c.TimeSlot, &c.Position, &c.CreatedAt)
 	if err != nil {
 		if isDuplicateErr(err) {
 			return Class{}, fmt.Errorf("create class: %w", ErrDuplicate)
@@ -112,18 +112,18 @@ func (r *ClassRepo) Create(ctx context.Context, groupID, userID string, levelID 
 		return Class{}, fmt.Errorf("create class: %w", err)
 	}
 	c.LevelName = levelName
-	c.Name = deriveClassDisplayName(levelName, scheduleName)
+	c.Name = deriveClassDisplayName(levelName, timeSlot)
 	return c, nil
 }
 
-// Update changes the Level and/or Schedule of a class owned by the user.
+// Update changes the Level and/or Time slot of a class owned by the user.
 // Returns ErrNotFound if levelID does not belong to groupID.
-func (r *ClassRepo) Update(ctx context.Context, groupID, userID string, id, levelID int64, scheduleName string) error {
+func (r *ClassRepo) Update(ctx context.Context, groupID, userID string, id, levelID int64, timeSlot string) error {
 	res, err := r.db.ExecContext(ctx, `
-		UPDATE classes SET level_id = ?, schedule_name = ?
+		UPDATE classes SET level_id = ?, time_slot = ?
 		WHERE id = ? AND user_id = ?
 		  AND EXISTS (SELECT 1 FROM levels WHERE id = ? AND group_id = ?)`,
-		levelID, scheduleName, id, userID, levelID, groupID)
+		levelID, timeSlot, id, userID, levelID, groupID)
 	if err != nil {
 		if isDuplicateErr(err) {
 			return fmt.Errorf("update class: %w", ErrDuplicate)
@@ -138,7 +138,7 @@ func (r *ClassRepo) GetByID(ctx context.Context, id int64) (Class, error) {
 	var c Class
 	err := r.db.QueryRowContext(ctx,
 		"SELECT "+classSelectColumns+" FROM classes c JOIN levels l ON l.id = c.level_id WHERE c.id = ?", id,
-	).Scan(&c.ID, &c.UserID, &c.Name, &c.LevelID, &c.LevelName, &c.ScheduleName, &c.Position, &c.CreatedAt)
+	).Scan(&c.ID, &c.UserID, &c.Name, &c.LevelID, &c.LevelName, &c.TimeSlot, &c.Position, &c.CreatedAt)
 	if err == sql.ErrNoRows {
 		return Class{}, ErrNotFound
 	}

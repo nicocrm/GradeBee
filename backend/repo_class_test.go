@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestClassRepo_CreateWithLevelAndSchedule(t *testing.T) {
+func TestClassRepo_CreateWithLevelAndTimeSlot(t *testing.T) {
 	db := setupTestDB(t)
 	repo := &ClassRepo{db: db}
 	level := newTestLevel(t, db, "org1", "Mousy")
@@ -16,11 +16,11 @@ func TestClassRepo_CreateWithLevelAndSchedule(t *testing.T) {
 	c, err := repo.Create(t.Context(), "org1", "user1", level.ID, "Thursday")
 	require.NoError(t, err)
 	assert.Equal(t, "Mousy", c.LevelName)
-	assert.Equal(t, "Thursday", c.ScheduleName)
-	assert.Equal(t, "Mousy-Thursday", c.Name)
+	assert.Equal(t, "Thursday", c.TimeSlot)
+	assert.Equal(t, "Mousy · Thursday", c.Name)
 }
 
-func TestClassRepo_CreateNoSchedule(t *testing.T) {
+func TestClassRepo_CreateNoTimeSlot(t *testing.T) {
 	db := setupTestDB(t)
 	repo := &ClassRepo{db: db}
 	level := newTestLevel(t, db, "org1", "Lions")
@@ -28,7 +28,7 @@ func TestClassRepo_CreateNoSchedule(t *testing.T) {
 	c, err := repo.Create(t.Context(), "org1", "user1", level.ID, "")
 	require.NoError(t, err)
 	assert.Equal(t, "Lions", c.Name)
-	assert.Empty(t, c.ScheduleName)
+	assert.Empty(t, c.TimeSlot)
 }
 
 func TestClassRepo_CreateCrossGroupLevelRejected(t *testing.T) {
@@ -53,7 +53,7 @@ func TestClassRepo_UpdateCrossGroupLevelRejected(t *testing.T) {
 	assert.True(t, errors.Is(err, ErrNotFound), "expected ErrNotFound for cross-group level, got %v", err)
 }
 
-func TestClassRepo_DuplicateLevelSchedule(t *testing.T) {
+func TestClassRepo_DuplicateLevelTimeSlot(t *testing.T) {
 	db := setupTestDB(t)
 	repo := &ClassRepo{db: db}
 	level := newTestLevel(t, db, "org1", "Mousy")

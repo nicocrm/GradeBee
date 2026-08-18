@@ -283,10 +283,10 @@ func testLevelID(t *testing.T, db *sql.DB, groupID, name string) int64 {
 // newTestClass creates a class for userID against a Level named levelName in
 // groupID, creating the Level on first use. Test call sites that pre-#57
 // passed a free-text level name now pass it here unchanged.
-func newTestClass(t *testing.T, cr *ClassRepo, groupID, userID, levelName, scheduleName string) Class {
+func newTestClass(t *testing.T, cr *ClassRepo, groupID, userID, levelName, timeSlot string) Class {
 	t.Helper()
 	levelID := testLevelID(t, cr.db, groupID, levelName)
-	c, err := cr.Create(context.Background(), groupID, userID, levelID, scheduleName)
+	c, err := cr.Create(context.Background(), groupID, userID, levelID, timeSlot)
 	if err != nil {
 		t.Fatalf("newTestClass: %v", err)
 	}

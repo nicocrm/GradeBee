@@ -10,12 +10,12 @@ GradeBee is a teacher tool for managing student rosters, turning voice/text obse
 A Group-owned entity defining the kind of report card expected (e.g. "Grade 3", "Intermediate"), carrying shared Report Instructions. A row in a `levels` table (`id`, `group_id`, `name` unique within Group, `report_instructions`). Classes reference it by `level_id`.
 _Avoid_: Class name, grade (when used loosely)
 
-**Schedule**:
-An optional time-slot label distinguishing sections taught at the same Level (e.g. "Period 1", "Morning").
-_Avoid_: Group (legacy name)
+**Time slot**:
+An optional free-text label distinguishing sections taught at the same Level (e.g. "Period 1", "Morning", "14:10").
+_Avoid_: Schedule (legacy name), Group (legacy name), Period (ambiguous — a fixed school-wide timetable slot in some school systems)
 
 **Class**:
-A concrete teaching group: one chosen shared Level plus an optional free-text Schedule, owned by a teacher. Holds Students. References its Level by `level_id`.
+A concrete teaching group: one chosen shared Level plus an optional free-text Time slot, owned by a teacher. Holds Students. References its Level by `level_id`.
 _Avoid_: Section, course
 
 **Student**:
@@ -55,13 +55,13 @@ _Avoid_: Additional instructions (legacy UI label)
 - A **Group** owns many **Levels**; membership + roles (**Admin**/**Teacher**) come from the Clerk Organization.
 - A **Level** carries shared **Report Instructions** (Admin-authored). Automated report review is deferred.
 - A **Report** is generated from **Notes** + Level **Report Instructions** + **Ad-hoc Instructions**.
-- A **Class** references exactly one **Level** (`level_id`) and carries an optional free-text **Schedule**.
+- A **Class** references exactly one **Level** (`level_id`) and carries an optional free-text **Time slot**.
 - A **Level** belongs to exactly one **Group**.
 - A **Student** belongs to exactly one **Class**.
 
 ## Flagged ambiguities
 
-- "Group" historically meant the class Schedule slot; that meaning is now **Schedule**. "Group" now means the tenancy/sharing boundary (a Clerk Organization).
+- "Group" historically meant the class Time slot; that meaning is now **Time slot**. "Group" now means the tenancy/sharing boundary (a Clerk Organization).
 - Report **review** (automated LLM self-review pass, pre-Teacher) is a deferred enhancement; not modeled with a separate field yet.
 - **Scaling risk:** Clerk's plan caps Organizations at 100. The Group=Clerk-Org model is fine for MVP but would need a paid tier or a custom groups table if GradeBee exceeds ~100 Groups. No personal-group-per-user for this reason.
 - Existing users (2) migrate into a single Group. Self-serve Group creation/onboarding for brand-new signups is out of MVP scope.

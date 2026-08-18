@@ -46,7 +46,7 @@ describe('StudentList', () => {
   it('renders class groups after fetch', async () => {
     mockListClasses.mockResolvedValueOnce({
       classes: [
-        { id: 1, name: 'Math 101', levelId: 1, levelName: "Math 101", scheduleName: "", studentCount: 2 },
+        { id: 1, name: 'Math 101', levelId: 1, levelName: "Math 101", timeSlot: "", studentCount: 2 },
       ],
     })
 
@@ -86,9 +86,9 @@ describe('StudentList', () => {
   it('expands newly created class and shows add-student form', async () => {
     const user = userEvent.setup()
     mockListClasses.mockResolvedValueOnce({
-      classes: [{ id: 1, name: 'Math 101', levelId: 2, levelName: "Math 101", scheduleName: "", studentCount: 2 }],
+      classes: [{ id: 1, name: 'Math 101', levelId: 2, levelName: "Math 101", timeSlot: "", studentCount: 2 }],
     })
-    mockCreateClass.mockResolvedValueOnce({ id: 5, name: 'Science', levelId: 1, levelName: "Science", scheduleName: "", studentCount: 0 })
+    mockCreateClass.mockResolvedValueOnce({ id: 5, name: 'Science', levelId: 1, levelName: "Science", timeSlot: "", studentCount: 0 })
 
     render(<StudentList />)
 

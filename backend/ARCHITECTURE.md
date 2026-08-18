@@ -15,8 +15,8 @@ Go HTTP backend for GradeBee, a teacher tool for managing student rosters, proce
 | Term | Definition |
 |------|------------|
 | **Level** | A Group-owned curriculum tier (e.g. "Grade 3", "Intermediate"), curated by the Admin via the Levels screen. Carries shared Report Instructions that will guide report generation. Referenced by Classes via `classes.level_id` (`NOT NULL`, `ON DELETE RESTRICT`). |
-| **Schedule** | An optional time-slot or period label (e.g. "Period 1", "Morning"). Distinguishes multiple sections taught at the same level. |
-| **Class** | A concrete teaching group — a **Level instance**. References a required Level (`level_id`) plus an optional `schedule_name`. A teacher may have multiple classes at the same level (different schedules). The display name (`Class.Name`) is derived in SQL from the Level's name plus `schedule_name`, never stored — renaming a Level immediately renames every Class using it. |
+| **Time slot** | An optional free-text label distinguishing sections taught at the same level (e.g. "Period 1", "Morning", "14:10"). |
+| **Class** | A concrete teaching group — a **Level instance**. References a required Level (`level_id`) plus an optional `time_slot`. A teacher may have multiple classes at the same level (different time slots). The display name (`Class.Name`) is derived in SQL from the Level's name plus `time_slot` (joined by ` · `), never stored — renaming a Level immediately renames every Class using it. |
 | **Student** | A learner belonging to exactly one class. |
 | **Note** | A per-student observation extracted from a voice or text upload. |
 | **Report** | An LLM-generated report card for one student, drawing on their notes and the Level's Report Instructions. |
@@ -37,8 +37,8 @@ Cache headers:
 |--------|------|------|---------|-------------|
 | GET | `/` `/health` | No | inline | Health check |
 | GET | `/api/classes` | Yes | `handleListClasses` | List user's classes with student counts |
-| POST | `/api/classes` | Yes | `handleCreateClass` | Create a class (body: `{levelId, scheduleName}`) |
-| PUT | `/api/classes/{id}` | Yes | `handleUpdateClass` | Update a class (body: `{levelId, scheduleName}`) |
+| POST | `/api/classes` | Yes | `handleCreateClass` | Create a class (body: `{levelId, timeSlot}`) |
+| PUT | `/api/classes/{id}` | Yes | `handleUpdateClass` | Update a class (body: `{levelId, timeSlot}`) |
 | DELETE | `/api/classes/{id}` | Yes | `handleDeleteClass` | Delete class + cascade |
 | GET | `/api/classes/{id}/students` | Yes | `handleListStudents` | List students in a class |
 | POST | `/api/classes/{id}/students` | Yes | `handleCreateStudent` | Add a student |
@@ -214,7 +214,7 @@ SQLite with WAL mode (`db.go`). Migrations embedded via `embed.FS` (`migrate.go`
 
 | Table | Purpose |
 |-------|---------|
-| `classes` | A **class** is a Level instance: a required `level_id` FK (`NOT NULL`, `ON DELETE RESTRICT`) plus an optional `schedule_name`. `Class.Name` and `Class.LevelName` are not stored — both are derived in SQL by joining `levels` (`levels.name` alone, or `levels.name–schedule_name` when a schedule is set), so renaming a Level immediately renames every Class using it. |
+| `classes` | A **class** is a Level instance: a required `level_id` FK (`NOT NULL`, `ON DELETE RESTRICT`) plus an optional `time_slot`. `Class.Name` and `Class.LevelName` are not stored — both are derived in SQL by joining `levels` (`levels.name` alone, or `levels.name · time_slot` when a time slot is set), so renaming a Level immediately renames every Class using it. |
 | `students` | Students belonging to classes |
 | `student_aliases` | Nickname/variant aliases per student (per-class uniqueness, case-insensitive) |
 | `notes` | Observation notes per student |
@@ -258,6 +258,7 @@ The `debugAuthMiddleware` enforces that every `/api/` request carries an active 
 | `repo_class.go` | `ClassRepo` — CRUD for classes, scoped by `group_id` on Create/Update to validate `level_id` belongs to the caller's Group |
 | `sql/011_class_level_id.sql` | Migration: add `classes.level_id`, backfill by contains-match against `levels.name`, move leftover text into empty `schedule_name`, drop `level_name`/`name`, harden `level_id` `NOT NULL ON DELETE RESTRICT` |
 | `sql/012_drop_report_examples.sql` | Migration: drop `report_examples` and `report_example_classes` — the example subsystem is removed (#54) |
+| `sql/013_rename_schedule_to_time_slot.sql` | Migration: rename `classes.schedule_name` → `classes.time_slot` |
 | `repo_student.go` | `StudentRepo` — CRUD for students, `FindByNameAndClass` (matches canonical name + aliases, case-insensitive), `BelongsToUser`, `AddAlias`, `RemoveAlias`, `ListAliases`, `ListWithAliases` |
 | `repo_note.go` | `NoteRepo` — CRUD for notes, `ListForStudents` (date range) |
 | `repo_report.go` | `ReportRepo` — CRUD for reports |

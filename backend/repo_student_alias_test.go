@@ -110,16 +110,16 @@ func TestFindByNameAndClass_MatchesAlias(t *testing.T) {
 	assert.Equal(t, s.ID, id)
 }
 
-// TestFindByNameAndClass_MatchesWithSchedule checks that lookup resolves for
-// a class name that includes the schedule qualifier (e.g. "Math-Thursday").
-func TestFindByNameAndClass_MatchesWithSchedule(t *testing.T) {
+// TestFindByNameAndClass_MatchesWithTimeSlot checks that lookup resolves for
+// a class name that includes the time slot qualifier (e.g. "Math · Thursday").
+func TestFindByNameAndClass_MatchesWithTimeSlot(t *testing.T) {
 	ctx, r := testDBAndRepos(t)
 
 	c := newTestClass(t, r.classes, "test-group", "user1", "Math", "Thursday")
 	s, err := r.students.Create(ctx, c.ID, "Alexander")
 	require.NoError(t, err)
 
-	id, err := r.students.FindByNameAndClass(ctx, "Alexander", "Math-Thursday", "user1")
+	id, err := r.students.FindByNameAndClass(ctx, "Alexander", "Math · Thursday", "user1")
 	require.NoError(t, err, "find by name in qualified class")
 	assert.Equal(t, s.ID, id)
 }

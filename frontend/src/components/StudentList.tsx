@@ -137,22 +137,22 @@ export default function StudentList() {
     setClasses(prev => prev.map(c => c.id === classId ? { ...c, studentCount: c.studentCount + 1 } : c))
   }
 
-  async function handleRenameClass(classId: number, newLevelId: number, newGroup: string) {
+  async function handleRenameClass(classId: number, newLevelId: number, newTimeSlot: string) {
     const old = classes.find(c => c.id === classId)
-    if (!old || (newLevelId === old.levelId && newGroup === old.scheduleName)) {
+    if (!old || (newLevelId === old.levelId && newTimeSlot === old.timeSlot)) {
       setEditingClassId(null)
       return
     }
     const newLevelName = levels.find(l => l.id === newLevelId)?.name ?? old.levelName
-    const displayName = newGroup ? `${newLevelName} — ${newGroup}` : newLevelName
+    const displayName = newTimeSlot ? `${newLevelName} · ${newTimeSlot}` : newLevelName
     // Optimistic update
-    setClasses(prev => prev.map(c => c.id === classId ? { ...c, name: displayName, levelId: newLevelId, levelName: newLevelName, scheduleName: newGroup } : c).sort((a, b) => a.name.localeCompare(b.name)))
+    setClasses(prev => prev.map(c => c.id === classId ? { ...c, name: displayName, levelId: newLevelId, levelName: newLevelName, timeSlot: newTimeSlot } : c).sort((a, b) => a.name.localeCompare(b.name)))
     setEditingClassId(null)
     try {
-      await renameClass(classId, newLevelId, newGroup, getToken)
+      await renameClass(classId, newLevelId, newTimeSlot, getToken)
     } catch {
       // Revert
-      setClasses(prev => prev.map(c => c.id === classId ? { ...c, name: old.name, levelId: old.levelId, levelName: old.levelName, scheduleName: old.scheduleName } : c).sort((a, b) => a.name.localeCompare(b.name)))
+      setClasses(prev => prev.map(c => c.id === classId ? { ...c, name: old.name, levelId: old.levelId, levelName: old.levelName, timeSlot: old.timeSlot } : c).sort((a, b) => a.name.localeCompare(b.name)))
       showFlash('Failed to rename class')
     }
   }
@@ -379,15 +379,15 @@ export default function StudentList() {
                         {editingClassId === cls.id ? (
                           <InlineClassEdit
                             levelId={cls.levelId}
-                            scheduleName={cls.scheduleName}
+                            timeSlot={cls.timeSlot}
                             levels={levels}
-                            onSave={(newLevelId, newGroup) => handleRenameClass(cls.id, newLevelId, newGroup)}
+                            onSave={(newLevelId, newTimeSlot) => handleRenameClass(cls.id, newLevelId, newTimeSlot)}
                             onCancel={() => setEditingClassId(null)}
                           />
                         ) : (
                           <span className="level-name-text">
                             {cls.levelName}
-                            {cls.scheduleName && <span className="schedule-name-text"> — {cls.scheduleName}</span>}
+                            {cls.timeSlot && <span className="time-slot-text"> · {cls.timeSlot}</span>}
                           </span>
                         )}
                         <span className="count">({cls.studentCount})</span>
@@ -531,19 +531,19 @@ export default function StudentList() {
 
 function InlineClassEdit({
   levelId,
-  scheduleName,
+  timeSlot,
   levels,
   onSave,
   onCancel,
 }: {
   levelId: number
-  scheduleName: string
+  timeSlot: string
   levels: LevelItem[]
-  onSave: (levelId: number, scheduleName: string) => void
+  onSave: (levelId: number, timeSlot: string) => void
   onCancel: () => void
 }) {
   const [selectedLevelId, setSelectedLevelId] = useState(levelId)
-  const [schedule, setSchedule] = useState(scheduleName)
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState(timeSlot)
   const selectRef = useRef<HTMLSelectElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -552,7 +552,7 @@ function InlineClassEdit({
   }, [])
 
   function doSave() {
-    onSave(selectedLevelId, schedule.trim())
+    onSave(selectedLevelId, selectedTimeSlot.trim())
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
@@ -587,13 +587,13 @@ function InlineClassEdit({
       </select>
       <input
         type="text"
-        value={schedule}
-        onChange={e => setSchedule(e.target.value)}
+        value={selectedTimeSlot}
+        onChange={e => setSelectedTimeSlot(e.target.value)}
         onKeyDown={handleKeyDown}
         onBlur={handleBlur}
-        className="inline-edit-input inline-edit-group"
-        data-testid="inline-edit-schedule-name"
-        placeholder="Schedule (optional)"
+        className="inline-edit-input inline-edit-time-slot"
+        data-testid="inline-edit-time-slot"
+        placeholder="Time slot (optional)"
       />
     </div>
   )

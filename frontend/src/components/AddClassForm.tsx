@@ -16,7 +16,7 @@ export default function AddClassForm({ onCreated, onCancel }: AddClassFormProps)
   const [levels, setLevels] = useState<LevelItem[]>([])
   const [levelsStatus, setLevelsStatus] = useState<LevelsStatus>('loading')
   const [levelId, setLevelId] = useState<number | ''>('')
-  const [scheduleName, setScheduleName] = useState('')
+  const [timeSlot, setTimeSlot] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const selectRef = useRef<HTMLSelectElement>(null)
@@ -43,7 +43,7 @@ export default function AddClassForm({ onCreated, onCancel }: AddClassFormProps)
     setSubmitting(true)
     setError(null)
     try {
-      const cls = await createClass(levelId, scheduleName.trim(), getToken)
+      const cls = await createClass(levelId, timeSlot.trim(), getToken)
       onCreated(cls)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create class')
@@ -107,18 +107,18 @@ export default function AddClassForm({ onCreated, onCancel }: AddClassFormProps)
           </select>
           <input
             type="text"
-            value={scheduleName}
-            onChange={e => setScheduleName(e.target.value)}
+            value={timeSlot}
+            onChange={e => setTimeSlot(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Schedule (optional)"
+            placeholder="Time slot (optional)"
             disabled={submitting}
             className="add-class-input"
-            data-testid="add-class-schedule-input"
+            data-testid="add-class-time-slot-input"
           />
         </div>
         <p className="add-class-hint" data-testid="add-class-hint">
-          <strong>Schedule</strong> is optional and groups classes by schedule slot
-          (e.g. "Period 1"). The <strong>level</strong> identifies the
+          <strong>Time slot</strong> is optional and groups classes by time slot
+          (e.g. "Period 1", "14:10"). The <strong>level</strong> identifies the
           class and drives its report style.
         </p>
         <div className="add-class-form-row">
