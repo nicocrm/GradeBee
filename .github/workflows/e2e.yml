@@ -38,17 +38,7 @@ jobs:
           echo "VITE_CLERK_PUBLISHABLE_KEY=${{ vars.VITE_CLERK_PUBLISHABLE_KEY_TEST }}" >> frontend/.env
 
       - name: Install Playwright browsers
-        run: |
-          for attempt in 1 2; do
-            if timeout --kill-after=30s 5m pnpm exec playwright install --with-deps chromium; then
-              exit 0
-            fi
-            if [ "$attempt" -eq 2 ]; then
-              echo "::error::Playwright browser installation failed after 2 attempts"
-              exit 1
-            fi
-            echo "::warning::Playwright browser installation timed out or failed; retrying"
-          done
+        run: timeout --kill-after=30s 5m pnpm exec playwright install --with-deps chromium
 
       - name: Run E2E tests
         run: pnpm run test:e2e
