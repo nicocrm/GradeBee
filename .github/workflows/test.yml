@@ -30,7 +30,17 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install poppler-utils
-        run: sudo apt-get update && sudo apt-get install -y poppler-utils
+        run: |
+          for attempt in 1 2; do
+            if timeout --kill-after=30s 5m bash -c 'sudo apt-get update && sudo apt-get install -y poppler-utils'; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 2 ]; then
+              echo "::error::Poppler installation failed after 2 attempts"
+              exit 1
+            fi
+            echo "::warning::Poppler installation timed out or failed; retrying"
+          done
 
       - name: Backend unit tests
         working-directory: backend
