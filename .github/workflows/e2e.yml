@@ -38,7 +38,7 @@ jobs:
           echo "VITE_CLERK_PUBLISHABLE_KEY=${{ vars.VITE_CLERK_PUBLISHABLE_KEY_TEST }}" >> frontend/.env
 
       - name: Install Playwright browsers
-        run: timeout --kill-after=30s 5m pnpm exec playwright install --with-deps chromium
+        run: timeout --kill-after=30s 10m pnpm exec playwright install --with-deps chromium
 
       - name: Run E2E tests
         run: pnpm run test:e2e
