@@ -30,6 +30,10 @@
 -- when classes was the table being replaced. Their own definitions are
 -- unchanged; only the referenced table name needs to end up back at
 -- "classes".
+--
+-- Students whose class no longer exists are dropped with their notes,
+-- reports, and artifact_feedback — completing the cascade class delete
+-- already promises (same pattern as 011's dangling notes).
 
 PRAGMA foreign_keys = OFF;
 
@@ -158,7 +162,8 @@ CREATE TABLE students (
 );
 
 INSERT INTO students (id, class_id, name, created_at)
-    SELECT id, class_id, name, created_at FROM students_old;
+    SELECT id, class_id, name, created_at FROM students_old
+    WHERE EXISTS (SELECT 1 FROM classes WHERE classes.id = students_old.class_id);
 
 CREATE TABLE student_aliases (
     id         INTEGER PRIMARY KEY,
@@ -170,7 +175,9 @@ CREATE TABLE student_aliases (
 );
 
 INSERT INTO student_aliases (id, student_id, class_id, alias, created_at)
-    SELECT id, student_id, class_id, alias, created_at FROM student_aliases_old;
+    SELECT id, student_id, class_id, alias, created_at FROM student_aliases_old
+    WHERE EXISTS (SELECT 1 FROM students WHERE students.id = student_aliases_old.student_id)
+      AND EXISTS (SELECT 1 FROM classes WHERE classes.id = student_aliases_old.class_id);
 
 CREATE TABLE notes (
     id          INTEGER PRIMARY KEY,
@@ -187,7 +194,8 @@ CREATE TABLE notes (
 
 INSERT INTO notes (id, student_id, date, summary, transcript, source, created_at, updated_at, model_version, prompt_hash)
     SELECT id, student_id, date, summary, transcript, source, created_at, updated_at, model_version, prompt_hash
-    FROM notes_old;
+    FROM notes_old
+    WHERE EXISTS (SELECT 1 FROM students WHERE students.id = notes_old.student_id);
 
 CREATE TABLE reports (
     id           INTEGER PRIMARY KEY,
@@ -203,7 +211,13 @@ CREATE TABLE reports (
 
 INSERT INTO reports (id, student_id, start_date, end_date, html, instructions, created_at, model_version, prompt_hash)
     SELECT id, student_id, start_date, end_date, html, instructions, created_at, model_version, prompt_hash
-    FROM reports_old;
+    FROM reports_old
+    WHERE EXISTS (SELECT 1 FROM students WHERE students.id = reports_old.student_id);
+
+-- artifact_feedback has no FK.
+DELETE FROM artifact_feedback
+ WHERE (artifact_type = 'note'   AND NOT EXISTS (SELECT 1 FROM notes   WHERE notes.id   = artifact_feedback.artifact_id))
+    OR (artifact_type = 'report' AND NOT EXISTS (SELECT 1 FROM reports WHERE reports.id = artifact_feedback.artifact_id));
 
 DROP TABLE reports_old;
 DROP TABLE notes_old;

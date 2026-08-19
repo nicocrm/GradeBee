@@ -189,7 +189,7 @@ Tests override `serviceDeps` with stubs. All handler functions call through this
 - `groupIDFromRequest(r)` — extracts the active Clerk Organization ID (`ActiveOrganizationID`) from verified session claims. Returns `403 unauthorized` if claims are absent, `403 no_active_org` if no org is active (user not yet in a Group).
 - `isAdmin(r)` — returns `true` if the session role is `"org:admin"` (uses `SessionClaims.HasRole`).
 - `debugAuthMiddleware` enforces the active-org gate after Clerk JWT verification: any verified request with an empty `ActiveOrganizationID` is rejected with `403 no_active_org` before reaching the handler. `/health` and static routes are outside this middleware.
-- **Phase 2:** `levels` table added (`sql/010_levels.sql`), Group-owned and scoped by `group_id` (the active Clerk Organization ID). `LevelRepo` (`repo_level.go`) enforces the Group boundary on every method; `/api/levels` reads are open to any Group member, writes (`POST`/`PUT`/`DELETE`) require `isAdmin(r)`. `classes.level_id` (`sql/011_class_level_id.sql`) wires Classes to Levels; `ClassRepo.Create`/`Update` validate `level_id` belongs to the caller's Group, rejecting a forged cross-Group reference.
+- **Phase 2:** `levels` table is Group-owned and scoped by `group_id` (the active Clerk Organization ID). `LevelRepo` (`repo_level.go`) enforces the Group boundary on every method; `/api/levels` reads are open to any Group member, writes (`POST`/`PUT`/`DELETE`) require `isAdmin(r)`. `classes.level_id` wires Classes to Levels; `ClassRepo.Create`/`Update` validate `level_id` belongs to the caller's Group, rejecting a forged cross-Group reference.
 
 ### LLM Provider (`llm_provider*.go`)
 
@@ -209,7 +209,7 @@ Context bias: `providerTranscriber` passes class names from the DB roster to `pr
 
 ## Database
 
-SQLite with WAL mode (`db.go`). Migrations embedded via `embed.FS` (`migrate.go`, `sql/001_init.sql`).
+SQLite with WAL mode (`db.go`). Migrations in `sql/` are embedded via `embed.FS` and applied in lexical filename order (`migrate.go`).
 
 ### Tables
 
@@ -221,7 +221,7 @@ SQLite with WAL mode (`db.go`). Migrations embedded via `embed.FS` (`migrate.go`
 | `notes` | Observation notes per student |
 | `reports` | Generated HTML report cards |
 | `voice_notes` | Audio file tracking (file path, processed_at, purged_at) |
-| `levels` | Group-owned curriculum tiers. `name` unique within `group_id`; `report_instructions` defaults to `''`. A Level with trimmed-empty `report_instructions` cannot generate or regenerate reports — `handleGenerateReports`/`handleRegenerateReport` refuse with `400` before any LLM call (see `report_prompt.go`/`reports_handler.go` below). Seeded with 8 hand-authored Levels against the production Clerk org ID (one-shot data migration, `sql/010_levels.sql`). |
+| `levels` | Group-owned curriculum tiers. `name` unique within `group_id`; `report_instructions` defaults to `''`. A Level with trimmed-empty `report_instructions` cannot generate or regenerate reports — `handleGenerateReports`/`handleRegenerateReport` refuse with `400` before any LLM call (see `report_prompt.go`/`reports_handler.go` below). Seeded with 8 hand-authored Levels against the production Clerk org ID. |
 
 ### Repository Layer
 
@@ -253,14 +253,8 @@ The `debugAuthMiddleware` enforces that every `/api/` request carries an active 
 | `auth.go` | `groupIDFromRequest`, `isAdmin` — Clerk org/role helpers; `getGoogleOAuthToken` — Clerk → Google OAuth token |
 | `db.go` | Open SQLite, set PRAGMAs (WAL, busy_timeout, foreign_keys) |
 | `migrate.go` | Embed + run SQL migrations on startup |
-| `sql/001_init.sql` | Schema: classes, students, notes, reports, uploads (renamed to voice_notes via 002) |
-| `sql/005_student_aliases.sql` | Migration: create `student_aliases` table with per-class uniqueness index |
-| `sql/002_rename_uploads.sql` | Migration: rename uploads → voice_notes, update indexes |
+| `sql/` | Embedded SQL migrations; applied in lexical filename order and tracked in `_migrations` |
 | `repo_class.go` | `ClassRepo` — CRUD for classes, scoped by `group_id` on Create/Update to validate `level_id` belongs to the caller's Group |
-| `sql/011_class_level_id.sql` | Migration: add `classes.level_id`, backfill by contains-match against `levels.name`, move leftover text into empty `schedule_name`, drop `level_name`/`name`, harden `level_id` `NOT NULL ON DELETE RESTRICT` |
-| `sql/012_drop_report_examples.sql` | Migration: drop `report_examples` and `report_example_classes` — the example subsystem is removed (#54) |
-| `sql/013_rename_schedule_to_time_slot.sql` | Migration: rename `classes.schedule_name` → `classes.time_slot` |
-| `sql/014_require_day.sql` | Migration: add `classes.day`, backfill by extracting the first recognised weekday name/abbreviation out of `time_slot` (earliest-position match), strip it from `time_slot`; one-shot literal exception assigns Saturday to class id=30 (no day text); aborts naming the offending class if any day text is unrecognised; hardens `day` `NOT NULL CHECK (...)`, widens uniqueness to `(user_id, level_id, day, time_slot)` |
 | `repo_student.go` | `StudentRepo` — CRUD for students, `FindByNameAndClass` (matches canonical name + aliases, case-insensitive), `BelongsToUser`, `AddAlias`, `RemoveAlias`, `ListAliases`, `ListWithAliases` |
 | `repo_note.go` | `NoteRepo` — CRUD for notes, `ListForStudents` (date range) |
 | `repo_report.go` | `ReportRepo` — CRUD for reports |
