@@ -172,11 +172,6 @@
   gap: 0.4rem;
 }
 
-.paste-area {
-  margin-top: 1rem;
-  overflow: hidden;
-}
-
 .paste-textarea {
   width: 100%;
   min-height: 8rem;
@@ -334,6 +329,10 @@
 }
 
 @media (max-width: 640px) {
+  .paste-textarea {
+    font-size: 1rem;
+  }
+
   .paste-actions {
     flex-direction: column;
     align-items: stretch;

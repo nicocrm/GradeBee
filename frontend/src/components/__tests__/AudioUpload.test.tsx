@@ -106,20 +106,114 @@ describe('AudioUpload', () => {
     expect(mockUploadAudio).toHaveBeenCalledTimes(1)
   })
 
-  it('shows paste textarea when Paste Text is clicked', async () => {
+  it('opens a Paste Text modal instead of an inline paste row', async () => {
     const { default: AudioUpload } = await import('../AudioUpload')
     render(<AudioUpload />)
 
-    // Paste area should not be visible initially
     expect(screen.queryByTestId('paste-area')).not.toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 
-    // Click Paste Text button
     await userEvent.click(screen.getByTestId('paste-text-btn'))
 
-    await waitFor(() => {
-      expect(screen.getByTestId('paste-textarea')).toBeInTheDocument()
-    })
+    const dialog = await screen.findByRole('dialog')
+    expect(dialog).toHaveAttribute('aria-modal', 'true')
+    expect(screen.getByRole('heading', { name: 'Paste Text' })).toBeInTheDocument()
+    expect(screen.getByTestId('paste-textarea')).toBeInTheDocument()
     expect(screen.getByTestId('paste-submit-btn')).toBeDisabled()
+    expect(screen.queryByTestId('paste-area')).not.toBeInTheDocument()
+  })
+
+  it('closes the Paste Text modal on Escape and returns focus to Paste Text', async () => {
+    const { default: AudioUpload } = await import('../AudioUpload')
+    render(<AudioUpload />)
+
+    await userEvent.click(screen.getByTestId('paste-text-btn'))
+    await screen.findByRole('dialog')
+    await userEvent.keyboard('{Escape}')
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
+    expect(screen.getByTestId('paste-text-btn')).toHaveFocus()
+  })
+
+  it('closes the Paste Text modal via × and returns focus to Paste Text', async () => {
+    const { default: AudioUpload } = await import('../AudioUpload')
+    render(<AudioUpload />)
+
+    await userEvent.click(screen.getByTestId('paste-text-btn'))
+    await screen.findByRole('dialog')
+    await userEvent.click(screen.getByRole('button', { name: 'Close' }))
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
+    expect(screen.getByTestId('paste-text-btn')).toHaveFocus()
+  })
+
+  it('does not dismiss the Paste Text modal on overlay click', async () => {
+    const { default: AudioUpload } = await import('../AudioUpload')
+    render(<AudioUpload />)
+
+    await userEvent.click(screen.getByTestId('paste-text-btn'))
+    await screen.findByRole('dialog')
+    fireEvent.click(screen.getByTestId('paste-text-overlay'))
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+  })
+
+  it('keeps the draft when the Paste Text modal is dismissed', async () => {
+    const { default: AudioUpload } = await import('../AudioUpload')
+    render(<AudioUpload />)
+
+    await userEvent.click(screen.getByTestId('paste-text-btn'))
+    fireEvent.change(screen.getByTestId('paste-textarea'), { target: { value: 'Draft notes' } })
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
+
+    await userEvent.click(screen.getByTestId('paste-text-btn'))
+    expect(screen.getByTestId('paste-textarea')).toHaveValue('Draft notes')
+  })
+
+  it('clears the draft after a successful paste submit', async () => {
+    mockSubmitTextNotes.mockResolvedValue({ uploadId: 1, fileName: 'pasted-text' })
+
+    const { default: AudioUpload } = await import('../AudioUpload')
+    render(<AudioUpload />)
+
+    await userEvent.click(screen.getByTestId('paste-text-btn'))
+    fireEvent.change(screen.getByTestId('paste-textarea'), {
+      target: { value: 'Alice did great today' },
+    })
+    await userEvent.click(screen.getByTestId('paste-submit-btn'))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('upload-success')).toBeInTheDocument()
+    })
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByTestId('paste-text-btn'))
+    expect(screen.getByTestId('paste-textarea')).toHaveValue('')
+  })
+
+  it('does not accept a file drop while the Paste Text modal is open', async () => {
+    mockUploadAudio.mockResolvedValue({ uploadId: 1, fileName: 'test.mp3' })
+
+    const { default: AudioUpload } = await import('../AudioUpload')
+    render(<AudioUpload />)
+
+    await userEvent.click(screen.getByTestId('paste-text-btn'))
+    await screen.findByRole('dialog')
+
+    const file = new File(['audio'], 'test.mp3', { type: 'audio/mpeg' })
+    fireEvent.drop(screen.getByTestId('drop-zone'), {
+      dataTransfer: { files: [file] },
+    })
+
+    expect(mockUploadAudio).not.toHaveBeenCalled()
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
   })
 
   it('submits pasted text and shows success', async () => {
@@ -129,7 +223,9 @@ describe('AudioUpload', () => {
     render(<AudioUpload />)
 
     await userEvent.click(screen.getByTestId('paste-text-btn'))
-    fireEvent.change(screen.getByTestId('paste-textarea'), { target: { value: 'Alice did great today' } })
+    fireEvent.change(screen.getByTestId('paste-textarea'), {
+      target: { value: 'Alice did great today' },
+    })
 
     expect(screen.getByTestId('paste-submit-btn')).not.toBeDisabled()
     await userEvent.click(screen.getByTestId('paste-submit-btn'))
@@ -154,6 +250,11 @@ describe('AudioUpload', () => {
     await waitFor(() => {
       expect(screen.getByTestId('upload-error')).toHaveTextContent('Extraction failed')
     })
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('paste-textarea')).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByTestId('paste-text-btn'))
+    expect(screen.getByTestId('paste-textarea')).toHaveValue('Some notes')
   })
 
   it('focuses paste textarea when Paste Text is clicked', async () => {
@@ -220,7 +321,9 @@ describe('AudioUpload', () => {
     await userEvent.upload(input, [okFile, bigFile])
 
     await waitFor(() => {
-      expect(screen.getByTestId('upload-error')).toHaveTextContent(/too large|exceed the 25 MB limit/)
+      expect(screen.getByTestId('upload-error')).toHaveTextContent(
+        /too large|exceed the 25 MB limit/,
+      )
     })
     expect(mockUploadAudio).not.toHaveBeenCalled()
   })
@@ -240,7 +343,9 @@ describe('AudioUpload', () => {
       }
       stop() {
         this.state = 'inactive'
-        this.ondataavailable?.({ data: new Blob(['chunk'], { type: this.mimeType || 'audio/webm' }) })
+        this.ondataavailable?.({
+          data: new Blob(['chunk'], { type: this.mimeType || 'audio/webm' }),
+        })
         this.onstop?.()
       }
     }
@@ -253,7 +358,10 @@ describe('AudioUpload', () => {
       stopTrack.mockClear()
       getUserMedia.mockReset().mockResolvedValue(fakeStream)
       vi.stubGlobal('MediaRecorder', FakeMediaRecorder as unknown as typeof MediaRecorder)
-      Object.defineProperty(navigator, 'mediaDevices', { value: { getUserMedia }, configurable: true })
+      Object.defineProperty(navigator, 'mediaDevices', {
+        value: { getUserMedia },
+        configurable: true,
+      })
       Object.defineProperty(window, 'isSecureContext', { value: true, configurable: true })
     })
 

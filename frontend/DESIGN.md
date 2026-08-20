@@ -62,6 +62,9 @@ Signed-in Notes tab (`activeTab === 'notes'` in `App.tsx`) is a single column. D
 
 How It Works onboarding still describes the lifetime workflow (set up classes, then record). That is not the daily screen order.
 
+### Modals
+How It Works and student-detail use a dimmed overlay, chalk card, and × close (`modals.css`). Paste Text on Add Notes reuses the How It Works classes (`how-it-works-overlay` / `how-it-works-card` / `how-it-works-close`) rather than a new visual language. Overlay click does **not** dismiss Paste Text — only × or Escape. `.paste-text-modal-close` is 44×44 to meet the touch-target minimum.
+
 ### Empty/Info States
 - `.info-box`: centered card with subtle hex pattern overlay.
 
@@ -186,7 +189,7 @@ All rules live under `frontend/src/styles/`:
 | `shell.css` | App chrome only: `.app`, header, honeycomb divider, logo, bee-icon, `app-nav`, header-actions, footer |
 | `sign-in.css` | Sign-in page, feature list, consent checkbox |
 | `controls.css` | Buttons, `icon-btn`, `item-row`, cards (incl. `info-box`), forms, `inline-edit`, `delete-confirm`, `flash-error`, `hint-banner`, inline error card |
-| `modals.css` | How It Works modal, student-detail modal shell |
+| `modals.css` | How It Works, student-detail, and Paste Text modal shells |
 | `roster-upload.css` | Student list, class group, audio upload, job status, transcript review |
 | `reports.css` | Report generation, viewer, history |
 | `student-detail-notes.css` | Student detail expansion + tabs, student aliases, note editor |

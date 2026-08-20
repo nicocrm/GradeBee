@@ -109,18 +109,38 @@ export default function AudioUpload({ onUploadDone }: { onUploadDone?: () => voi
   const [showPaste, setShowPaste] = useState(false)
   const [pasteText, setPasteText] = useState('')
   const pasteRef = useRef<HTMLTextAreaElement>(null)
+  const pasteBtnRef = useRef<HTMLButtonElement>(null)
+  const restorePasteFocusRef = useRef(false)
   const { openPicker } = useDrivePicker()
   const isMobile = useMediaQuery('(max-width: 640px)')
   const recorder = useAudioRecorder()
   const [recordedFile, setRecordedFile] = useState<File | null>(null)
 
   useEffect(() => {
-    if (showPaste) {
-      requestAnimationFrame(() => {
-        pasteRef.current?.focus()
-        pasteRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-      })
+    if (!showPaste) return
+    requestAnimationFrame(() => {
+      pasteRef.current?.focus()
+    })
+  }, [showPaste])
+
+  function closePasteModal() {
+    restorePasteFocusRef.current = true
+    setShowPaste(false)
+  }
+
+  useEffect(() => {
+    if (showPaste || !restorePasteFocusRef.current) return
+    restorePasteFocusRef.current = false
+    pasteBtnRef.current?.focus()
+  }, [showPaste])
+
+  useEffect(() => {
+    if (!showPaste) return
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') closePasteModal()
     }
+    document.addEventListener('keydown', handleKey)
+    return () => document.removeEventListener('keydown', handleKey)
   }, [showPaste])
 
   function reset() {
@@ -220,6 +240,7 @@ export default function AudioUpload({ onUploadDone }: { onUploadDone?: () => voi
 
   async function handlePasteSubmit() {
     if (!pasteText.trim()) return
+    setShowPaste(false)
     setError('')
     setShowSuccess(false)
     setFileName('pasted-text')
@@ -242,12 +263,14 @@ export default function AudioUpload({ onUploadDone }: { onUploadDone?: () => voi
   function handleDrop(e: React.DragEvent) {
     e.preventDefault()
     setDragOver(false)
+    if (showPaste) return
     const files = Array.from(e.dataTransfer.files ?? [])
     if (files.length > 0) processFiles(files)
   }
 
   function handleDragOver(e: React.DragEvent) {
     e.preventDefault()
+    if (showPaste) return
     setDragOver(true)
   }
 
@@ -350,7 +373,8 @@ export default function AudioUpload({ onUploadDone }: { onUploadDone?: () => voi
                 <button
                   type="button"
                   className="mobile-upload-btn btn-secondary"
-                  onClick={() => setShowPaste(!showPaste)}
+                  ref={pasteBtnRef}
+                  onClick={() => setShowPaste(true)}
                   data-testid="paste-text-btn"
                 >
                   <PasteIcon />
@@ -414,7 +438,8 @@ export default function AudioUpload({ onUploadDone }: { onUploadDone?: () => voi
                   <button
                     type="button"
                     className="btn-secondary"
-                    onClick={() => setShowPaste(!showPaste)}
+                    ref={pasteBtnRef}
+                    onClick={() => setShowPaste(true)}
                     data-testid="paste-text-btn"
                   >
                     <PasteIcon />
@@ -424,39 +449,6 @@ export default function AudioUpload({ onUploadDone }: { onUploadDone?: () => voi
               </>
             )}
 
-            {/* Paste text area */}
-            <AnimatePresence>
-              {showPaste && (
-                <motion.div
-                  className="paste-area"
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.25 }}
-                  data-testid="paste-area"
-                >
-                  <textarea
-                    ref={pasteRef}
-                    className="paste-textarea"
-                    placeholder="Paste your observations here..."
-                    value={pasteText}
-                    onChange={e => setPasteText(e.target.value)}
-                    rows={6}
-                    data-testid="paste-textarea"
-                  />
-                  <div className="paste-actions">
-                    <button
-                      type="button"
-                      onClick={handlePasteSubmit}
-                      disabled={!pasteText.trim()}
-                      data-testid="paste-submit-btn"
-                    >
-                      Process Notes
-                    </button>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
           </motion.div>
         )}
 
@@ -559,6 +551,61 @@ export default function AudioUpload({ onUploadDone }: { onUploadDone?: () => voi
           </button>
         </div>
       )}
+
+      <AnimatePresence>
+        {showPaste && (
+          <motion.div
+            className="how-it-works-overlay"
+            data-testid="paste-text-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onDragOver={e => { e.preventDefault(); e.stopPropagation() }}
+            onDrop={e => { e.preventDefault(); e.stopPropagation() }}
+          >
+            <motion.div
+              className="how-it-works-card card"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="paste-text-modal-heading"
+              initial={{ opacity: 0, y: 30, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20 }}
+              transition={{ duration: 0.3, ease: 'easeOut' }}
+              onClick={e => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                className="how-it-works-close paste-text-modal-close"
+                onClick={closePasteModal}
+                aria-label="Close"
+              >
+                ×
+              </button>
+              <h2 id="paste-text-modal-heading">Paste Text</h2>
+              <textarea
+                ref={pasteRef}
+                className="paste-textarea"
+                placeholder="Paste your observations here..."
+                value={pasteText}
+                onChange={e => setPasteText(e.target.value)}
+                rows={6}
+                data-testid="paste-textarea"
+              />
+              <div className="paste-actions">
+                <button
+                  type="button"
+                  onClick={handlePasteSubmit}
+                  disabled={!pasteText.trim()}
+                  data-testid="paste-submit-btn"
+                >
+                  Process Notes
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   )
 }
