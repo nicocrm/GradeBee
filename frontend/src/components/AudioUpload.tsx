@@ -1,5 +1,6 @@
 import { useAuth } from '@clerk/react'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'motion/react'
 import { uploadAudio, getGoogleToken, importFromDrive, submitTextNotes } from '../api'
 import { useDrivePicker, AUDIO_MIME_TYPES } from '../hooks/useDrivePicker'
@@ -17,7 +18,7 @@ const SUCCESS_TOAST_MS = 3000
 
 async function runBatchUpload(
   items: { name: string; upload: () => Promise<unknown> }[],
-  onProgress: (index: number, name: string) => void
+  onProgress: (index: number, name: string) => void,
 ): Promise<{ succeeded: number; failed: string[]; lastError: string | null }> {
   const failed: string[] = []
   let succeeded = 0
@@ -40,10 +41,41 @@ function MicIcon() {
   return (
     <svg className="drop-zone-icon" width="40" height="40" viewBox="0 0 40 40" fill="none">
       <rect x="14" y="6" width="12" height="20" rx="6" fill="#E8A317" opacity="0.25" />
-      <rect x="15" y="7" width="10" height="18" rx="5" stroke="#E8A317" strokeWidth="1.5" fill="none" />
-      <path d="M10 22C10 27.523 14.477 32 20 32C25.523 32 30 27.523 30 22" stroke="#E8A317" strokeWidth="1.5" strokeLinecap="round" fill="none" />
-      <line x1="20" y1="32" x2="20" y2="36" stroke="#E8A317" strokeWidth="1.5" strokeLinecap="round" />
-      <line x1="15" y1="36" x2="25" y2="36" stroke="#E8A317" strokeWidth="1.5" strokeLinecap="round" />
+      <rect
+        x="15"
+        y="7"
+        width="10"
+        height="18"
+        rx="5"
+        stroke="#E8A317"
+        strokeWidth="1.5"
+        fill="none"
+      />
+      <path
+        d="M10 22C10 27.523 14.477 32 20 32C25.523 32 30 27.523 30 22"
+        stroke="#E8A317"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        fill="none"
+      />
+      <line
+        x1="20"
+        y1="32"
+        x2="20"
+        y2="36"
+        stroke="#E8A317"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+      <line
+        x1="15"
+        y1="36"
+        x2="25"
+        y2="36"
+        stroke="#E8A317"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
     </svg>
   )
 }
@@ -71,11 +103,41 @@ function DriveIcon() {
 function PasteIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-      <rect x="5" y="3" width="14" height="18" rx="2" stroke="#E8A317" strokeWidth="1.5" fill="none" />
-      <path d="M9 3V2a1 1 0 011-1h4a1 1 0 011 1v1" stroke="#E8A317" strokeWidth="1.5" strokeLinecap="round" />
+      <rect
+        x="5"
+        y="3"
+        width="14"
+        height="18"
+        rx="2"
+        stroke="#E8A317"
+        strokeWidth="1.5"
+        fill="none"
+      />
+      <path
+        d="M9 3V2a1 1 0 011-1h4a1 1 0 011 1v1"
+        stroke="#E8A317"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
       <line x1="9" y1="9" x2="15" y2="9" stroke="#E8A317" strokeWidth="1.5" strokeLinecap="round" />
-      <line x1="9" y1="13" x2="15" y2="13" stroke="#E8A317" strokeWidth="1.5" strokeLinecap="round" />
-      <line x1="9" y1="17" x2="12" y2="17" stroke="#E8A317" strokeWidth="1.5" strokeLinecap="round" />
+      <line
+        x1="9"
+        y1="13"
+        x2="15"
+        y2="13"
+        stroke="#E8A317"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+      <line
+        x1="9"
+        y1="17"
+        x2="12"
+        y2="17"
+        stroke="#E8A317"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
     </svg>
   )
 }
@@ -89,9 +151,15 @@ function RecordIcon() {
 }
 
 function formatElapsed(seconds: number): string {
-  const mm = Math.floor(seconds / 60).toString().padStart(2, '0')
+  const mm = Math.floor(seconds / 60)
+    .toString()
+    .padStart(2, '0')
   const ss = (seconds % 60).toString().padStart(2, '0')
   return `${mm}:${ss}`
+}
+
+function isFileDrag(e: DragEvent): boolean {
+  return Array.from(e.dataTransfer?.types ?? []).includes('Files')
 }
 
 export default function AudioUpload({ onUploadDone }: { onUploadDone?: () => void }) {
@@ -115,6 +183,10 @@ export default function AudioUpload({ onUploadDone }: { onUploadDone?: () => voi
   const isMobile = useMediaQuery('(max-width: 640px)')
   const recorder = useAudioRecorder()
   const [recordedFile, setRecordedFile] = useState<File | null>(null)
+  const dragDepthRef = useRef(0)
+  const leaveFrameRef = useRef<number | null>(null)
+
+  const acceptDrop = (status === 'idle' || status === 'error') && !showPaste
 
   useEffect(() => {
     if (!showPaste) return
@@ -154,55 +226,122 @@ export default function AudioUpload({ onUploadDone }: { onUploadDone?: () => voi
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
-  function onUploadComplete(count: number) {
-    setStatus('idle')
-    setShowSuccess(true)
-    setSuccessCount(count)
-    setPasteText('')
-    setShowPaste(false)
-    if (fileInputRef.current) fileInputRef.current.value = ''
-    onUploadDone?.()
-    setTimeout(() => setShowSuccess(false), SUCCESS_TOAST_MS)
-  }
+  const onUploadComplete = useCallback(
+    (count: number) => {
+      setStatus('idle')
+      setShowSuccess(true)
+      setSuccessCount(count)
+      setPasteText('')
+      setShowPaste(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+      onUploadDone?.()
+      setTimeout(() => setShowSuccess(false), SUCCESS_TOAST_MS)
+    },
+    [onUploadDone],
+  )
 
-  async function processFiles(files: File[]) {
-    const oversized = files.filter(f => f.size > MAX_SIZE_BYTES)
-    if (oversized.length > 0) {
-      setError(
-        oversized.length === 1
-          ? `File too large (${(oversized[0].size / 1024 / 1024).toFixed(1)} MB). Max ${MAX_SIZE_MB} MB.`
-          : `${oversized.length} files exceed the ${MAX_SIZE_MB} MB limit.`
-      )
-      setStatus('error')
-      return
-    }
-
-    setError('')
-    setShowSuccess(false)
-    setFailedFiles([])
-    setUploadTotal(files.length)
-
-    setStatus('uploading')
-    const { succeeded, failed, lastError } = await runBatchUpload(
-      files.map(file => ({ name: file.name, upload: () => uploadAudio(file, getToken) })),
-      (index, name) => { setUploadIndex(index); setFileName(name) }
-    )
-
-    if (failed.length > 0) {
-      setFailedFiles(failed)
-      setStatus('error')
-      if (files.length === 1) {
-        setError(lastError ?? 'Something went wrong')
-      } else if (succeeded > 0) {
-        setError(`${succeeded} file${succeeded > 1 ? 's' : ''} uploaded. ${failed.length} failed:`)
-        onUploadDone?.()
-      } else {
-        setError(`All ${files.length} files failed to upload:`)
+  const processFiles = useCallback(
+    async (files: File[]) => {
+      const oversized = files.filter(f => f.size > MAX_SIZE_BYTES)
+      if (oversized.length > 0) {
+        setError(
+          oversized.length === 1
+            ? `File too large (${(oversized[0].size / 1024 / 1024).toFixed(1)} MB). Max ${MAX_SIZE_MB} MB.`
+            : `${oversized.length} files exceed the ${MAX_SIZE_MB} MB limit.`,
+        )
+        setStatus('error')
+        return
       }
-    } else {
-      onUploadComplete(succeeded)
+
+      setError('')
+      setShowSuccess(false)
+      setFailedFiles([])
+      setUploadTotal(files.length)
+
+      setStatus('uploading')
+      const { succeeded, failed, lastError } = await runBatchUpload(
+        files.map(file => ({ name: file.name, upload: () => uploadAudio(file, getToken) })),
+        (index, name) => {
+          setUploadIndex(index)
+          setFileName(name)
+        },
+      )
+
+      if (failed.length > 0) {
+        setFailedFiles(failed)
+        setStatus('error')
+        if (files.length === 1) {
+          setError(lastError ?? 'Something went wrong')
+        } else if (succeeded > 0) {
+          setError(
+            `${succeeded} file${succeeded > 1 ? 's' : ''} uploaded. ${failed.length} failed:`,
+          )
+          onUploadDone?.()
+        } else {
+          setError(`All ${files.length} files failed to upload:`)
+        }
+      } else {
+        onUploadComplete(succeeded)
+      }
+    },
+    [getToken, onUploadComplete, onUploadDone],
+  )
+
+  useEffect(() => {
+    function cancelLeaveHide() {
+      if (leaveFrameRef.current !== null) {
+        cancelAnimationFrame(leaveFrameRef.current)
+        leaveFrameRef.current = null
+      }
     }
-  }
+
+    function onDragEnter(e: DragEvent) {
+      if (!isFileDrag(e)) return
+      e.preventDefault()
+      cancelLeaveHide()
+      dragDepthRef.current += 1
+      if (acceptDrop) setDragOver(true)
+    }
+
+    function onDragOver(e: DragEvent) {
+      if (!isFileDrag(e)) return
+      e.preventDefault()
+    }
+
+    function onDragLeave(e: DragEvent) {
+      if (!isFileDrag(e)) return
+      dragDepthRef.current = Math.max(0, dragDepthRef.current - 1)
+      if (dragDepthRef.current === 0) {
+        leaveFrameRef.current = requestAnimationFrame(() => {
+          leaveFrameRef.current = null
+          if (dragDepthRef.current === 0) setDragOver(false)
+        })
+      }
+    }
+
+    function onDrop(e: DragEvent) {
+      if (!isFileDrag(e)) return
+      e.preventDefault()
+      cancelLeaveHide()
+      dragDepthRef.current = 0
+      setDragOver(false)
+      if (!acceptDrop) return
+      const files = Array.from(e.dataTransfer?.files ?? [])
+      if (files.length > 0) void processFiles(files)
+    }
+
+    window.addEventListener('dragenter', onDragEnter, true)
+    window.addEventListener('dragover', onDragOver, true)
+    window.addEventListener('dragleave', onDragLeave, true)
+    window.addEventListener('drop', onDrop, true)
+    return () => {
+      cancelLeaveHide()
+      window.removeEventListener('dragenter', onDragEnter, true)
+      window.removeEventListener('dragover', onDragOver, true)
+      window.removeEventListener('dragleave', onDragLeave, true)
+      window.removeEventListener('drop', onDrop, true)
+    }
+  }, [acceptDrop, processFiles])
 
   async function handleDriveImport() {
     setError('')
@@ -210,21 +349,33 @@ export default function AudioUpload({ onUploadDone }: { onUploadDone?: () => voi
 
     try {
       const { accessToken } = await getGoogleToken(getToken)
-      const picked = await openPicker(accessToken, { mimeTypes: AUDIO_MIME_TYPES, multiSelect: true, title: 'Select audio files' })
+      const picked = await openPicker(accessToken, {
+        mimeTypes: AUDIO_MIME_TYPES,
+        multiSelect: true,
+        title: 'Select audio files',
+      })
       if (!picked || picked.length === 0) return
 
       setUploadTotal(picked.length)
       setStatus('uploading')
       const { succeeded, failed } = await runBatchUpload(
-        picked.map(item => ({ name: item.name, upload: () => importFromDrive(item.id, item.name, getToken) })),
-        (index, name) => { setUploadIndex(index); setFileName(name) }
+        picked.map(item => ({
+          name: item.name,
+          upload: () => importFromDrive(item.id, item.name, getToken),
+        })),
+        (index, name) => {
+          setUploadIndex(index)
+          setFileName(name)
+        },
       )
 
       if (failed.length > 0) {
         setFailedFiles(failed)
         setStatus('error')
         if (succeeded > 0) {
-          setError(`${succeeded} file${succeeded > 1 ? 's' : ''} uploaded. ${failed.length} failed:`)
+          setError(
+            `${succeeded} file${succeeded > 1 ? 's' : ''} uploaded. ${failed.length} failed:`,
+          )
           onUploadDone?.()
         } else {
           setError(`All ${picked.length} files failed to upload:`)
@@ -258,24 +409,6 @@ export default function AudioUpload({ onUploadDone }: { onUploadDone?: () => voi
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? [])
     if (files.length > 0) processFiles(files)
-  }
-
-  function handleDrop(e: React.DragEvent) {
-    e.preventDefault()
-    setDragOver(false)
-    if (showPaste) return
-    const files = Array.from(e.dataTransfer.files ?? [])
-    if (files.length > 0) processFiles(files)
-  }
-
-  function handleDragOver(e: React.DragEvent) {
-    e.preventDefault()
-    if (showPaste) return
-    setDragOver(true)
-  }
-
-  function handleDragLeave() {
-    setDragOver(false)
   }
 
   async function handleRecordStart() {
@@ -327,7 +460,10 @@ export default function AudioUpload({ onUploadDone }: { onUploadDone?: () => voi
     >
       <h2>Add Notes</h2>
 
-      <p className="hint">Include level and time slot, and use student names or aliases - we'll match them to your roster.</p>
+      <p className="hint">
+        Include level and time slot, and use student names or aliases - we'll match them to your
+        roster.
+      </p>
       <p className="upload-pii-hint">
         Use first names or initials — avoid full names when possible.
       </p>
@@ -380,7 +516,9 @@ export default function AudioUpload({ onUploadDone }: { onUploadDone?: () => voi
                   <PasteIcon />
                   Paste Text
                 </button>
-                <p className="hint">Accepted audio: mp3, mp4, m4a, wav, webm (max {MAX_SIZE_MB} MB each)</p>
+                <p className="hint">
+                  Accepted audio: mp3, mp4, m4a, wav, webm (max {MAX_SIZE_MB} MB each)
+                </p>
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -394,16 +532,15 @@ export default function AudioUpload({ onUploadDone }: { onUploadDone?: () => voi
             ) : (
               <>
                 <div
-                  className={`drop-zone${dragOver ? ' drag-over' : ''}`}
-                  onDrop={handleDrop}
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
+                  className="drop-zone"
                   onClick={() => fileInputRef.current?.click()}
                   data-testid="drop-zone"
                 >
                   <MicIcon />
                   <p>Drag & drop audio files here, or click to browse</p>
-                  <p className="hint">Accepted: mp3, mp4, m4a, wav, webm (max {MAX_SIZE_MB} MB each)</p>
+                  <p className="hint">
+                    Accepted: mp3, mp4, m4a, wav, webm (max {MAX_SIZE_MB} MB each)
+                  </p>
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -448,7 +585,6 @@ export default function AudioUpload({ onUploadDone }: { onUploadDone?: () => voi
                 </div>
               </>
             )}
-
           </motion.div>
         )}
 
@@ -463,11 +599,23 @@ export default function AudioUpload({ onUploadDone }: { onUploadDone?: () => voi
             transition={{ duration: 0.25 }}
           >
             <HoneycombSpinner />
-            <p>{fileName === 'pasted-text'
-              ? 'Processing notes...'
-              : uploadTotal > 1
-                ? <>Uploading <strong>{uploadIndex}/{uploadTotal}</strong>: {fileName}...</>
-                : <>Uploading <strong>{fileName}</strong>...</>}</p>
+            <p>
+              {fileName === 'pasted-text' ? (
+                'Processing notes...'
+              ) : uploadTotal > 1 ? (
+                <>
+                  Uploading{' '}
+                  <strong>
+                    {uploadIndex}/{uploadTotal}
+                  </strong>
+                  : {fileName}...
+                </>
+              ) : (
+                <>
+                  Uploading <strong>{fileName}</strong>...
+                </>
+              )}
+            </p>
           </motion.div>
         )}
 
@@ -481,14 +629,23 @@ export default function AudioUpload({ onUploadDone }: { onUploadDone?: () => voi
             exit={{ opacity: 0 }}
             transition={{ duration: 0.25 }}
           >
-            <span className="recording-indicator" aria-hidden="true">●</span>
-            <p className="recording-time" data-testid="recording-time">{formatElapsed(recorder.elapsedSeconds)}</p>
+            <span className="recording-indicator" aria-hidden="true">
+              ●
+            </span>
+            <p className="recording-time" data-testid="recording-time">
+              {formatElapsed(recorder.elapsedSeconds)}
+            </p>
             <p className="hint">{(recorder.recordedBytes / 1024 / 1024).toFixed(1)} MB</p>
             <div className="secondary-actions">
               <button type="button" onClick={handleRecordStop} data-testid="record-stop-btn">
                 Stop
               </button>
-              <button type="button" className="btn-secondary" onClick={handleRecordCancel} data-testid="record-cancel-btn">
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={handleRecordCancel}
+                data-testid="record-cancel-btn"
+              >
                 Cancel
               </button>
             </div>
@@ -505,12 +662,19 @@ export default function AudioUpload({ onUploadDone }: { onUploadDone?: () => voi
             exit={{ opacity: 0 }}
             transition={{ duration: 0.25 }}
           >
-            <p>{recordedFile.name} — {formatElapsed(recorder.elapsedSeconds)}</p>
+            <p>
+              {recordedFile.name} — {formatElapsed(recorder.elapsedSeconds)}
+            </p>
             <div className="secondary-actions">
               <button type="button" onClick={handleRecordUpload} data-testid="record-upload-btn">
                 Upload
               </button>
-              <button type="button" className="btn-secondary" onClick={handleRecordDiscard} data-testid="record-discard-btn">
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={handleRecordDiscard}
+                data-testid="record-discard-btn"
+              >
                 Discard
               </button>
             </div>
@@ -533,7 +697,8 @@ export default function AudioUpload({ onUploadDone }: { onUploadDone?: () => voi
               ? 'Submitted'
               : successCount > 1
                 ? `${successCount} files uploaded`
-                : 'Uploaded'}! Processing in background.
+                : 'Uploaded'}
+            ! Processing in background.
           </motion.div>
         )}
       </AnimatePresence>
@@ -543,7 +708,9 @@ export default function AudioUpload({ onUploadDone }: { onUploadDone?: () => voi
           <p>{error}</p>
           {failedFiles.length > 0 && (
             <ul className="upload-error-list">
-              {failedFiles.map((f, i) => <li key={i}>{f}</li>)}
+              {failedFiles.map((f, i) => (
+                <li key={i}>{f}</li>
+              ))}
             </ul>
           )}
           <button className="btn-secondary" onClick={reset} style={{ marginTop: '0.5rem' }}>
@@ -560,8 +727,14 @@ export default function AudioUpload({ onUploadDone }: { onUploadDone?: () => voi
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onDragOver={e => { e.preventDefault(); e.stopPropagation() }}
-            onDrop={e => { e.preventDefault(); e.stopPropagation() }}
+            onDragOver={e => {
+              e.preventDefault()
+              e.stopPropagation()
+            }}
+            onDrop={e => {
+              e.preventDefault()
+              e.stopPropagation()
+            }}
           >
             <motion.div
               className="how-it-works-card card"
@@ -606,6 +779,20 @@ export default function AudioUpload({ onUploadDone }: { onUploadDone?: () => voi
           </motion.div>
         )}
       </AnimatePresence>
+
+      {dragOver &&
+        acceptDrop &&
+        createPortal(
+          <div
+            className="notes-drop-overlay"
+            data-testid="drop-overlay"
+            role="status"
+            aria-live="polite"
+          >
+            Drop audio to upload
+          </div>,
+          document.body,
+        )}
     </motion.div>
   )
 }

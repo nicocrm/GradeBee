@@ -27,6 +27,14 @@ vi.mock('../../hooks/useMediaQuery', () => ({
   useMediaQuery: () => false, // desktop by default
 }))
 
+function fileDataTransfer(files: File[] = []) {
+  return {
+    types: ['Files'],
+    files,
+    items: files.map(() => ({ kind: 'file' })),
+  }
+}
+
 describe('AudioUpload', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -198,24 +206,6 @@ describe('AudioUpload', () => {
     expect(screen.getByTestId('paste-textarea')).toHaveValue('')
   })
 
-  it('does not accept a file drop while the Paste Text modal is open', async () => {
-    mockUploadAudio.mockResolvedValue({ uploadId: 1, fileName: 'test.mp3' })
-
-    const { default: AudioUpload } = await import('../AudioUpload')
-    render(<AudioUpload />)
-
-    await userEvent.click(screen.getByTestId('paste-text-btn'))
-    await screen.findByRole('dialog')
-
-    const file = new File(['audio'], 'test.mp3', { type: 'audio/mpeg' })
-    fireEvent.drop(screen.getByTestId('drop-zone'), {
-      dataTransfer: { files: [file] },
-    })
-
-    expect(mockUploadAudio).not.toHaveBeenCalled()
-    expect(screen.getByRole('dialog')).toBeInTheDocument()
-  })
-
   it('submits pasted text and shows success', async () => {
     mockSubmitTextNotes.mockResolvedValue({ uploadId: 1, fileName: 'pasted-text' })
 
@@ -328,6 +318,147 @@ describe('AudioUpload', () => {
     expect(mockUploadAudio).not.toHaveBeenCalled()
   })
 
+  describe('viewport file drop', () => {
+    it('shows a drop overlay when a file is dragged over the page', async () => {
+      const { default: AudioUpload } = await import('../AudioUpload')
+      render(<AudioUpload />)
+
+      fireEvent.dragEnter(window, { dataTransfer: fileDataTransfer() })
+
+      expect(screen.getByTestId('drop-overlay')).toHaveTextContent('Drop audio to upload')
+    })
+
+    it('uploads dropped files through the existing file path', async () => {
+      mockUploadAudio.mockResolvedValue({ uploadId: 1, fileName: 'drop.mp3' })
+
+      const { default: AudioUpload } = await import('../AudioUpload')
+      render(<AudioUpload />)
+
+      const file = new File(['audio'], 'drop.mp3', { type: 'audio/mpeg' })
+      fireEvent.drop(window, { dataTransfer: fileDataTransfer([file]) })
+
+      await waitFor(() => {
+        expect(mockUploadAudio).toHaveBeenCalledTimes(1)
+      })
+      expect(mockUploadAudio.mock.calls[0][0]).toBe(file)
+      expect(screen.queryByTestId('drop-overlay')).not.toBeInTheDocument()
+    })
+
+    it('hides the overlay when the drag leaves the window', async () => {
+      const { default: AudioUpload } = await import('../AudioUpload')
+      render(<AudioUpload />)
+
+      fireEvent.dragEnter(window, { dataTransfer: fileDataTransfer() })
+      expect(screen.getByTestId('drop-overlay')).toBeInTheDocument()
+
+      fireEvent.dragLeave(window, { dataTransfer: fileDataTransfer() })
+      await waitFor(() => {
+        expect(screen.queryByTestId('drop-overlay')).not.toBeInTheDocument()
+      })
+    })
+
+    it('does not flicker the overlay on nested dragenter/dragleave', async () => {
+      const { default: AudioUpload } = await import('../AudioUpload')
+      render(<AudioUpload />)
+
+      fireEvent.dragEnter(window, { dataTransfer: fileDataTransfer() })
+      expect(screen.getByTestId('drop-overlay')).toBeInTheDocument()
+
+      // Real nested move: leave then enter in the same frame
+      fireEvent.dragLeave(window, { dataTransfer: fileDataTransfer() })
+      fireEvent.dragEnter(window, { dataTransfer: fileDataTransfer() })
+      expect(screen.getByTestId('drop-overlay')).toBeInTheDocument()
+
+      await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
+      expect(screen.getByTestId('drop-overlay')).toBeInTheDocument()
+
+      fireEvent.dragLeave(window, { dataTransfer: fileDataTransfer() })
+      await waitFor(() => {
+        expect(screen.queryByTestId('drop-overlay')).not.toBeInTheDocument()
+      })
+    })
+
+    it('does not show the overlay or take a drop while the Paste Text modal is open', async () => {
+      mockUploadAudio.mockResolvedValue({ uploadId: 1, fileName: 'test.mp3' })
+
+      const { default: AudioUpload } = await import('../AudioUpload')
+      render(<AudioUpload />)
+
+      await userEvent.click(screen.getByTestId('paste-text-btn'))
+      await screen.findByRole('dialog')
+
+      fireEvent.dragEnter(window, { dataTransfer: fileDataTransfer() })
+      expect(screen.queryByTestId('drop-overlay')).not.toBeInTheDocument()
+
+      const file = new File(['audio'], 'test.mp3', { type: 'audio/mpeg' })
+      fireEvent.drop(window, { dataTransfer: fileDataTransfer([file]) })
+
+      expect(mockUploadAudio).not.toHaveBeenCalled()
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+    })
+
+    it('does not show the overlay or take a drop while uploading', async () => {
+      let resolveUpload: (value: unknown) => void = () => {}
+      mockUploadAudio.mockReturnValue(
+        new Promise(resolve => {
+          resolveUpload = resolve
+        }),
+      )
+
+      const { default: AudioUpload } = await import('../AudioUpload')
+      render(<AudioUpload />)
+
+      const file = new File(['audio'], 'uploading.mp3', { type: 'audio/mpeg' })
+      const input = screen.getByTestId('file-input') as HTMLInputElement
+      await userEvent.upload(input, file)
+      await waitFor(() => expect(screen.getByTestId('upload-progress')).toBeInTheDocument())
+
+      fireEvent.dragEnter(window, { dataTransfer: fileDataTransfer() })
+      expect(screen.queryByTestId('drop-overlay')).not.toBeInTheDocument()
+
+      const dropped = new File(['audio'], 'dropped.mp3', { type: 'audio/mpeg' })
+      fireEvent.drop(window, { dataTransfer: fileDataTransfer([dropped]) })
+      expect(mockUploadAudio).toHaveBeenCalledTimes(1)
+
+      resolveUpload({ uploadId: 1, fileName: 'uploading.mp3' })
+    })
+
+    it('surfaces the existing size error after an oversized drop', async () => {
+      const { default: AudioUpload } = await import('../AudioUpload')
+      render(<AudioUpload />)
+
+      const bigFile = new File(['x'.repeat(100)], 'big.mp3', { type: 'audio/mpeg' })
+      Object.defineProperty(bigFile, 'size', { value: 26 * 1024 * 1024 })
+
+      fireEvent.drop(window, { dataTransfer: fileDataTransfer([bigFile]) })
+
+      await waitFor(() => {
+        expect(screen.getByTestId('upload-error')).toHaveTextContent(/too large/)
+      })
+      expect(mockUploadAudio).not.toHaveBeenCalled()
+      expect(screen.queryByTestId('drop-overlay')).not.toBeInTheDocument()
+    })
+
+    it('stops handling file drags after unmount (Notes tab left)', async () => {
+      mockUploadAudio.mockResolvedValue({ uploadId: 1 })
+
+      const { default: AudioUpload } = await import('../AudioUpload')
+      const { unmount } = render(<AudioUpload />)
+
+      fireEvent.dragEnter(window, { dataTransfer: fileDataTransfer() })
+      expect(screen.getByTestId('drop-overlay')).toBeInTheDocument()
+
+      unmount()
+
+      fireEvent.dragEnter(window, { dataTransfer: fileDataTransfer() })
+      expect(screen.queryByTestId('drop-overlay')).not.toBeInTheDocument()
+
+      const file = new File(['audio'], 'after-unmount.mp3', { type: 'audio/mpeg' })
+      fireEvent.drop(window, { dataTransfer: fileDataTransfer([file]) })
+      expect(mockUploadAudio).not.toHaveBeenCalled()
+    })
+  })
+
   describe('recording', () => {
     class FakeMediaRecorder {
       static isTypeSupported = vi.fn(() => true)
@@ -431,6 +562,42 @@ describe('AudioUpload', () => {
       unmount()
 
       expect(stopTrack).toHaveBeenCalled()
+    })
+
+    it('does not show the overlay or take a drop while recording', async () => {
+      mockUploadAudio.mockResolvedValue({ uploadId: 1 })
+
+      const { default: AudioUpload } = await import('../AudioUpload')
+      render(<AudioUpload />)
+
+      await userEvent.click(screen.getByTestId('record-btn'))
+      await waitFor(() => expect(screen.getByTestId('recording-panel')).toBeInTheDocument())
+
+      fireEvent.dragEnter(window, { dataTransfer: fileDataTransfer() })
+      expect(screen.queryByTestId('drop-overlay')).not.toBeInTheDocument()
+
+      const file = new File(['audio'], 'test.mp3', { type: 'audio/mpeg' })
+      fireEvent.drop(window, { dataTransfer: fileDataTransfer([file]) })
+      expect(mockUploadAudio).not.toHaveBeenCalled()
+    })
+
+    it('does not show the overlay or take a drop while reviewing a recording', async () => {
+      mockUploadAudio.mockResolvedValue({ uploadId: 1 })
+
+      const { default: AudioUpload } = await import('../AudioUpload')
+      render(<AudioUpload />)
+
+      await userEvent.click(screen.getByTestId('record-btn'))
+      await waitFor(() => expect(screen.getByTestId('recording-panel')).toBeInTheDocument())
+      await userEvent.click(screen.getByTestId('record-stop-btn'))
+      await waitFor(() => expect(screen.getByTestId('recorded-panel')).toBeInTheDocument())
+
+      fireEvent.dragEnter(window, { dataTransfer: fileDataTransfer() })
+      expect(screen.queryByTestId('drop-overlay')).not.toBeInTheDocument()
+
+      const file = new File(['audio'], 'test.mp3', { type: 'audio/mpeg' })
+      fireEvent.drop(window, { dataTransfer: fileDataTransfer([file]) })
+      expect(mockUploadAudio).not.toHaveBeenCalled()
     })
   })
 })
