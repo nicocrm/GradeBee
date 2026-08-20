@@ -71,6 +71,8 @@ describe('StudentList', () => {
       expect(screen.getByTestId('student-list-empty')).toBeInTheDocument()
     })
     expect(screen.getByText('No Classes Yet')).toBeInTheDocument()
+    // Roster empty sits on parchment like "Your Classes" — not the chalk+hex info-box.
+    expect(screen.getByTestId('student-list-empty')).not.toHaveClass('info-box')
   })
 
   it('shows error state on fetch failure', async () => {

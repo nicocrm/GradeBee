@@ -273,7 +273,7 @@ export default function StudentList() {
   if (classes.length === 0 && !showAddClass) {
     return (
       <motion.div
-        className="student-list info-box"
+        className="student-list"
         data-testid="student-list-empty"
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
