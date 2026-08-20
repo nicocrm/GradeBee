@@ -79,8 +79,9 @@ How It Works onboarding still describes the lifetime workflow (set up classes, t
 How It Works and student-detail use a dimmed overlay, chalk card, and × close (`modals.css`). Enter text on Add Notes reuses the How It Works classes (`how-it-works-overlay` / `how-it-works-card` / `how-it-works-close`) rather than a new visual language. Overlay click does **not** dismiss Enter text — only × or Escape. `.paste-text-modal-close` is 44×44 to meet the touch-target minimum.
 
 ### Empty/Info States
-- `.info-box`: centered card with subtle hex pattern overlay. Used for Levels, notes list, and report history empties.
-- Roster empty (**No Classes Yet**) does **not** use `.info-box`. It sits on `--parchment` like the populated list so it does not become a chalk hex panel under Add Notes. The add-class form remains the card.
+- `.info-box`: centered card with subtle hex pattern overlay. Used for Levels, notes list, report history, and roster empties.
+- Roster empty uses the same chrome as the populated list: **Your Classes** + **+ Add Class** sit outside the slot. The slot is either `.info-box` (**No Classes Yet**) or the add-class form — never both, and never wrap the header in `.info-box`.
+- Add-class with no Levels uses `.info-box` (**No Levels yet** / ask an Admin), not `.add-class-form`.
 
 ### Animations
 - Use `motion` library for page-load stagger and state transitions.
