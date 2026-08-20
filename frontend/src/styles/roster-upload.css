@@ -114,20 +114,41 @@
   margin-bottom: 1rem;
 }
 
-.drop-zone {
-  border: 2px dashed var(--honey);
-  border-radius: var(--radius);
+.recording-card {
   background: var(--comb);
-  padding: 2.5rem 2rem;
+  border-radius: 12px;
+  box-shadow: var(--shadow-md);
+  padding: 2rem 1.5rem;
   text-align: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  position: relative;
 }
 
-.drop-zone:hover {
-  background: var(--honey-light);
-  border-color: var(--honey-dark);
+.recording-card-heading {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 1.25rem;
+  color: var(--ink);
+  margin: 0 0 0.4rem;
+}
+
+.recording-card-copy {
+  color: var(--ink-muted);
+  margin: 0 0 1.25rem;
+  font-size: 0.95rem;
+}
+
+.recording-card button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.existing-notes-label {
+  text-align: center;
+  color: var(--ink-muted);
+  font-size: 0.85rem;
+  font-weight: 500;
+  margin: 1.25rem 0 0.75rem;
 }
 
 .notes-drop-overlay {
@@ -147,21 +168,64 @@
   color: var(--ink);
 }
 
-.drop-zone-icon {
-  margin-bottom: 0.75rem;
-  opacity: 0.7;
+.recording-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 1.25rem;
+  color: var(--ink);
+  margin: 0 0 0.5rem;
 }
 
-.drop-zone p {
+.recording-indicator {
+  color: #d64545;
+  font-size: 0.85rem;
+  line-height: 1;
+  animation: recordingPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes recordingPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.recording-time {
+  font-family: var(--font-display);
+  font-size: 2rem;
   font-weight: 500;
   color: var(--ink);
-  margin: 0 0 0.35rem;
+  margin: 0 0 0.25rem;
+  font-variant-numeric: tabular-nums;
 }
 
-.drop-zone .hint {
+.recording-size {
+  margin: 0 0 1.25rem;
   font-size: 0.85rem;
   color: var(--ink-muted);
-  font-weight: 400;
+}
+
+.recording-review-name {
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  color: var(--ink);
+  margin: 0 0 1.25rem;
+  word-break: break-word;
+}
+
+.recording-panel .secondary-actions {
+  margin-top: 0;
+}
+
+.recording-panel .secondary-actions button {
+  min-width: 8rem;
 }
 
 .secondary-actions {
@@ -180,6 +244,16 @@
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
+}
+
+.secondary-actions--stack {
+  flex-direction: column;
+}
+
+.secondary-actions--stack .btn-secondary {
+  max-width: none;
+  width: 100%;
+  min-height: 44px;
 }
 
 .paste-textarea {
@@ -302,7 +376,6 @@
   padding-left: 1.25rem;
 }
 
-/* --- Student-list collapse toggle, mobile upload actions --- */
 /* --- Student list collapse toggle (mobile) --- */
 .student-list-collapse-toggle {
   display: flex;
@@ -330,26 +403,6 @@
   box-shadow: var(--shadow-sm);
 }
 
-/* --- Mobile upload actions --- */
-.mobile-upload-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.mobile-upload-btn {
-  width: 100%;
-  justify-content: center;
-  font-size: 1rem;
-  padding: 0.85rem 1.5rem;
-}
-
-.mobile-upload-actions .hint {
-  font-size: 0.85rem;
-  color: var(--ink-muted);
-  text-align: center;
-}
-
 @media (max-width: 640px) {
   .paste-textarea {
     font-size: 1rem;
@@ -369,6 +422,21 @@
 @media (max-width: 640px) {
   .level-header {
     padding: 0.85rem 1rem;
+  }
+
+  .recording-card button {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .secondary-actions {
+    flex-direction: column;
+  }
+
+  .secondary-actions .btn-secondary {
+    max-width: none;
+    width: 100%;
+    min-height: 44px;
   }
 
   /* Touch-friendly student items */
