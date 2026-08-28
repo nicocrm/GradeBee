@@ -100,8 +100,9 @@ func BuildExtractionPrompt(classes []ClassGroup) string {
 // class_name is constrained to an enum of the roster's actual class names
 // (from classes) so the model is structurally forced to pick a real class,
 // rather than relying on the prompt instruction alone. If classes is empty
-// (e.g. in schema-shape tests), class_name falls back to a plain string so
-// the schema never demands an unsatisfiable enum.
+// (schema-shape tests, or a live extraction whose roster read failed — see
+// voice_note_process.go), class_name falls back to a plain string so the
+// schema never demands an unsatisfiable enum.
 func extractResponseSchema(classes []ClassGroup) json.RawMessage {
 	classNames := make([]string, 0, len(classes))
 	for _, c := range classes {

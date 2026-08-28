@@ -24,7 +24,7 @@ import (
 // PromptVersionTag is bumped manually when non-template logic changes (e.g.
 // branching behaviour inside builder functions that hashing the template alone
 // would not catch).  Format: monotonic integer as string.
-const PromptVersionTag = "3"
+const PromptVersionTag = "4"
 
 // --- Extraction prompt templates ---
 
