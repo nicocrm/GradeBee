@@ -157,6 +157,50 @@ Period 2 notes: Sarah did an amazing presentation on volcanoes.`
 		"Sarah should NOT have Period 1's group observation. Got: %s", sarah.QuotedText)
 }
 
+// TestExtractAmbiguousClassLowConfidence verifies that when a mentioned
+// student's name exists in more than one class and the transcript gives no
+// clue which class is meant, the extractor reports low confidence for that
+// entry (below the 0.5 auto-create threshold in voice_note_process.go)
+// rather than confidently picking one of the real-but-guessed classes.
+// This guards against extractResponseSchema's class_name enum (task #79)
+// silently forcing a wrong-but-valid class pick.
+func TestExtractAmbiguousClassLowConfidence(t *testing.T) {
+	provider := requireLiveLLM(t)
+	extractor := newLLMExtractor(provider)
+
+	transcript := `Alex did great work on the project today.`
+
+	req := ExtractRequest{
+		Transcript: transcript,
+		Classes: []ClassGroup{
+			{
+				Name: "Period 1",
+				Students: []ClassStudent{
+					{Name: "Alex"},
+				},
+			},
+			{
+				Name: "Period 2",
+				Students: []ClassStudent{
+					{Name: "Alex"},
+				},
+			},
+		},
+	}
+
+	result, err := extractor.Extract(context.Background(), req)
+	require.NoError(t, err, "Extract failed")
+
+	for _, s := range result.Students {
+		if s.Name != "Alex" {
+			continue
+		}
+		assert.Less(t, s.Confidence, 0.5,
+			"ambiguous class match for %q should report confidence < 0.5 (auto-create threshold), got %v with class_name %q",
+			s.Name, s.Confidence, s.ClassName)
+	}
+}
+
 // Helper
 func contains(s, substr string) bool {
 	return strings.Contains(s, substr)
