@@ -25,7 +25,7 @@ interface FeedbackButtonProps {
  *   - Browser + OS user-agent
  *   - App version / release (set in Sentry.init)
  *   - Session Replay (~30 s before submit) when triggered
- *   - Default text-input masking (on by default in Replay)
+ *   - Default masking of all text, inputs and media in Replay
  *
  * Student names: replay masks all text by default (`maskAllText`,
  * `maskAllInputs` and `blockAllMedia` are all on unless overridden), so nothing

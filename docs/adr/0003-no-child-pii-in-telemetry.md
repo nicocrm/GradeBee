@@ -66,7 +66,8 @@ response rendered to the teacher who is entitled to see them, and the database.
   that describe one identifiable teacher's session; and its text masking is a *default* rather than
   an invariant. Gating the wider, less enumerable surface — the one whose safety no test here
   asserts — is defence in depth. Backend logs are necessary operational telemetry, permitted
-  without a gate because they carry no child PII, which is a property this ADR establishes.
+  without a gate because they carry no child PII from the roster — a property this ADR establishes,
+  save the two filename paths listed below.
 - Debugging a specific child's failed note now goes through `student_id`, resolved against the
   database by someone with access to it. This is deliberate friction, and the reason to keep
   `student_id` on the record rather than dropping identifiers entirely.
