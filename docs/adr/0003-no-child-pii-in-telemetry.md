@@ -20,7 +20,8 @@ identifier is genuinely needed. Server-side Sentry identity was already pseudony
 operational data.
 
 The rule is stated for names the system holds — roster entries and what extraction matches
-against them. It is **not yet fully true of free text a teacher types**; see Consequences.
+against them. Free text a teacher types is governed separately: one path is an accepted exception
+and two are open non-compliance. See Considered Options and Consequences.
 
 Names still flow where they are the product: the LLM request that writes a report, the API
 response rendered to the teacher who is entitled to see them, and the database.
@@ -40,6 +41,24 @@ response rendered to the teacher who is entitled to see them, and the database.
   backend may log without consent is precisely that it carries no child PII — a property this
   ADR establishes rather than assumes.
 
+- **Gating the thumbs-down dual-write behind diagnostics consent, or dropping the comment from
+  it.** Rejected in favour of an explicit exception. A teacher who types a comment and presses
+  Submit is acting deliberately, so that a person will read it; that is not passive diagnostics,
+  and gating it behind the diagnostics banner misreads what it is. Implicit consent covers the
+  teacher's own text.
+
+  It does **not** cover a child named inside that text — the teacher has no standing to consent on
+  the child's behalf — and free-text name-stripping is exactly the regex approach rejected above.
+  So the residual risk is real and is accepted rather than engineered away: the comment box asks
+  teachers to leave names out (`ReportViewer.tsx`, `NotesList.tsx`), and `README.md` states plainly
+  that the comment is forwarded as written. Plumbing a consent flag to the backend was rejected
+  separately: it is client-asserted, so it is weak evidence, and it adds a consent parameter to an
+  API that has none.
+
+  Note this is the *thumbs-down* path only. The feedback FAB (`FeedbackButton.tsx`) returns `null`
+  without `isDiagnosticsConsented()` and posts through Sentry's own widget, so it is genuinely
+  opt-in; the two are easy to conflate.
+
 ## Consequences
 
 - The backend/frontend consent asymmetry is **intentional and now defensible**. Frontend
@@ -58,11 +77,11 @@ response rendered to the teacher who is entitled to see them, and the database.
 - `TestProcessJob_DropSitesOmitStudentName` enforces the rule on the two drop paths, asserting on
   the name *value* rather than a field name so an interpolated name is caught too. New telemetry
   is expected to carry the same kind of assertion rather than rely on reviewer memory.
-- Three paths still carry teacher-authored free text that can name a child, and are known
-  non-compliance rather than exceptions to the rule: `voice_note_upload.go` and
-  `voice_note_drive_import.go` log a recording's own `file_name` at `Info` (`Manoe 12 sept.m4a`
-  is an ordinary filename on this product), and `sentry.go` puts a bug-report `comment` verbatim
-  into the Sentry feedback context. Closing them means deciding what a teacher sees instead of
-  their own filename, which is a product question, not a logging one — tracked as #88. Until
-  then, `README.md` states the filename exception rather than promising an absolute.
+- Two paths remain **known non-compliance**: `voice_note_upload.go` and
+  `voice_note_drive_import.go` log a recording's own `file_name` at `Info`, and
+  `Manoe 12 sept.m4a` is an ordinary filename on this product. Closing them means deciding what a
+  teacher sees instead of their own filename, which is a product question, not a logging one —
+  tracked as #88. Until then, `README.md` states the exception rather than promising an absolute.
+- The **thumbs-down comment is a deliberate exception**, not an oversight — see Considered
+  Options. `README.md` says so, and the comment box asks teachers to leave names out.
 - Existing Sentry records are not purged. Retention is 30 days and this is fix-forward.

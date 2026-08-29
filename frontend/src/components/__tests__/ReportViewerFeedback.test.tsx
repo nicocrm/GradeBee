@@ -54,6 +54,19 @@ describe('ReportViewer thumbs feedback', () => {
     expect(screen.getByText(/thanks for your feedback/i)).toBeInTheDocument()
   })
 
+  // The comment reaches Sentry verbatim and cannot be reliably scrubbed, so the
+  // hint is the only mitigation there is — see docs/adr/0003.
+  it('warns against student names beside the comment box', async () => {
+    const user = await renderViewer()
+    expect(screen.queryByTestId('thumb-down-privacy-hint')).not.toBeInTheDocument()
+
+    await user.click(screen.getByTestId('thumb-down'))
+
+    const hint = screen.getByTestId('thumb-down-privacy-hint')
+    expect(hint).toBeInTheDocument()
+    expect(hint).toHaveTextContent(/student names/i)
+  })
+
   it('thumbs-down reveals comment textarea', async () => {
     const user = await renderViewer()
     await user.click(screen.getByTestId('thumb-down'))

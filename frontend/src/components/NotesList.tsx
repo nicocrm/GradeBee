@@ -240,6 +240,9 @@ function NoteCard({
               className="report-regenerate-textarea"
               data-testid={`thumb-down-comment-note-${note.id}`}
             />
+            <p className="thumb-comment-privacy-hint" data-testid={`thumb-down-privacy-hint-note-${note.id}`}>
+              Please avoid student names — comments are sent to our diagnostics provider.
+            </p>
             <div className="report-regenerate-actions">
               <button
                 className="btn-sm"

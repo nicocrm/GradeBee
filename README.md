@@ -99,8 +99,9 @@ GradeBee is invitation-only. Every user must belong to a **Group** (Clerk Organi
 ### Privacy and diagnostics
 
 - **Clerk (necessary):** Google sign-in and session cookies are required to use GradeBee.
-- **Sentry (optional diagnostics):** When `VITE_SENTRY_DSN` is set, error reporting, in-app feedback, and short session replays load only after you opt in via the privacy banner. Use **Privacy preferences** in the app footer to change your choice later.
-- **Server logs (necessary):** When `SENTRY_DSN` is set, the server reports its own errors and operational logs without a consent gate. These carry no student name from your roster — students appear as numeric ids. Text you write yourself is the exception: a recording is logged under its own file name, and the comment on a thumbs-down is sent verbatim, so either one names a child if you put a child's name in it. [ADR 0003](docs/adr/0003-no-child-pii-in-telemetry.md) enumerates these and tracks closing them. Browser diagnostics stay opt-in because session replays capture what is on screen.
+- **Sentry (optional diagnostics):** When `VITE_SENTRY_DSN` is set, error reporting, the bug-report button, and short session replays load only after you opt in via the privacy banner. Use **Privacy preferences** in the app footer to change your choice later.
+- **Thumbs-down feedback (not gated):** Rating a report or note 👎 sends your comment to our diagnostics provider as written, whether or not you opted in above — you asked for someone to read it, so it is not treated as passive diagnostics. It is not scrubbed, so please leave student names out; the comment box says so too. See [ADR 0003](docs/adr/0003-no-child-pii-in-telemetry.md).
+- **Server logs (necessary):** When `SENTRY_DSN` is set, the server reports its own errors and operational logs without a consent gate. These carry no student name from your roster — students appear as numeric ids. Text you write yourself is the exception: a recording is logged under its own file name, so a file you named after a child identifies that child. [ADR 0003](docs/adr/0003-no-child-pii-in-telemetry.md) enumerates the gaps and tracks closing them. Browser diagnostics stay opt-in because session replays capture what is on screen.
 
 2. Install dependencies:
 

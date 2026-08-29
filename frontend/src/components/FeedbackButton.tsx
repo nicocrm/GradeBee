@@ -27,8 +27,11 @@ interface FeedbackButtonProps {
  *   - Session Replay (~30 s before submit) when triggered
  *   - Default text-input masking (on by default in Replay)
  *
- * Student names: appear only as filenames in the audio-upload flow and are
- * not captured in replay DOM snapshots. Audio URLs are backend-only.
+ * Student names: in this widget's own replay snapshots they appear only as
+ * filenames in the audio-upload flow, and audio URLs are backend-only. That is
+ * a claim about *this* path — the thumbs-down comment box is a separate,
+ * ungated backend dual-write that forwards whatever the teacher typed. See
+ * docs/adr/0003-no-child-pii-in-telemetry.md.
  */
 export default function FeedbackButton({ userId, userEmail }: FeedbackButtonProps) {
   const diagnosticsConsented = useDiagnosticsConsent()

@@ -289,6 +289,9 @@ export default function ReportViewer({
               className="report-regenerate-textarea"
               data-testid="thumb-down-comment"
             />
+            <p className="thumb-comment-privacy-hint" data-testid="thumb-down-privacy-hint">
+              Please avoid student names — comments are sent to our diagnostics provider.
+            </p>
             <div className="report-regenerate-actions">
               <button
                 className="btn-sm"
