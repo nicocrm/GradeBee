@@ -310,7 +310,7 @@ Repo-level errors:
 
 ## Observability / Sentry
 
-`github.com/getsentry/sentry-go` v0.46.2. `InitSentry()` (`sentry.go`) reads `SENTRY_DSN` / `SENTRY_RELEASE` / `SENTRY_ENVIRONMENT` at startup — no-op if DSN is empty. `sentryhttp` middleware wraps the top-level handler in `main.go` (auto-captures panics; `Repanic: true`). Authenticated requests are tagged with the Clerk user ID. `BeforeSend` scrubs request bodies, query strings, cookies, auth headers, and name-shaped strings from exception values. `captureFeedback()` is available for non-error feedback events (task #19). DSN, release, and environment are baked into the Docker image via `VITE_SENTRY_DSN` / `VITE_APP_VERSION` / `VITE_SENTRY_ENVIRONMENT` build-args → `ENV SENTRY_DSN` / `ENV SENTRY_RELEASE` / `ENV SENTRY_ENVIRONMENT` in Stage 3; CI passes `production` (`deploy-production.yml`) or `review` (`review-app-deploy.yml`), defaulting to `development` otherwise.
+`github.com/getsentry/sentry-go` v0.46.2. `InitSentry()` (`sentry.go`) reads `SENTRY_DSN` / `SENTRY_RELEASE` / `SENTRY_ENVIRONMENT` at startup — no-op if DSN is empty. `sentryhttp` middleware wraps the top-level handler in `main.go` (auto-captures panics; `Repanic: true`). Authenticated requests are tagged with the Clerk user ID. `BeforeSend` scrubs request bodies, query strings, cookies, auth headers, and name-shaped strings from exception values. `captureFeedback()` is available for non-error feedback events (task #19). DSN, release, and environment are baked into the Docker image via `VITE_SENTRY_DSN` / `VITE_APP_VERSION` / `VITE_SENTRY_ENVIRONMENT` build-args.
 
 ### Structured Logs
 
