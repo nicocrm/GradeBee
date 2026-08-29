@@ -258,7 +258,7 @@ There are two distinct sets of variables:
 | `LOG_FORMAT` | No (`vars.yml`) | `json` for JSON logs, else text |
 | `SENTRY_DSN` | No | Sentry DSN; baked into Docker image via `VITE_SENTRY_DSN` build-arg |
 | `SENTRY_RELEASE` | No | Release tag; baked in via `VITE_APP_VERSION` build-arg (git SHA in CI) |
-| `SENTRY_ENVIRONMENT` | No | Environment tag in Sentry (e.g. `production`); set via `dokku config:set` |
+| `SENTRY_ENVIRONMENT` | No | Environment tag in Sentry; baked in via the `VITE_SENTRY_ENVIRONMENT` build-arg (`production` / `review`). Defaults to `development` when unset. Override at runtime with `dokku config:set` if needed |
 
 To change a value after initial provisioning, update `secrets.yml` or `vars.yml` and re-run
 `make infra-app`, or set it directly: `dokku config:set gradebee KEY=VALUE`.
@@ -272,7 +272,8 @@ These are baked into the JS bundle at image build time. CI passes them from GitH
 | `VITE_CLERK_PUBLISHABLE_KEY` | Yes | Clerk publishable key |
 | `VITE_API_URL` | No | API base URL (default `/api`, same origin) |
 | `VITE_SENTRY_DSN` | No | Sentry DSN (omit to disable Sentry) |
-| `VITE_APP_VERSION` | No | Release tag for Sentry (CI passes `${{ github.sha }}`) |
+| `VITE_SENTRY_ENVIRONMENT` | No | Sentry environment tag; CI passes `production` from `deploy-production.yml` and `review` from `review-app-deploy.yml`. Also sets the backend's `SENTRY_ENVIRONMENT`. Defaults to `development`. Session replay is enabled only when this is `production` |
+| `VITE_APP_VERSION` | No | Release tag for Sentry (CI passes `${{ github.sha }}`; review apps pass `pr-<number>`) |
 | `VITE_FEATURE_REPORTS_ADMIN_ONLY` | No | Restricts Reports tab to Clerk org admins when `"true"` (default unset/false) |
 
 ## Troubleshooting
