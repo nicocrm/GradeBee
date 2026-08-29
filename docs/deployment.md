@@ -276,11 +276,20 @@ These are baked into the JS bundle at image build time. CI passes them from GitH
 | `VITE_APP_VERSION` | No | Release tag for Sentry (CI passes `${{ github.sha }}`; review apps pass `pr-<number>`) |
 | `VITE_FEATURE_REPORTS_ADMIN_ONLY` | No | Restricts Reports tab to Clerk org admins when `"true"` (default unset/false) |
 
+### Nginx proxy settings (set by Ansible via `dokku nginx:set`)
+
+| Property | Value | Description |
+|---|---|---|
+| `client-max-body-size` | `26m` (`app_client_max_body_size` in `vars.yml`) | Max request body. nginx's unconfigured default is **1m**, which rejects voice-note uploads with an HTML 413 before they reach the container. Kept just above the backend's own 25 MB cap (`maxUploadSize` in `backend/voice_note_upload.go`) so oversized files get the app's JSON error instead |
+
+Changes require a proxy rebuild (`dokku proxy:build-config gradebee`); `make infra-app` does this.
+
 ## Troubleshooting
 
 - **Migrations fail on deploy** — check `dokku logs gradebee --num 200` for the predeploy output. The predeploy hook is `/gradebee --migrate-only` (see `app.json`); a non-zero exit aborts the deploy.
 - **Frontend shows blank page** — usually a missing build arg (`VITE_CLERK_PUBLISHABLE_KEY` not set at build time). The bundle throws on load; inspect the browser console.
 - **502 from nginx** — the binary panicked. Check `dokku logs gradebee` for the stack trace. Common cause: missing `CLERK_SECRET_KEY` runtime var.
+- **413 on audio upload, no app log and no Sentry event** — nginx rejected the body before proxying. Check `dokku nginx:report gradebee` for `client-max-body-size`; it must be set (see above). nginx-generated errors are HTML, so the browser reports them as a JSON parse failure.
 - **gzip not applied** — verify Dokku's nginx config gzips `application/javascript`, `text/css`, `application/json`. Override via `dokku nginx:set gradebee` or `nginx.conf.sigil` if needed.
 
 ## Local development
