@@ -14,14 +14,23 @@ interface Section {
   linkedCategory?: string
 }
 
-async function sections(): Promise<Section[]> {
+interface EnCopy {
+  consentModal: { description: string }
+  preferencesModal: { sections: Section[] }
+}
+
+async function copy(): Promise<EnCopy> {
   const { initCookieConsent } = await import('../cookieConsent')
   initCookieConsent()
   expect(mockRun).toHaveBeenCalledTimes(1)
   const config = mockRun.mock.calls[0][0] as {
-    language: { translations: { en: { preferencesModal: { sections: Section[] } } } }
+    language: { translations: { en: EnCopy } }
   }
-  return config.language.translations.en.preferencesModal.sections
+  return config.language.translations.en
+}
+
+async function sections(): Promise<Section[]> {
+  return (await copy()).preferencesModal.sections
 }
 
 beforeEach(() => {
@@ -37,6 +46,15 @@ describe('privacy dialog copy', () => {
     const diagnostics = (await sections()).find(s => s.linkedCategory === 'diagnostics')
     expect(diagnostics).toBeDefined()
     expect(diagnostics!.description).not.toMatch(/feedback/i)
+  })
+
+  // The banner is read before "Accept all" — the widest readership of the three
+  // statements, and the one that was conflating feedback with diagnostics.
+  it('does not file feedback under optional diagnostics in the banner', async () => {
+    const banner = (await copy()).consentModal.description
+    expect(banner).toMatch(/diagnostics/i)
+    expect(banner).toMatch(/handled separately/i)
+    expect(banner).not.toMatch(/diagnostics[^.]*feedback/i)
   })
 
   it('tells the teacher the feedback comment is sent either way', async () => {

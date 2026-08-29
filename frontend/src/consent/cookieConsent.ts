@@ -34,7 +34,7 @@ export function initCookieConsent(): void {
           consentModal: {
             title: 'Privacy choices for GradeBee',
             description:
-              'We use Clerk to sign you in (required). Optional diagnostics help us fix bugs and improve the app via Sentry — error reports and short session replays when something goes wrong. Feedback you deliberately send us is handled separately; see below.',
+              'We use Clerk to sign you in (required). Optional diagnostics help us fix bugs and improve the app via Sentry — error reports and short session replays. Feedback you deliberately send us is handled separately; see below.',
             acceptAllBtn: 'Accept all',
             acceptNecessaryBtn: 'Necessary only',
             showPreferencesBtn: 'Manage preferences',
@@ -55,7 +55,7 @@ export function initCookieConsent(): void {
               {
                 title: 'Diagnostics (optional)',
                 description:
-                  'When enabled, Sentry may collect error reports and short session replays tied to errors. Replays mask all text on screen, not just what you type, and block images and video.',
+                  'When enabled, Sentry may collect error reports, a short session replay whenever something goes wrong, and a small random sample of other sessions. Replays mask all text on screen, not just what you type, and block images and video.',
                 linkedCategory: DIAGNOSTICS_CATEGORY,
               },
               {
