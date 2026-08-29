@@ -57,12 +57,16 @@ describe('NotesList thumbs-down comment', () => {
     await user.click(screen.getByTestId('thumb-down-note-7'))
 
     const hint = screen.getByTestId('thumb-down-privacy-hint-note-7')
-    expect(hint).toBeInTheDocument()
     expect(hint).toHaveTextContent(/student names/i)
+    expect(screen.getByTestId('thumb-down-comment-note-7')).toHaveAttribute(
+      'aria-describedby',
+      hint.id
+    )
   })
 
   it('shows no thumbs controls on a manual note', async () => {
     await renderNotes(autoNote({ source: 'manual' }))
+    expect(screen.queryByTestId('thumb-up-note-7')).not.toBeInTheDocument()
     expect(screen.queryByTestId('thumb-down-note-7')).not.toBeInTheDocument()
   })
 })

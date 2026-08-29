@@ -63,8 +63,13 @@ describe('ReportViewer thumbs feedback', () => {
     await user.click(screen.getByTestId('thumb-down'))
 
     const hint = screen.getByTestId('thumb-down-privacy-hint')
-    expect(hint).toBeInTheDocument()
     expect(hint).toHaveTextContent(/student names/i)
+    // Announced with the field, not just painted near it — a mitigation a
+    // screen-reader user never hears is not a mitigation.
+    expect(screen.getByTestId('thumb-down-comment')).toHaveAttribute(
+      'aria-describedby',
+      hint.id
+    )
   })
 
   it('thumbs-down reveals comment textarea', async () => {

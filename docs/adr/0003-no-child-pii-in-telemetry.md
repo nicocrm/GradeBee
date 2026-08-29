@@ -20,8 +20,10 @@ identifier is genuinely needed. Server-side Sentry identity was already pseudony
 operational data.
 
 The rule is stated for names the system holds — roster entries and what extraction matches
-against them. Free text a teacher types is governed separately: one path is an accepted exception
-and two are open non-compliance. See Considered Options and Consequences.
+against them. Free text a *teacher* types is governed separately, and in two different ways: where
+the teacher wrote it to be read (feedback boxes) it is an accepted exception, and where it rides
+along incidentally (recording filenames) it is open non-compliance. See Considered Options and
+Consequences.
 
 Names still flow where they are the product: the LLM request that writes a report, the API
 response rendered to the teacher who is entitled to see them, and the database.
@@ -40,24 +42,19 @@ response rendered to the teacher who is entitled to see them, and the database.
   it would make basic operational logging opt-in, and it treats the symptom. The reason the
   backend may log without consent is precisely that it carries no child PII — a property this
   ADR establishes rather than assumes.
-
-- **Gating the thumbs-down dual-write behind diagnostics consent, or dropping the comment from
-  it.** Rejected in favour of an explicit exception. A teacher who types a comment and presses
-  Submit is acting deliberately, so that a person will read it; that is not passive diagnostics,
-  and gating it behind the diagnostics banner misreads what it is. Implicit consent covers the
-  teacher's own text.
-
-  It does **not** cover a child named inside that text — the teacher has no standing to consent on
-  the child's behalf — and free-text name-stripping is exactly the regex approach rejected above.
-  So the residual risk is real and is accepted rather than engineered away: the comment box asks
-  teachers to leave names out (`ReportViewer.tsx`, `NotesList.tsx`), and `README.md` states plainly
-  that the comment is forwarded as written. Plumbing a consent flag to the backend was rejected
-  separately: it is client-asserted, so it is weak evidence, and it adds a consent parameter to an
-  API that has none.
-
-  Note this is the *thumbs-down* path only. The feedback FAB (`FeedbackButton.tsx`) returns `null`
-  without `isDiagnosticsConsented()` and posts through Sentry's own widget, so it is genuinely
-  opt-in; the two are easy to conflate.
+- **Scrubbing, gating or dropping the free text a teacher writes** — the thumbs-down comment
+  (`ReportViewer.tsx`, `NotesList.tsx` → `sentry.go` feedback context) and the bug-report widget's
+  message body (`FeedbackButton.tsx`). Rejected in favour of an explicit exception, the only one
+  this ADR grants. A teacher who types into either box and presses Submit is acting deliberately,
+  so that a person will read it; that is not passive diagnostics, and consent gating misreads what
+  it is. Implicit consent covers the teacher's own text. It does **not** cover a child named
+  inside that text — the teacher has no standing to consent on the child's behalf — and free-text
+  name-stripping is the regex approach rejected above. So the residual risk is accepted rather
+  than engineered away: both boxes ask for no student names, and `README.md` says the text is
+  forwarded as written. Plumbing a consent flag to the backend was rejected separately: it is
+  client-asserted, so it is weak evidence, and it adds a consent parameter to an API that has none.
+  Consent is *not* what makes the widget path acceptable — the FAB is consent-gated and the
+  thumbs-down path is not, and that difference is irrelevant to the child's data in either.
 
 ## Consequences
 
@@ -82,6 +79,11 @@ response rendered to the teacher who is entitled to see them, and the database.
   `Manoe 12 sept.m4a` is an ordinary filename on this product. Closing them means deciding what a
   teacher sees instead of their own filename, which is a product question, not a logging one —
   tracked as #88. Until then, `README.md` states the exception rather than promising an absolute.
-- The **thumbs-down comment is a deliberate exception**, not an oversight — see Considered
-  Options. `README.md` says so, and the comment box asks teachers to leave names out.
+- The **feedback free-text boxes are a deliberate exception**, not an oversight — see Considered
+  Options. Both the thumbs-down comment and the bug-report widget message ask for no student
+  names, `README.md` says the text is forwarded as written, and tests cover each hint so the
+  mitigation cannot be silently deleted. The thumbs-down hints use `aria-describedby`, because a
+  mitigation a screen-reader user never hears is not a mitigation.
+- Session replay is **not** among the gaps: `replayIntegration()` runs with default
+  `maskAllText` / `maskAllInputs` / `blockAllMedia`, so no on-screen text reaches a snapshot.
 - Existing Sentry records are not purged. Retention is 30 days and this is fix-forward.
