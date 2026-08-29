@@ -58,10 +58,15 @@ response rendered to the teacher who is entitled to see them, and the database.
 
 ## Consequences
 
-- The backend/frontend consent asymmetry is **intentional and now defensible**. Frontend
-  diagnostics stay behind `isDiagnosticsConsented()` because session replay captures screen
-  content, which is child data by construction. Backend logs are necessary operational telemetry
-  permitted without a gate because they carry none.
+- The backend/frontend consent asymmetry is **intentional**, but not for the reason first written
+  here. It does *not* rest on replay capturing on-screen text — it does not; see the replay bullet
+  below. It rests on the two surfaces being different in kind. A backend log record is a fixed,
+  enumerable set of fields that this ADR can state a rule about and a test can enforce. A replay is
+  whatever the page happened to contain, plus interaction traces, DOM structure, timings and URLs
+  that describe one identifiable teacher's session; and its text masking is a *default* rather than
+  an invariant. Gating the wider, less enumerable surface — the one whose safety no test here
+  asserts — is defence in depth. Backend logs are necessary operational telemetry, permitted
+  without a gate because they carry no child PII, which is a property this ADR establishes.
 - Debugging a specific child's failed note now goes through `student_id`, resolved against the
   database by someone with access to it. This is deliberate friction, and the reason to keep
   `student_id` on the record rather than dropping identifiers entirely.
@@ -84,6 +89,12 @@ response rendered to the teacher who is entitled to see them, and the database.
   names, `README.md` says the text is forwarded as written, and tests cover each hint so the
   mitigation cannot be silently deleted. The thumbs-down hints use `aria-describedby`, because a
   mitigation a screen-reader user never hears is not a mitigation.
-- Session replay is **not** among the gaps: `replayIntegration()` runs with default
-  `maskAllText` / `maskAllInputs` / `blockAllMedia`, so no on-screen text reaches a snapshot.
+- Session replay is **not** among the gaps, and is called out as an explicit non-gap so the
+  enumeration above is not read as silence about it. `replayIntegration()` (`sentryConsent.ts`) is
+  constructed with no options, so `maskAllText`, `maskAllInputs` and `blockAllMedia` all default to
+  on, as does `maskAttributes` for `title` / `placeholder` / `aria-label` — which matters here,
+  because student names appear in `aria-label` on the roster screens. Nothing a teacher can see
+  reaches a snapshot. This is a **default, not an invariant**: anyone who starts passing options to
+  `replayIntegration()` re-opens the question, and that is part of why the frontend keeps its
+  consent gate.
 - Existing Sentry records are not purged. Retention is 30 days and this is fix-forward.

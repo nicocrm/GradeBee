@@ -72,6 +72,27 @@ describe('ReportViewer thumbs feedback', () => {
     )
   })
 
+  // ReportGeneration renders a viewer per report, and AnimatePresence keeps an
+  // outgoing one mounted during its exit — so a document-global id would make
+  // aria-describedby resolve to the wrong element.
+  it('scopes the hint id per report', async () => {
+    const { default: ReportViewer } = await import('../ReportViewer')
+    const user = userEvent.setup()
+    render(
+      <>
+        <ReportViewer reportId={1} html="<p>a</p>" studentName="Alice" />
+        <ReportViewer reportId={2} html="<p>b</p>" studentName="Bo" />
+      </>
+    )
+    const [first, second] = screen.getAllByTestId('thumb-down')
+    await user.click(first)
+    await user.click(second)
+
+    const ids = screen.getAllByTestId('thumb-down-privacy-hint').map(el => el.id)
+    expect(new Set(ids).size).toBe(2)
+    expect(ids.every(Boolean)).toBe(true)
+  })
+
   it('thumbs-down reveals comment textarea', async () => {
     const user = await renderViewer()
     await user.click(screen.getByTestId('thumb-down'))
