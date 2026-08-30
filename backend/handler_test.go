@@ -6,10 +6,12 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func init() {
@@ -154,49 +156,26 @@ func routerTestMux(t *testing.T) *http.ServeMux {
 	return newAPIMux(mark)
 }
 
-// TestAPIMux_Routes drives every registered (method, pattern) pair through
-// newAPIMux and asserts each reaches its handler rather than the catch-all.
+// wildcardSegment matches one {name} path wildcard in a ServeMux pattern.
+var wildcardSegment = regexp.MustCompile(`\{[^}]+\}`)
+
+// samplePath turns a route pattern into a concrete path by replacing every
+// wildcard with "1", so a table entry can be driven without hand-written ids.
+func samplePath(pattern string) string {
+	return wildcardSegment.ReplaceAllString(pattern, "1")
+}
+
+// TestAPIMux_Routes drives every apiRoutes entry through newAPIMux and asserts
+// each reaches its handler rather than the catch-all. Iterating the real table
+// rather than a copy means a new route is covered the moment it is registered.
 func TestAPIMux_Routes(t *testing.T) {
 	mux := routerTestMux(t)
+	require.NotEmpty(t, apiRoutes)
 
-	routes := []struct{ method, path string }{
-		{http.MethodGet, "/api/classes"},
-		{http.MethodPost, "/api/classes"},
-		{http.MethodPut, "/api/classes/1"},
-		{http.MethodDelete, "/api/classes/1"},
-		{http.MethodGet, "/api/levels"},
-		{http.MethodPost, "/api/levels"},
-		{http.MethodPut, "/api/levels/1"},
-		{http.MethodDelete, "/api/levels/1"},
-		{http.MethodGet, "/api/classes/1/students"},
-		{http.MethodPost, "/api/classes/1/students"},
-		{http.MethodPut, "/api/students/1"},
-		{http.MethodDelete, "/api/students/1"},
-		{http.MethodGet, "/api/students/1/aliases"},
-		{http.MethodPost, "/api/students/1/aliases"},
-		{http.MethodDelete, "/api/students/1/aliases/2"},
-		{http.MethodGet, "/api/students/1/notes"},
-		{http.MethodPost, "/api/students/1/notes"},
-		{http.MethodGet, "/api/notes/1"},
-		{http.MethodPut, "/api/notes/1"},
-		{http.MethodDelete, "/api/notes/1"},
-		{http.MethodPost, "/api/reports"},
-		{http.MethodPost, "/api/reports/1/regenerate"},
-		{http.MethodGet, "/api/students/1/reports"},
-		{http.MethodGet, "/api/reports/1"},
-		{http.MethodDelete, "/api/reports/1"},
-		{http.MethodPost, "/api/voice-notes/upload"},
-		{http.MethodPost, "/api/text-notes/upload"},
-		{http.MethodPost, "/api/voice-notes/drive-import"},
-		{http.MethodGet, "/api/google-token"},
-		{http.MethodPost, "/api/feedback"},
-		{http.MethodGet, "/api/voice-notes/jobs"},
-		{http.MethodPost, "/api/voice-notes/jobs/retry"},
-		{http.MethodPost, "/api/voice-notes/jobs/dismiss"},
-	}
-	for _, rt := range routes {
-		t.Run(rt.method+" "+rt.path, func(t *testing.T) {
-			req := httptest.NewRequest(rt.method, rt.path, strings.NewReader("{}"))
+	for _, rt := range apiRoutes {
+		path := samplePath(rt.Pattern)
+		t.Run(rt.Method+" "+path, func(t *testing.T) {
+			req := httptest.NewRequest(rt.Method, path, strings.NewReader("{}"))
 			req.Header.Set("Content-Type", "application/json")
 			rec := httptest.NewRecorder()
 

@@ -22,11 +22,11 @@ func probeWriteInternalError(w http.ResponseWriter, r *http.Request, err error) 
 	writeInternalError(w, r, err)
 }
 
-func errProbeReq(t *testing.T) (*http.Request, func() string) {
+func errProbeReq(t *testing.T) (req *http.Request, logs func() string) {
 	t.Helper()
-	req := httptest.NewRequest(http.MethodDelete, "/api/probe", http.NoBody)
-	ctx, logs := captureLogs(req.Context())
-	return req.WithContext(ctx), logs.String
+	req = httptest.NewRequest(http.MethodDelete, "/api/probe", http.NoBody)
+	ctx, buf := captureLogs(req.Context())
+	return req.WithContext(ctx), buf.String
 }
 
 func TestWriteError(t *testing.T) {

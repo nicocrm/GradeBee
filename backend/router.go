@@ -12,72 +12,87 @@ import (
 // Tests build their own via newAPIMux with a fake auth wrapper.
 var apiMux = newAPIMux(clerkAuthMiddleware)
 
-// newAPIMux registers every API route behind auth. Each pattern carries its
-// method, so a known path with the wrong method falls to the "/api/" catch-all
-// and answers the same JSON 404 as an unknown path — ServeMux's text/plain 405
-// never fires because the catch-all always matches.
-func newAPIMux(auth func(http.Handler) http.Handler) *http.ServeMux {
-	mux := http.NewServeMux()
-	route := func(pattern string, fn http.HandlerFunc) {
-		mux.Handle(pattern, auth(fn))
-	}
+// apiRoute is one registered (method, pattern) pair and its handler.
+type apiRoute struct {
+	Method, Pattern string
+	Handler         http.HandlerFunc
+}
 
+// apiRoutes is the complete route table. It is a package-level value rather
+// than a sequence of calls so tests can enumerate it: TestAPIMux_Routes
+// drives every entry, and ownership_sweep_test.go fails the build of any
+// route that has not been classified as entity-scoped or explicitly exempt.
+var apiRoutes = []apiRoute{
 	// Classes CRUD
-	route("GET /api/classes", handleListClasses)
-	route("POST /api/classes", handleCreateClass)
-	route("PUT /api/classes/{id}", handleUpdateClass)
-	route("DELETE /api/classes/{id}", handleDeleteClass)
+	{"GET", "/api/classes", handleListClasses},
+	{"POST", "/api/classes", handleCreateClass},
+	{"PUT", "/api/classes/{id}", handleUpdateClass},
+	{"DELETE", "/api/classes/{id}", handleDeleteClass},
 
 	// Levels CRUD (Group-owned; write endpoints admin-gated in the handler)
-	route("GET /api/levels", handleListLevels)
-	route("POST /api/levels", handleCreateLevel)
-	route("PUT /api/levels/{id}", handleUpdateLevel)
-	route("DELETE /api/levels/{id}", handleDeleteLevel)
+	{"GET", "/api/levels", handleListLevels},
+	{"POST", "/api/levels", handleCreateLevel},
+	{"PUT", "/api/levels/{id}", handleUpdateLevel},
+	{"DELETE", "/api/levels/{id}", handleDeleteLevel},
 
 	// Students under class
-	route("GET /api/classes/{id}/students", handleListStudents)
-	route("POST /api/classes/{id}/students", handleCreateStudent)
+	{"GET", "/api/classes/{id}/students", handleListStudents},
+	{"POST", "/api/classes/{id}/students", handleCreateStudent},
 
 	// Students by ID
-	route("PUT /api/students/{id}", handleUpdateStudent)
-	route("DELETE /api/students/{id}", handleDeleteStudent)
+	{"PUT", "/api/students/{id}", handleUpdateStudent},
+	{"DELETE", "/api/students/{id}", handleDeleteStudent},
 
 	// Aliases under student
-	route("GET /api/students/{id}/aliases", handleListAliases)
-	route("POST /api/students/{id}/aliases", handleAddAlias)
-	route("DELETE /api/students/{id}/aliases/{aliasID}", handleRemoveAlias)
+	{"GET", "/api/students/{id}/aliases", handleListAliases},
+	{"POST", "/api/students/{id}/aliases", handleAddAlias},
+	{"DELETE", "/api/students/{id}/aliases/{aliasID}", handleRemoveAlias},
 
 	// Notes under student
-	route("GET /api/students/{id}/notes", handleListNotes)
-	route("POST /api/students/{id}/notes", handleCreateNote)
+	{"GET", "/api/students/{id}/notes", handleListNotes},
+	{"POST", "/api/students/{id}/notes", handleCreateNote},
 
 	// Notes by ID
-	route("GET /api/notes/{id}", handleGetNote)
-	route("PUT /api/notes/{id}", handleUpdateNote)
-	route("DELETE /api/notes/{id}", handleDeleteNote)
+	{"GET", "/api/notes/{id}", handleGetNote},
+	{"PUT", "/api/notes/{id}", handleUpdateNote},
+	{"DELETE", "/api/notes/{id}", handleDeleteNote},
 
 	// Reports
-	route("POST /api/reports", handleGenerateReports)
-	route("POST /api/reports/{id}/regenerate", handleRegenerateReport)
-	route("GET /api/students/{id}/reports", handleListReports)
-	route("GET /api/reports/{id}", handleGetReport)
-	route("DELETE /api/reports/{id}", handleDeleteReport)
+	{"POST", "/api/reports", handleGenerateReports},
+	{"POST", "/api/reports/{id}/regenerate", handleRegenerateReport},
+	{"GET", "/api/students/{id}/reports", handleListReports},
+	{"GET", "/api/reports/{id}", handleGetReport},
+	{"DELETE", "/api/reports/{id}", handleDeleteReport},
 
 	// Voice note upload + Drive import
-	route("POST /api/voice-notes/upload", handleUpload)
-	route("POST /api/text-notes/upload", handleTextNotesUpload)
-	route("POST /api/voice-notes/drive-import", handleDriveImport)
+	{"POST", "/api/voice-notes/upload", handleUpload},
+	{"POST", "/api/text-notes/upload", handleTextNotesUpload},
+	{"POST", "/api/voice-notes/drive-import", handleDriveImport},
 
 	// Google token (for Drive Picker)
-	route("GET /api/google-token", handleGoogleToken)
+	{"GET", "/api/google-token", handleGoogleToken},
 
 	// Artifact feedback (explicit thumbs ratings)
-	route("POST /api/feedback", handleSubmitFeedback)
+	{"POST", "/api/feedback", handleSubmitFeedback},
 
 	// Voice note jobs
-	route("GET /api/voice-notes/jobs", handleJobList)
-	route("POST /api/voice-notes/jobs/retry", handleJobRetry)
-	route("POST /api/voice-notes/jobs/dismiss", handleJobDismiss)
+	{"GET", "/api/voice-notes/jobs", handleJobList},
+	{"POST", "/api/voice-notes/jobs/retry", handleJobRetry},
+	{"POST", "/api/voice-notes/jobs/dismiss", handleJobDismiss},
+}
+
+// key is the "METHOD /pattern" string ServeMux is given for the route.
+func (rt apiRoute) key() string { return rt.Method + " " + rt.Pattern }
+
+// newAPIMux registers every apiRoutes entry behind auth. Each pattern carries
+// its method, so a known path with the wrong method falls to the "/api/"
+// catch-all and answers the same JSON 404 as an unknown path — ServeMux's
+// text/plain 405 never fires because the catch-all always matches.
+func newAPIMux(auth func(http.Handler) http.Handler) *http.ServeMux {
+	mux := http.NewServeMux()
+	for _, rt := range apiRoutes {
+		mux.Handle(rt.key(), auth(rt.Handler))
+	}
 
 	// Catch-all: unknown path, wrong method, or trailing segments. Registering
 	// bare "/api" too stops ServeMux redirecting it to "/api/" with a 301.
