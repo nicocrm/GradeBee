@@ -113,6 +113,57 @@ func (r *ClassRepo) List(ctx context.Context, userID string) ([]ClassWithCount, 
 	return result, rows.Err()
 }
 
+// ClassWithStudents is a Class with its students, each with aliases loaded.
+type ClassWithStudents struct {
+	Class
+	// Students is ordered by name, nil when the class has none; each
+	// student's Aliases is non-nil and ordered by alias.
+	Students []Student
+}
+
+// ListWithStudents returns all classes for a user, ordered as List, each with
+// its students and their aliases — the whole roster in one query rather than
+// one per class plus one per student.
+func (r *ClassRepo) ListWithStudents(ctx context.Context, userID string) ([]ClassWithStudents, error) {
+	// ORDER BY 3 is the derived display name (third column of classSelectColumns);
+	// c.id and s.id only break ties so folding by adjacency can never split a
+	// class or a student across two entries.
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT `+classSelectColumns+`, s.id, s.name, s.created_at, sa.alias
+		FROM classes c
+		JOIN levels l ON l.id = c.level_id
+		LEFT JOIN students s ON s.class_id = c.id
+		LEFT JOIN student_aliases sa ON sa.student_id = s.id
+		WHERE c.user_id = ?
+		ORDER BY c.position, 3, c.id, s.name, s.id, sa.alias`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list classes with students: %w", err)
+	}
+	defer rows.Close()
+
+	var result []ClassWithStudents
+	for rows.Next() {
+		var c ClassWithStudents
+		var sID sql.NullInt64
+		var sName, sCreatedAt, alias sql.NullString
+		if err := rows.Scan(&c.ID, &c.UserID, &c.Name, &c.LevelID, &c.LevelName, &c.Day, &c.TimeSlot, &c.Position, &c.CreatedAt,
+			&sID, &sName, &sCreatedAt, &alias); err != nil {
+			return nil, fmt.Errorf("scan class with students: %w", err)
+		}
+		if n := len(result); n == 0 || result[n-1].ID != c.ID {
+			result = append(result, c)
+		}
+		if !sID.Valid {
+			continue // class with no students
+		}
+		last := &result[len(result)-1]
+		last.Students = foldStudentAliasRow(last.Students, Student{
+			ID: sID.Int64, ClassID: c.ID, Name: sName.String, CreatedAt: sCreatedAt.String,
+		}, alias)
+	}
+	return result, rows.Err()
+}
+
 // Create inserts a new class for the user, referencing a Level owned by
 // groupID. Position is set to max+1. Returns ErrNotFound if levelID does not
 // belong to groupID — the only place a cross-Group Level reference can be
