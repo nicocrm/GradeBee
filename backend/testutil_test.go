@@ -241,15 +241,12 @@ func newTestQueue(_ *testing.T) *stubVoiceNoteQueue {
 	return newStubVoiceNoteQueue()
 }
 
-// requireLiveLLM skips the test if the active LLM provider's API key is unset.
-// It returns the configured provider for live tests that need it.
-func requireLiveLLM(t *testing.T) LLMProvider {
+// withDeps installs d as the active serviceDeps for the duration of the test.
+func withDeps(t *testing.T, d deps) {
 	t.Helper()
-	p, err := LoadProvider()
-	if err != nil {
-		t.Skipf("LLM provider not configured: %v", err)
-	}
-	return p
+	prev := serviceDeps
+	serviceDeps = d
+	t.Cleanup(func() { serviceDeps = prev })
 }
 
 // newTestLevel creates a Level for the given Group directly in the DB,
