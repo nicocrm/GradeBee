@@ -18,7 +18,7 @@ type NoteCreator interface {
 type CreateNoteRequest struct {
 	StudentID    int64
 	StudentName  string
-	QuotedText   string  // Extracted passages from transcript
+	QuotedText   string // Extracted passages from transcript
 	Transcript   string
 	Date         string // YYYY-MM-DD
 	ModelVersion string // LLM model ID that produced this note (empty = NULL)

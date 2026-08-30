@@ -245,7 +245,6 @@ func TestIntegration_ListJobsDuringProcessing(t *testing.T) {
 	assert.ElementsMatch(t, []int64{1, 3}, uploadIDs(resp.Done))
 }
 
-
 // newTestLLMExtractor creates an LLM extractor, skipping if the active provider's API key is not set.
 func newTestLLMExtractor(t *testing.T) Extractor {
 	t.Helper()

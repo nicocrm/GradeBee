@@ -24,7 +24,7 @@ func requireGroup(w http.ResponseWriter, r *http.Request) (groupID string, ok bo
 	if err != nil {
 		var ae *apiError
 		if !errors.As(err, &ae) {
-			// defensive fallback - groupIDFromRequest normally returns apiError 
+			// defensive fallback - groupIDFromRequest normally returns apiError
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return "", false
 		}

@@ -1,7 +1,8 @@
 // voice_note_jobs.go handles the voice note job endpoints:
-//   GET  /voice-notes/jobs         — list jobs grouped by status
-//   POST /voice-notes/jobs/retry   — retry failed jobs
-//   POST /voice-notes/jobs/dismiss — dismiss completed/failed jobs
+//
+//	GET  /voice-notes/jobs         — list jobs grouped by status
+//	POST /voice-notes/jobs/retry   — retry failed jobs
+//	POST /voice-notes/jobs/dismiss — dismiss completed/failed jobs
 package handler
 
 import (

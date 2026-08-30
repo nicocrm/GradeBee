@@ -109,7 +109,7 @@ func handleSubmitFeedback(w http.ResponseWriter, r *http.Request) {
 			comment = *req.Comment
 		}
 		captureFeedback(ctx, feedbackEvent{
-			UserID:   userID,
+			UserID: userID,
 			ReportID: func() int64 {
 				if req.ArtifactType == "report" {
 					return req.ArtifactID

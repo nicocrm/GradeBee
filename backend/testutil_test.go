@@ -40,9 +40,9 @@ func (s *stubRoster) Students(_ context.Context) ([]ClassGroup, error) {
 
 // stubTranscriber implements Transcriber for tests.
 type stubTranscriber struct {
-	result      string
-	err         error
-	gotBias     []string
+	result  string
+	err     error
+	gotBias []string
 }
 
 func (s *stubTranscriber) Transcribe(_ context.Context, _ string, _ io.Reader, contextBias []string) (string, error) {
@@ -52,27 +52,27 @@ func (s *stubTranscriber) Transcribe(_ context.Context, _ string, _ io.Reader, c
 
 // mockDepsAll satisfies deps with configurable returns for all methods.
 type mockDepsAll struct {
-	roster              Roster
-	transcriber         Transcriber
-	transErr            error
-	extractor           Extractor
-	extractErr          error
-	noteCreator         NoteCreator
-	reportGen           ReportGenerator
-	reportGenErr        error
-	voiceNoteQueue      JobQueue[VoiceNoteJob]
-	voiceNoteQueueErr   error
-	driveClient         DriveClient
-	driveClientErr      error
-	db                  *sql.DB
-	classRepo           *ClassRepo
-	studentRepo         *StudentRepo
-	noteRepo            *NoteRepo
-	reportRepo          *ReportRepo
-	voiceNoteRepo       *VoiceNoteRepo
-	feedbackRepo        *ArtifactFeedbackRepo
-	levelRepo           *LevelRepo
-	uploadsDir          string
+	roster            Roster
+	transcriber       Transcriber
+	transErr          error
+	extractor         Extractor
+	extractErr        error
+	noteCreator       NoteCreator
+	reportGen         ReportGenerator
+	reportGenErr      error
+	voiceNoteQueue    JobQueue[VoiceNoteJob]
+	voiceNoteQueueErr error
+	driveClient       DriveClient
+	driveClientErr    error
+	db                *sql.DB
+	classRepo         *ClassRepo
+	studentRepo       *StudentRepo
+	noteRepo          *NoteRepo
+	reportRepo        *ReportRepo
+	voiceNoteRepo     *VoiceNoteRepo
+	feedbackRepo      *ArtifactFeedbackRepo
+	levelRepo         *LevelRepo
+	uploadsDir        string
 }
 
 func (m *mockDepsAll) GetTranscriber() (Transcriber, error) {
@@ -121,7 +121,7 @@ func (m *mockDepsAll) GetDriveClient(_ context.Context, _ string) (DriveClient, 
 	return m.driveClient, nil
 }
 
-func (m *mockDepsAll) GetDB() *sql.DB                        { return m.db }
+func (m *mockDepsAll) GetDB() *sql.DB                         { return m.db }
 func (m *mockDepsAll) GetClassRepo() *ClassRepo               { return m.classRepo }
 func (m *mockDepsAll) GetStudentRepo() *StudentRepo           { return m.studentRepo }
 func (m *mockDepsAll) GetNoteRepo() *NoteRepo                 { return m.noteRepo }
