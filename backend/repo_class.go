@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 )
 
@@ -178,7 +179,7 @@ func (r *ClassRepo) Create(ctx context.Context, groupID, userID string, levelID 
 	err := r.db.QueryRowContext(ctx,
 		"SELECT name FROM levels WHERE id = ? AND group_id = ?", levelID, groupID,
 	).Scan(&levelName)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return Class{}, fmt.Errorf("create class: level %d not in group: %w", levelID, ErrNotFound)
 	}
 	if err != nil {
@@ -230,7 +231,7 @@ func (r *ClassRepo) GetByID(ctx context.Context, id int64) (Class, error) {
 	err := r.db.QueryRowContext(ctx,
 		"SELECT "+classSelectColumns+" FROM classes c JOIN levels l ON l.id = c.level_id WHERE c.id = ?", id,
 	).Scan(&c.ID, &c.UserID, &c.Name, &c.LevelID, &c.LevelName, &c.Day, &c.TimeSlot, &c.Position, &c.CreatedAt)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return Class{}, ErrNotFound
 	}
 	if err != nil {

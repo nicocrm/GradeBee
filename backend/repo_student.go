@@ -102,7 +102,7 @@ func (r *StudentRepo) GetByID(ctx context.Context, id int64) (Student, error) {
 	err := r.db.QueryRowContext(ctx,
 		"SELECT id, class_id, name, created_at FROM students WHERE id = ?", id,
 	).Scan(&s.ID, &s.ClassID, &s.Name, &s.CreatedAt)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return Student{}, ErrNotFound
 	}
 	if err != nil {
@@ -310,7 +310,7 @@ func (r *StudentRepo) FindByNameAndClass(ctx context.Context, name, className, u
 		  AND (s.name = ? COLLATE NOCASE OR sa.alias = ? COLLATE NOCASE)
 		LIMIT 1`,
 		className, userID, name, name).Scan(&id)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return 0, ErrNotFound
 	}
 	if err != nil {
@@ -327,7 +327,7 @@ func (r *StudentRepo) BelongsToUser(ctx context.Context, studentID int64, userID
 		JOIN classes c ON s.class_id = c.id
 		WHERE s.id = ? AND c.user_id = ?`,
 		studentID, userID).Scan(&exists)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return false, nil
 	}
 	if err != nil {
