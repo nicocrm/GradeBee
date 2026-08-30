@@ -122,6 +122,34 @@ func TestLLM_PartialNameMatch(t *testing.T) {
 	assert.True(t, found, "Alexander Hamilton not found in results: %+v", result.Students)
 }
 
+// TestLLM_TruncatedNameMatch covers a transcription dropping a leading substring
+// of a name (e.g. "Malia" for "Amalia"), as distinct from TestLLM_PartialNameMatch's
+// trailing-truncated nickname (Alex -> Alexander).
+func TestLLM_TruncatedNameMatch(t *testing.T) {
+	ext := newTestLLMExtractor(t)
+	classes := []ClassGroup{
+		{Name: "English 101", Students: []ClassStudent{{Name: "Amalia Rodriguez"}, {Name: "Elizabeth Bennet"}}},
+		{Name: "History 201", Students: []ClassStudent{{Name: "Theodore Roosevelt"}}},
+	}
+
+	result, err := ext.Extract(t.Context(), ExtractRequest{
+		Transcript: "Malia gave a fantastic presentation on the water cycle today. She answered every follow-up question with confidence.",
+		Classes:    classes,
+	})
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, len(result.Students), 1)
+
+	var found bool
+	for _, s := range result.Students {
+		if s.Name == "Amalia Rodriguez" {
+			found = true
+			assert.Equal(t, "English 101", s.ClassName)
+			break
+		}
+	}
+	assert.True(t, found, "Amalia Rodriguez not found in results: %+v", result.Students)
+}
+
 // TestExtractPreservesTeacherVoice verifies that extracted QuotedText preserves
 // the teacher's original language and emotion, not rewritten summaries.
 func TestExtractPreservesTeacherVoice(t *testing.T) {
