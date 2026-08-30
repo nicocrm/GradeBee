@@ -199,6 +199,7 @@ func TestHandleRegenerateReport_RefusesUnsetLevelInstructions(t *testing.T) {
 	require.NoError(t, err)
 	req := httptest.NewRequest(http.MethodPost,
 		fmt.Sprintf("/reports/%d/regenerate", rpt.ID), bytes.NewReader(body))
+	req.SetPathValue("id", itoa(rpt.ID))
 	req.Header.Set("Content-Type", "application/json")
 	req = clerkReq(req, "user_abc")
 

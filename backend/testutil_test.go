@@ -8,8 +8,11 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/clerk/clerk-sdk-go/v2"
 )
 
 // captureLogs returns a derived context carrying a JSON logger writing into buf,
@@ -311,4 +314,22 @@ func uploadIDs(jobs []VoiceNoteJob) []int64 {
 		ids = append(ids, j.UploadID)
 	}
 	return ids
+}
+
+// fakeAuth is a drop-in for clerkAuthMiddleware that injects Clerk session
+// claims for userID in orgID with role, so a route can be driven end-to-end
+// through newAPIMux without a real JWT.
+func fakeAuth(userID, orgID, role string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := clerk.ContextWithSessionClaims(r.Context(), &clerk.SessionClaims{
+				RegisteredClaims: clerk.RegisteredClaims{Subject: userID},
+				Claims: clerk.Claims{
+					ActiveOrganizationID:   orgID,
+					ActiveOrganizationRole: role,
+				},
+			})
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
 }

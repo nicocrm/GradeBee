@@ -1,10 +1,12 @@
 package handler
 
 import (
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -113,4 +115,135 @@ func TestHandle_LevelsRoutes(t *testing.T) {
 
 		assert.Equal(t, http.StatusUnauthorized, rec.Code, "%s %s: expected routed-then-rejected, got %d", c.method, c.path, rec.Code)
 	}
+}
+
+// routerNotFoundBody is the byte-exact body the "/api/" catch-all writes. Handlers
+// that miss a row write the same text through writeError, so the tests below
+// tell the two apart with a header the auth wrapper stamps on every routed request.
+const routerNotFoundBody = "{\"error\":\"not found\"}\n"
+
+// routedHeader marks a response whose request reached a registered route.
+const routedHeader = "X-Test-Routed"
+
+// routerTestMux builds an API mux whose auth wrapper stamps routedHeader before
+// injecting claims, on top of deps that let every handler run without panicking.
+func routerTestMux(t *testing.T) *http.ServeMux {
+	t.Helper()
+	db := setupTestDB(t)
+	withDeps(t, &mockDepsAll{
+		db:             db,
+		classRepo:      &ClassRepo{db: db},
+		studentRepo:    &StudentRepo{db: db},
+		noteRepo:       &NoteRepo{db: db},
+		reportRepo:     &ReportRepo{db: db},
+		voiceNoteRepo:  &VoiceNoteRepo{db: db},
+		feedbackRepo:   &ArtifactFeedbackRepo{db: db},
+		levelRepo:      &LevelRepo{db: db},
+		voiceNoteQueue: newStubVoiceNoteQueue(),
+		driveClientErr: errors.New("no drive in tests"),
+		uploadsDir:     t.TempDir(),
+	})
+	// Keep handleGoogleToken off the network whatever the developer's shell holds.
+	t.Setenv("CLERK_SECRET_KEY", "")
+	mark := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set(routedHeader, "1")
+			fakeAuth("user_test", "org_test", "org:admin")(next).ServeHTTP(w, r)
+		})
+	}
+	return newAPIMux(mark)
+}
+
+// TestAPIMux_Routes drives every registered (method, pattern) pair through
+// newAPIMux and asserts each reaches its handler rather than the catch-all.
+func TestAPIMux_Routes(t *testing.T) {
+	mux := routerTestMux(t)
+
+	routes := []struct{ method, path string }{
+		{http.MethodGet, "/api/classes"},
+		{http.MethodPost, "/api/classes"},
+		{http.MethodPut, "/api/classes/1"},
+		{http.MethodDelete, "/api/classes/1"},
+		{http.MethodGet, "/api/levels"},
+		{http.MethodPost, "/api/levels"},
+		{http.MethodPut, "/api/levels/1"},
+		{http.MethodDelete, "/api/levels/1"},
+		{http.MethodGet, "/api/classes/1/students"},
+		{http.MethodPost, "/api/classes/1/students"},
+		{http.MethodPut, "/api/students/1"},
+		{http.MethodDelete, "/api/students/1"},
+		{http.MethodGet, "/api/students/1/aliases"},
+		{http.MethodPost, "/api/students/1/aliases"},
+		{http.MethodDelete, "/api/students/1/aliases/2"},
+		{http.MethodGet, "/api/students/1/notes"},
+		{http.MethodPost, "/api/students/1/notes"},
+		{http.MethodGet, "/api/notes/1"},
+		{http.MethodPut, "/api/notes/1"},
+		{http.MethodDelete, "/api/notes/1"},
+		{http.MethodPost, "/api/reports"},
+		{http.MethodPost, "/api/reports/1/regenerate"},
+		{http.MethodGet, "/api/students/1/reports"},
+		{http.MethodGet, "/api/reports/1"},
+		{http.MethodDelete, "/api/reports/1"},
+		{http.MethodPost, "/api/voice-notes/upload"},
+		{http.MethodPost, "/api/text-notes/upload"},
+		{http.MethodPost, "/api/voice-notes/drive-import"},
+		{http.MethodGet, "/api/google-token"},
+		{http.MethodPost, "/api/feedback"},
+		{http.MethodGet, "/api/voice-notes/jobs"},
+		{http.MethodPost, "/api/voice-notes/jobs/retry"},
+		{http.MethodPost, "/api/voice-notes/jobs/dismiss"},
+	}
+	for _, rt := range routes {
+		t.Run(rt.method+" "+rt.path, func(t *testing.T) {
+			req := httptest.NewRequest(rt.method, rt.path, strings.NewReader("{}"))
+			req.Header.Set("Content-Type", "application/json")
+			rec := httptest.NewRecorder()
+
+			mux.ServeHTTP(rec, req)
+
+			assert.Equal(t, "1", rec.Header().Get(routedHeader), "did not reach a registered route: %d %s", rec.Code, rec.Body.String())
+			assert.NotEqual(t, http.StatusMethodNotAllowed, rec.Code)
+		})
+	}
+}
+
+// TestAPIMux_NotFound pins the router's own 404: unknown paths, a known path with
+// the wrong method, and a matched pattern with a trailing segment all answer the
+// same JSON body and never reach a handler (no routedHeader, never a 405).
+func TestAPIMux_NotFound(t *testing.T) {
+	mux := routerTestMux(t)
+
+	cases := []struct{ name, method, path string }{
+		{"unknown path", http.MethodGet, "/api/nonexistent"},
+		{"wrong method on known path", http.MethodPatch, "/api/classes"},
+		{"wrong method on wildcard path", http.MethodPost, "/api/notes/5"},
+		{"trailing segment after wildcard", http.MethodGet, "/api/notes/5/extra"},
+		{"bare /api", http.MethodGet, "/api"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			req := httptest.NewRequest(c.method, c.path, http.NoBody)
+			rec := httptest.NewRecorder()
+
+			mux.ServeHTTP(rec, req)
+
+			assert.Equal(t, http.StatusNotFound, rec.Code)
+			assert.Equal(t, routerNotFoundBody, rec.Body.String())
+			assert.Empty(t, rec.Header().Get(routedHeader), "must not reach a handler")
+		})
+	}
+}
+
+// TestHandle_MethodMismatch_Is404 asserts the public entrypoint keeps the
+// pre-ServeMux contract: a wrong method on a known path is a JSON 404, not 405.
+func TestHandle_MethodMismatch_Is404(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPatch, "/api/classes", http.NoBody)
+	rec := httptest.NewRecorder()
+
+	Handle(rec, req)
+
+	assert.Equal(t, http.StatusNotFound, rec.Code)
+	assert.Equal(t, "application/json", rec.Header().Get("Content-Type"))
+	assert.Equal(t, routerNotFoundBody, rec.Body.String())
 }

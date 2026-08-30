@@ -85,7 +85,7 @@ func handleUpdateLevel(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusForbidden, map[string]string{"error": "admin role required"})
 		return
 	}
-	id, ok := pathParam(r.URL.Path, "/levels/")
+	id, ok := idParam(r, "id")
 	if !ok {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid level id"})
 		return
@@ -153,7 +153,7 @@ func handleDeleteLevel(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusForbidden, map[string]string{"error": "admin role required"})
 		return
 	}
-	id, ok := pathParam(r.URL.Path, "/levels/")
+	id, ok := idParam(r, "id")
 	if !ok {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid level id"})
 		return

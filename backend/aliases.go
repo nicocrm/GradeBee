@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"strconv"
 	"strings"
 )
 
@@ -27,7 +26,7 @@ func handleListAliases(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	studentID, ok := pathParam(r.URL.Path, "/students/")
+	studentID, ok := idParam(r, "id")
 	if !ok {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid student id"})
 		return
@@ -57,7 +56,7 @@ func handleAddAlias(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	studentID, ok := pathParam(r.URL.Path, "/students/")
+	studentID, ok := idParam(r, "id")
 	if !ok {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid student id"})
 		return
@@ -110,16 +109,10 @@ func handleRemoveAlias(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Path: /students/{studentId}/aliases/{aliasId}
-	rest := strings.TrimPrefix(r.URL.Path, "/students/")
-	parts := strings.SplitN(rest, "/aliases/", 2)
-	if len(parts) != 2 {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid path"})
-		return
-	}
-	studentID, err2 := strconv.ParseInt(parts[0], 10, 64)
-	aliasID, err3 := strconv.ParseInt(parts[1], 10, 64)
-	if err2 != nil || err3 != nil {
+	// Path: /api/students/{id}/aliases/{aliasID}
+	studentID, ok1 := idParam(r, "id")
+	aliasID, ok2 := idParam(r, "aliasID")
+	if !ok1 || !ok2 {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid id"})
 		return
 	}

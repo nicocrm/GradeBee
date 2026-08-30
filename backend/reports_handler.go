@@ -204,7 +204,7 @@ func handleRegenerateReport(w http.ResponseWriter, r *http.Request) {
 	log := loggerFromRequest(r)
 
 	// Extract report ID from URL path
-	reportID, ok := pathParam(r.URL.Path, "/reports/")
+	reportID, ok := idParam(r, "id")
 	if !ok {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid report id"})
 		return
@@ -337,7 +337,7 @@ func handleListReports(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	studentID, ok := pathParam(r.URL.Path, "/students/")
+	studentID, ok := idParam(r, "id")
 	if !ok {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid student id"})
 		return
@@ -368,7 +368,7 @@ func handleGetReport(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	reportID, ok := pathParam(r.URL.Path, "/reports/")
+	reportID, ok := idParam(r, "id")
 	if !ok {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid report id"})
 		return
@@ -416,7 +416,7 @@ func handleDeleteReport(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	reportID, ok := pathParam(r.URL.Path, "/reports/")
+	reportID, ok := idParam(r, "id")
 	if !ok {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid report id"})
 		return

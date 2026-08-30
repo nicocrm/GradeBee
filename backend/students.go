@@ -97,8 +97,7 @@ func handleUpdateClass(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	path := r.URL.Path
-	id, ok := pathParam(path, "/classes/")
+	id, ok := idParam(r, "id")
 	if !ok {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid class id"})
 		return
@@ -137,7 +136,7 @@ func handleDeleteClass(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	id, ok := pathParam(r.URL.Path, "/classes/")
+	id, ok := idParam(r, "id")
 	if !ok {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid class id"})
 		return
@@ -161,7 +160,7 @@ func handleListStudents(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	classID, ok := pathParam(r.URL.Path, "/classes/")
+	classID, ok := idParam(r, "id")
 	if !ok {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid class id"})
 		return
@@ -188,7 +187,7 @@ func handleCreateStudent(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	classID, ok := pathParam(r.URL.Path, "/classes/")
+	classID, ok := idParam(r, "id")
 	if !ok {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid class id"})
 		return
@@ -222,7 +221,7 @@ func handleUpdateStudent(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	id, ok := pathParam(r.URL.Path, "/students/")
+	id, ok := idParam(r, "id")
 	if !ok {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid student id"})
 		return
@@ -283,7 +282,7 @@ func handleDeleteStudent(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	id, ok := pathParam(r.URL.Path, "/students/")
+	id, ok := idParam(r, "id")
 	if !ok {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid student id"})
 		return

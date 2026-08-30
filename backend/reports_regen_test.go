@@ -84,6 +84,7 @@ func TestHandleRegenerateReport_LooksUpFromDB(t *testing.T) {
 	require.NoError(t, err)
 	req := httptest.NewRequest(http.MethodPost,
 		fmt.Sprintf("/reports/%d/regenerate", rpt.ID), bytes.NewReader(body))
+	req.SetPathValue("id", itoa(rpt.ID))
 	req.Header.Set("Content-Type", "application/json")
 	req = clerkReq(req, "user_abc")
 
@@ -181,6 +182,7 @@ func TestHandleRegenerateReport_ReportNotFound(t *testing.T) {
 	require.NoError(t, err)
 	req := httptest.NewRequest(http.MethodPost,
 		"/reports/99999/regenerate", bytes.NewReader(body))
+	req.SetPathValue("id", "99999")
 	req.Header.Set("Content-Type", "application/json")
 	req = clerkReq(req, "user_abc")
 
@@ -221,6 +223,7 @@ func TestHandleRegenerateReport_ResponseShape(t *testing.T) {
 	require.NoError(t, err)
 	req := httptest.NewRequest(http.MethodPost,
 		fmt.Sprintf("/reports/%d/regenerate", rpt.ID), bytes.NewReader(body))
+	req.SetPathValue("id", itoa(rpt.ID))
 	req.Header.Set("Content-Type", "application/json")
 	req = clerkReq(req, "user_abc")
 
@@ -271,6 +274,7 @@ func TestHandleGetReport_IncludesStudentAndClass(t *testing.T) {
 	})
 
 	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/reports/%d", rpt.ID), http.NoBody)
+	req.SetPathValue("id", itoa(rpt.ID))
 	req = clerkReq(req, "user_abc")
 
 	rec := httptest.NewRecorder()

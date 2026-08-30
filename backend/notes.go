@@ -73,7 +73,7 @@ func handleListNotes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Extract student ID from /students/{id}/notes
-	studentID, ok := pathParam(r.URL.Path, "/students/")
+	studentID, ok := idParam(r, "id")
 	if !ok {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid student id"})
 		return
@@ -98,7 +98,7 @@ func handleCreateNote(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	studentID, ok := pathParam(r.URL.Path, "/students/")
+	studentID, ok := idParam(r, "id")
 	if !ok {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid student id"})
 		return
@@ -133,7 +133,7 @@ func handleGetNote(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	noteID, ok := pathParam(r.URL.Path, "/notes/")
+	noteID, ok := idParam(r, "id")
 	if !ok {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid note id"})
 		return
@@ -159,7 +159,7 @@ func handleUpdateNote(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	noteID, ok := pathParam(r.URL.Path, "/notes/")
+	noteID, ok := idParam(r, "id")
 	if !ok {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid note id"})
 		return
@@ -220,7 +220,7 @@ func handleDeleteNote(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	noteID, ok := pathParam(r.URL.Path, "/notes/")
+	noteID, ok := idParam(r, "id")
 	if !ok {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid note id"})
 		return
