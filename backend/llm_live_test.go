@@ -1,9 +1,7 @@
-//go:build llm
-
-// llm_live_test.go holds every test that calls a real LLM provider. They are
-// excluded from `make test` and run only under the `llm` build tag
-// (`make test-llm`); each still skips itself if the active provider's API key
-// is unset, so the tagged run is safe to invoke without credentials.
+// llm_live_test.go holds every test that calls a real LLM provider. Each
+// skips itself via requireLiveLLM when the active provider's API key is
+// unset, so `make test` is safe without credentials and exercises them
+// automatically when a key is present.
 package handler
 
 import (

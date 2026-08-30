@@ -1,7 +1,7 @@
 -include ../.env
 export
 
-.PHONY: lint test test-llm dev generate check-types eval eval-extract eval-report eval-baseline eval-view bin/eval-cli
+.PHONY: lint test dev generate check-types eval eval-extract eval-report eval-baseline eval-view bin/eval-cli
 
 lint:
 	go run github.com/golangci/golangci-lint/cmd/golangci-lint@latest run
@@ -9,12 +9,9 @@ lint:
 test:
 	go test -v -count=1 ./...
 
-# Live-LLM tests (llm_live_test.go, `//go:build llm`). Excluded from `test`;
-# each still skips itself when the active provider's API key is unset.
-# Requires: LLM_PROVIDER + OPENAI_API_KEY or MISTRAL_API_KEY.
-test-llm:
-	go test -v -count=1 -tags llm -run 'TestLLM_|TestExtract' ./...
-
+# Live-LLM tests (llm_live_test.go) run as part of `test` when LLM_PROVIDER
+# and the matching API key (OPENAI_API_KEY or MISTRAL_API_KEY) are set, and
+# skip themselves otherwise.
 dev:
 	cd cmd/server && go run .
 
