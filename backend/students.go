@@ -34,12 +34,12 @@ type ClassStudent struct {
 func handleListClasses(w http.ResponseWriter, r *http.Request) {
 	userID, err := userIDFromRequest(r)
 	if err != nil {
-		writeJSON(w, http.StatusForbidden, map[string]string{"error": "unauthorized"})
+		writeError(w, r, err)
 		return
 	}
 	classes, err := serviceDeps.GetClassRepo().List(r.Context(), userID)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		writeInternalError(w, r, err)
 		return
 	}
 	if classes == nil {
@@ -51,7 +51,7 @@ func handleListClasses(w http.ResponseWriter, r *http.Request) {
 func handleCreateClass(w http.ResponseWriter, r *http.Request) {
 	userID, err := userIDFromRequest(r)
 	if err != nil {
-		writeJSON(w, http.StatusForbidden, map[string]string{"error": "unauthorized"})
+		writeError(w, r, err)
 		return
 	}
 	groupID, ok := requireGroup(w, r)
@@ -81,7 +81,7 @@ func handleCreateClass(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusConflict, map[string]string{"error": "class already exists"})
 			return
 		}
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		writeInternalError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, ClassWithCount{Class: c, StudentCount: 0})
@@ -90,7 +90,7 @@ func handleCreateClass(w http.ResponseWriter, r *http.Request) {
 func handleUpdateClass(w http.ResponseWriter, r *http.Request) {
 	userID, err := userIDFromRequest(r)
 	if err != nil {
-		writeJSON(w, http.StatusForbidden, map[string]string{"error": "unauthorized"})
+		writeError(w, r, err)
 		return
 	}
 	groupID, ok := requireGroup(w, r)
@@ -125,7 +125,7 @@ func handleUpdateClass(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusConflict, map[string]string{"error": "class name already exists"})
 			return
 		}
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		writeInternalError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "updated"})
@@ -134,7 +134,7 @@ func handleUpdateClass(w http.ResponseWriter, r *http.Request) {
 func handleDeleteClass(w http.ResponseWriter, r *http.Request) {
 	userID, err := userIDFromRequest(r)
 	if err != nil {
-		writeJSON(w, http.StatusForbidden, map[string]string{"error": "unauthorized"})
+		writeError(w, r, err)
 		return
 	}
 	id, ok := pathParam(r.URL.Path, "/classes/")
@@ -147,7 +147,7 @@ func handleDeleteClass(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "class not found"})
 			return
 		}
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		writeInternalError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
@@ -158,7 +158,7 @@ func handleDeleteClass(w http.ResponseWriter, r *http.Request) {
 func handleListStudents(w http.ResponseWriter, r *http.Request) {
 	userID, err := userIDFromRequest(r)
 	if err != nil {
-		writeJSON(w, http.StatusForbidden, map[string]string{"error": "unauthorized"})
+		writeError(w, r, err)
 		return
 	}
 	classID, ok := pathParam(r.URL.Path, "/classes/")
@@ -173,7 +173,7 @@ func handleListStudents(w http.ResponseWriter, r *http.Request) {
 	}
 	students, err := serviceDeps.GetStudentRepo().ListWithAliases(r.Context(), classID)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		writeInternalError(w, r, err)
 		return
 	}
 	if students == nil {
@@ -185,7 +185,7 @@ func handleListStudents(w http.ResponseWriter, r *http.Request) {
 func handleCreateStudent(w http.ResponseWriter, r *http.Request) {
 	userID, err := userIDFromRequest(r)
 	if err != nil {
-		writeJSON(w, http.StatusForbidden, map[string]string{"error": "unauthorized"})
+		writeError(w, r, err)
 		return
 	}
 	classID, ok := pathParam(r.URL.Path, "/classes/")
@@ -210,7 +210,7 @@ func handleCreateStudent(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusConflict, map[string]string{"error": "student already exists in this class"})
 			return
 		}
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		writeInternalError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, s)
@@ -219,7 +219,7 @@ func handleCreateStudent(w http.ResponseWriter, r *http.Request) {
 func handleUpdateStudent(w http.ResponseWriter, r *http.Request) {
 	userID, err := userIDFromRequest(r)
 	if err != nil {
-		writeJSON(w, http.StatusForbidden, map[string]string{"error": "unauthorized"})
+		writeError(w, r, err)
 		return
 	}
 	id, ok := pathParam(r.URL.Path, "/students/")
@@ -245,7 +245,7 @@ func handleUpdateStudent(w http.ResponseWriter, r *http.Request) {
 				writeJSON(w, http.StatusConflict, map[string]string{"error": "student name already exists in class"})
 				return
 			}
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			writeInternalError(w, r, err)
 			return
 		}
 	}
@@ -267,7 +267,7 @@ func handleUpdateStudent(w http.ResponseWriter, r *http.Request) {
 				})
 				return
 			}
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			writeInternalError(w, r, err)
 			return
 		}
 		if len(dropped) > 0 {
@@ -280,7 +280,7 @@ func handleUpdateStudent(w http.ResponseWriter, r *http.Request) {
 func handleDeleteStudent(w http.ResponseWriter, r *http.Request) {
 	userID, err := userIDFromRequest(r)
 	if err != nil {
-		writeJSON(w, http.StatusForbidden, map[string]string{"error": "unauthorized"})
+		writeError(w, r, err)
 		return
 	}
 	id, ok := pathParam(r.URL.Path, "/students/")
@@ -292,7 +292,7 @@ func handleDeleteStudent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := serviceDeps.GetStudentRepo().Delete(r.Context(), id); err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		writeInternalError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})

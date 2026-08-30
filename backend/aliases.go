@@ -23,7 +23,7 @@ type AliasResponse struct {
 func handleListAliases(w http.ResponseWriter, r *http.Request) {
 	userID, err := userIDFromRequest(r)
 	if err != nil {
-		writeJSON(w, http.StatusForbidden, map[string]string{"error": "unauthorized"})
+		writeError(w, r, err)
 		return
 	}
 
@@ -39,7 +39,7 @@ func handleListAliases(w http.ResponseWriter, r *http.Request) {
 
 	aliases, err := serviceDeps.GetStudentRepo().ListAliases(r.Context(), studentID)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		writeInternalError(w, r, err)
 		return
 	}
 
@@ -53,7 +53,7 @@ func handleListAliases(w http.ResponseWriter, r *http.Request) {
 func handleAddAlias(w http.ResponseWriter, r *http.Request) {
 	userID, err := userIDFromRequest(r)
 	if err != nil {
-		writeJSON(w, http.StatusForbidden, map[string]string{"error": "unauthorized"})
+		writeError(w, r, err)
 		return
 	}
 
@@ -91,7 +91,7 @@ func handleAddAlias(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		writeInternalError(w, r, err)
 		return
 	}
 
@@ -106,7 +106,7 @@ func handleAddAlias(w http.ResponseWriter, r *http.Request) {
 func handleRemoveAlias(w http.ResponseWriter, r *http.Request) {
 	userID, err := userIDFromRequest(r)
 	if err != nil {
-		writeJSON(w, http.StatusForbidden, map[string]string{"error": "unauthorized"})
+		writeError(w, r, err)
 		return
 	}
 
@@ -133,7 +133,7 @@ func handleRemoveAlias(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "alias not found"})
 			return
 		}
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		writeInternalError(w, r, err)
 		return
 	}
 

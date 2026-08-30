@@ -273,12 +273,13 @@ The `debugAuthMiddleware` enforces that every `/api/` request carries an active 
 |------|---------------|
 | `cmd/server/main.go` | Server entrypoint; loads `.env`, inits Clerk, opens DB, runs migrations, starts queue + cleanup + HTTP. Supports `--migrate-only` flag (open DB, run migrations, exit 0) for Dokku predeploy hook. |
 | `static.go` | Embeds `static/` (frontend dist, copied at Docker build time) via `embed.FS`; provides `spaHandler()` with SPA fallback and cache-control headers |
-| `handler.go` | Routing, CORS, request logging, `Handle` entrypoint, `userIDFromRequest`, `pathParam`, `requireStudentOwnership` |
+| `handler.go` | Routing, CORS, request logging, `Handle` entrypoint, `userIDFromRequest`, `pathParam`, `requireStudentOwnership`, `callerName`/`callerAt` |
 | `deps.go` | DI interface, prod implementations, `serviceDeps` variable |
 | `llm_provider.go` | `LLMProvider` interface, request/response types, `LLMTask` enum, `LoadProvider()` factory |
 | `llm_provider_openai.go` | `openaiProvider` — OpenAI chat/vision via go-openai + Whisper transcription |
 | `llm_provider_mistral.go` | `mistralProvider` — Mistral chat/vision via OpenAI-compat endpoint + Voxtral transcription via ZaguanLabs SDK |
-| `google.go` | `apiError` type, `writeAPIError`, `newDriveReadClient` (Drive-read-only) |
+| `errors_http.go` | `apiError` type, `writeAPIError`, `writeError`, `writeInternalError` — the error-response contract |
+| `google.go` | `newDriveReadClient` (Drive-read-only) |
 | `auth.go` | `groupIDFromRequest`, `isAdmin` — Clerk org/role helpers; `getGoogleOAuthToken` — Clerk → Google OAuth token |
 | `db.go` | Open SQLite, set PRAGMAs (WAL, busy_timeout, foreign_keys) |
 | `migrate.go` | Embed + run SQL migrations on startup |
@@ -327,7 +328,14 @@ When changing Go structs with `json` tags, regenerate types and commit the updat
 
 ## Error Handling
 
-`apiError` struct (`google.go`) carries HTTP status, machine-readable code, human message, and an optional `Details map[string]string` field for structured context (e.g. `conflictStudentName` on alias collision). Handlers check `errors.As(err, &apiError)` and call `writeAPIError`. All responses are JSON.
+`apiError` struct (`errors_http.go`) carries HTTP status, machine-readable code, human message, and an optional `Details map[string]string` field for structured context (e.g. `conflictStudentName` on alias collision). All responses are JSON.
+
+Handlers hand errors to one of two writers rather than formatting bodies themselves:
+
+- `writeError(w, r, err)` — `*apiError` (bare or wrapped) is written by `writeAPIError` with its own status; `ErrNotFound` becomes a generic 404 `{"error":"not found"}`; anything else is an internal error. It is the one-liner for `userIDFromRequest` / `groupIDFromRequest` failures. Duplicate and in-use errors are *not* mapped: each 409 site builds a body the frontend reads by field, so those branches stay bespoke, as do 404s whose text names the entity (`"note not found"`, `"student Zephyrine not found"`).
+- `writeInternalError(w, r, err)` — the only way to answer 500. The body is always `{"error":"internal server error"}`; the real `err` is logged at Error with `"op"` set to the calling handler's name (via `callerAt`, the sibling of `callerName`) and the method, never the URL path (client-controlled — see `requireStudentOwnership`). `err.Error()` must never reach a 500 body: repo and driver errors name tables, files and hosts. A handler that wants a more specific generic body (`"failed to load student"`) may still write it, but must log the cause itself.
+
+Missing or invalid session is 401 (`code: unauthorized`) from both `userIDFromRequest` and `groupIDFromRequest`; a session with no active organisation is 403 (`no_active_org`), from the auth middleware and `groupIDFromRequest` alike. The frontend treats 401 and 403 identically (session expired).
 
 Repo-level errors:
 - `ErrNotFound` — entity not found

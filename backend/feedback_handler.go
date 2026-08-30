@@ -27,12 +27,7 @@ type submitFeedbackResponse struct {
 func handleSubmitFeedback(w http.ResponseWriter, r *http.Request) {
 	userID, err := userIDFromRequest(r)
 	if err != nil {
-		var ae *apiError
-		if errors.As(err, &ae) {
-			writeAPIError(w, r, ae)
-			return
-		}
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		writeError(w, r, err)
 		return
 	}
 
@@ -67,7 +62,7 @@ func handleSubmitFeedback(w http.ResponseWriter, r *http.Request) {
 				writeJSON(w, http.StatusNotFound, map[string]string{"error": "report not found"})
 				return
 			}
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			writeInternalError(w, r, err)
 			return
 		}
 		studentID = rpt.StudentID
@@ -78,7 +73,7 @@ func handleSubmitFeedback(w http.ResponseWriter, r *http.Request) {
 				writeJSON(w, http.StatusNotFound, map[string]string{"error": "note not found"})
 				return
 			}
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			writeInternalError(w, r, err)
 			return
 		}
 		studentID = n.StudentID

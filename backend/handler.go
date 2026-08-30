@@ -153,7 +153,7 @@ func (r *statusRecorder) Write(b []byte) (int, error) {
 func userIDFromRequest(r *http.Request) (string, error) {
 	claims, ok := clerk.SessionClaimsFromContext(r.Context())
 	if !ok || claims == nil {
-		return "", &apiError{Status: http.StatusForbidden, Code: "unauthorized", Message: "missing or invalid session"}
+		return "", &apiError{Status: http.StatusUnauthorized, Code: "unauthorized", Message: "missing or invalid session"}
 	}
 	return claims.Subject, nil
 }
@@ -375,7 +375,15 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 // compile. TestHandleGenerateReports_OwnershipArms pins the exact value
 // "op":"handleGenerateReports" through a real handler and fails if the depth drifts.
 func callerName() string {
-	pc, _, _, ok := runtime.Caller(2)
+	return callerAt(2)
+}
+
+// callerAt returns the unqualified function name skip frames above the function
+// that called callerAt: callerAt(0) names that function itself, callerAt(1) its
+// caller. writeInternalError and writeError use it to label a 500 with the
+// handler that gave up.
+func callerAt(skip int) string {
+	pc, _, _, ok := runtime.Caller(skip + 1)
 	if !ok {
 		return "unknown"
 	}

@@ -21,7 +21,7 @@ import (
 func groupIDFromRequest(r *http.Request) (string, error) {
 	claims, ok := clerk.SessionClaimsFromContext(r.Context())
 	if !ok || claims == nil {
-		return "", &apiError{Status: http.StatusForbidden, Code: "unauthorized", Message: "missing or invalid session"}
+		return "", &apiError{Status: http.StatusUnauthorized, Code: "unauthorized", Message: "missing or invalid session"}
 	}
 	if claims.ActiveOrganizationID == "" {
 		return "", &apiError{Status: http.StatusForbidden, Code: "no_active_org", Message: "no active organization \u2014 ask your admin for an invitation"}
