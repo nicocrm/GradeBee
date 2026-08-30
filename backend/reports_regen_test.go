@@ -71,14 +71,14 @@ func TestHandleRegenerateReport_LooksUpFromDB(t *testing.T) {
 
 	levelRepo := &LevelRepo{db: db}
 	require.NoError(t, levelRepo.UpdateReportInstructions(ctx, "test-group", cls.LevelID, "Write three sections."))
-	serviceDeps = &mockDepsAll{
+	withDeps(t, &mockDepsAll{
 		db:          db,
 		classRepo:   classRepo,
 		studentRepo: studentRepo,
 		reportRepo:  reportRepo,
 		reportGen:   gen,
 		levelRepo:   levelRepo,
-	}
+	})
 
 	body, err := json.Marshal(map[string]string{"feedback": "make it shorter"})
 	require.NoError(t, err)
@@ -117,7 +117,7 @@ func TestHandleGenerateReports_ResponseShape(t *testing.T) {
 
 	levelRepo := &LevelRepo{db: db}
 	require.NoError(t, levelRepo.UpdateReportInstructions(ctx, "test-group", cls.LevelID, "Write three sections."))
-	serviceDeps = &mockDepsAll{
+	withDeps(t, &mockDepsAll{
 		db:          db,
 		classRepo:   classRepo,
 		studentRepo: studentRepo,
@@ -125,7 +125,7 @@ func TestHandleGenerateReports_ResponseShape(t *testing.T) {
 		reportRepo:  reportRepo,
 		reportGen:   gen,
 		levelRepo:   levelRepo,
-	}
+	})
 
 	reqBody, err := json.Marshal(map[string]any{
 		"students":  []map[string]any{{"studentId": stu.ID, "name": "Alice", "className": "Art"}},
@@ -170,12 +170,12 @@ func TestHandleGenerateReports_ResponseShape(t *testing.T) {
 
 func TestHandleRegenerateReport_ReportNotFound(t *testing.T) {
 	db := setupTestDB(t)
-	serviceDeps = &mockDepsAll{
+	withDeps(t, &mockDepsAll{
 		db:          db,
 		classRepo:   &ClassRepo{db: db},
 		studentRepo: &StudentRepo{db: db},
 		reportRepo:  &ReportRepo{db: db},
-	}
+	})
 
 	body, err := json.Marshal(map[string]string{"feedback": "x"})
 	require.NoError(t, err)
@@ -213,9 +213,9 @@ func TestHandleRegenerateReport_ResponseShape(t *testing.T) {
 	}
 	levelRepo := &LevelRepo{db: db}
 	require.NoError(t, levelRepo.UpdateReportInstructions(ctx, "test-group", cls.LevelID, "Write three sections."))
-	serviceDeps = &mockDepsAll{
+	withDeps(t, &mockDepsAll{
 		db: db, classRepo: classRepo, studentRepo: studentRepo, reportRepo: reportRepo, reportGen: gen, levelRepo: levelRepo,
-	}
+	})
 
 	body, err := json.Marshal(map[string]string{"feedback": "shorter"})
 	require.NoError(t, err)
@@ -266,9 +266,9 @@ func TestHandleGetReport_IncludesStudentAndClass(t *testing.T) {
 	rpt := &Report{StudentID: stu.ID, StartDate: "2026-01-01", EndDate: "2026-03-31", HTML: "<p>report</p>"}
 	require.NoError(t, reportRepo.Create(ctx, rpt))
 
-	serviceDeps = &mockDepsAll{
+	withDeps(t, &mockDepsAll{
 		db: db, classRepo: classRepo, studentRepo: studentRepo, reportRepo: reportRepo,
-	}
+	})
 
 	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/reports/%d", rpt.ID), http.NoBody)
 	req = clerkReq(req, "user_abc")
