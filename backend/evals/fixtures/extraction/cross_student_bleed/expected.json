@@ -1,0 +1,29 @@
+{
+  "expected_students": [
+    {
+      "name": "Harry",
+      "class_name": "Oliver · Thu",
+      "must_quote_substrings": ["/doing great/"],
+      "must_not_quote_substrings": ["Dinara", "Luis", "Rayan"]
+    },
+    {
+      "name": "Dinara",
+      "class_name": "Oliver · Thu",
+      "must_quote_substrings": ["/not doing that good/"],
+      "must_not_quote_substrings": ["Harry", "Luis", "Rayan"]
+    },
+    {
+      "name": "Luis",
+      "class_name": "Oliver · Thu",
+      "must_quote_substrings": ["/struggled with the counting/"],
+      "must_not_quote_substrings": ["Harry", "Dinara", "Rayan"]
+    },
+    {
+      "name": "Rayan",
+      "class_name": "Oliver · Thu",
+      "must_quote_substrings": ["/on fire the whole hour/"],
+      "must_not_quote_substrings": ["Harry", "Dinara", "Luis"]
+    }
+  ],
+  "must_not_extract": []
+}
