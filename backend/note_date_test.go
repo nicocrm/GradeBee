@@ -185,9 +185,17 @@ func TestMigration015_RepairsEveryAutoRow(t *testing.T) {
 		require.NoError(t, r.notes.Create(ctx, n))
 		return n
 	}
+	// Same year as the insert day but the wrong month — the case a year comparison
+	// cannot catch, and the whole reason the repair is blanket rather than targeted.
+	// Shifting the month keeps it in the current year while guaranteeing it is never
+	// today, so the assertion below cannot pass by coincidence.
+	now := time.Now().UTC()
+	sameYearDate := time.Date(now.Year(), (now.Month()%12)+1, 15, 0, 0, 0, 0, time.UTC).
+		Format(time.DateOnly)
+
 	malformed := seed("Friday, Marcia, 1740", "auto")
 	offYear := seed("2023-10-21", "auto")
-	sameYearWrong := seed("2001-01-01", "auto") // rewritten to the insert day like the rest
+	sameYearWrong := seed(sameYearDate, "auto")
 	manualBackdated := seed("2019-04-02", "manual")
 
 	require.NoError(t, RunMigrations(db))
@@ -203,7 +211,10 @@ func TestMigration015_RepairsEveryAutoRow(t *testing.T) {
 	}
 	assert.Equal(t, insertDay, dateOf(malformed.ID))
 	assert.Equal(t, insertDay, dateOf(offYear.ID))
-	assert.Equal(t, insertDay, dateOf(sameYearWrong.ID))
+	assert.Equal(t, insertDay, dateOf(sameYearWrong.ID),
+		"a hallucination inside the right year must be repaired too — this is the row "+
+			"a targeted migration would have left wrong and silent")
+	require.NotEqual(t, insertDay, sameYearDate, "seed must differ from the insert day")
 	assert.Equal(t, "2019-04-02", dateOf(manualBackdated.ID),
 		"a teacher may legitimately backdate a manual note")
 

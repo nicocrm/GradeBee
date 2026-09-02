@@ -35,14 +35,19 @@
 --     present yet.
 --
 -- That second point stops holding the moment this migration finishes: the new code
--- dates a note from the voice note's upload time, so a job retried the next day
--- writes date < created_at on purpose. Do not copy this blanket UPDATE into a later
--- migration.
+-- dates a note from the voice note's upload time, so a job retried the next day writes
+-- date < created_at on purpose. Two consequences. Do not copy this blanket UPDATE into
+-- a later migration. And this file is single-shot — never re-arm it by deleting its
+-- _migrations row on a database the new code has already written to, or it will
+-- overwrite every deliberately backdated auto date. (The tests re-arm it, which is
+-- safe only because each runs against a throwaway in-memory database.)
 --
--- updated_at is deliberately left alone. It records when a teacher last edited the
--- note, and the implicit-feedback signal reads edits; repairing a column the teacher
--- never saw is not an edit, and stamping it would make these 161 rows look like 161
--- teacher corrections.
+-- updated_at is deliberately left alone. Nothing computes on it — it is selected into
+-- the JSON envelope and never read back, and the "edited" feedback signal is an
+-- artifact_feedback row written by handleUpdateNote, not anything keyed on this column.
+-- The cost of stamping it would be to a person reading the column later, who would see
+-- 161 notes apparently corrected by a teacher on the deploy date. A repair the teacher
+-- never saw is not an edit.
 UPDATE notes
    SET date = substr(created_at, 1, 10)
  WHERE source = 'auto';
