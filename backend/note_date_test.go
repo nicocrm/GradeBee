@@ -132,3 +132,84 @@ func TestHandleCreateNote_RejectsMalformedDate(t *testing.T) {
 		require.Equal(t, http.StatusCreated, rec.Code, "body=%s", rec.Body.String())
 	})
 }
+
+// The guard in migration 015 must discard the whole file, not just the statement that
+// raised. RAISE(ABORT) alone would not do it — it rolls back only its own statement and
+// leaves the transaction open — so this pins the tx.Rollback() in migrate.go that does.
+func TestMigration015_RollsBackWholeFileWhenGuardFires(t *testing.T) {
+	ctx, r := testDBAndRepos(t)
+	db := r.notes.db
+
+	// Re-arm 015 so RunMigrations replays it over the rows seeded below.
+	_, err := db.Exec("DELETE FROM _migrations WHERE name = ?", "015_repair_auto_note_dates.sql")
+	require.NoError(t, err)
+
+	c := newTestClass(t, r.classes, "test-group", "user1", "Math", "")
+	s, err := r.students.Create(ctx, c.ID, "Alice")
+	require.NoError(t, err)
+
+	// An auto note the repair would rewrite...
+	auto := &Note{StudentID: s.ID, Date: "2023-10-21", Summary: "hallucinated year", Source: "auto"}
+	require.NoError(t, r.notes.Create(ctx, auto))
+	// ...and a manual note the guard rejects, e.g. from a restored backup predating the
+	// API validation.
+	bad := &Note{StudentID: s.ID, Date: "Saturday", Summary: "not a date", Source: "manual"}
+	require.NoError(t, r.notes.Create(ctx, bad))
+
+	err = RunMigrations(db)
+	require.Error(t, err, "guard should fail the migration")
+	assert.Contains(t, err.Error(), "migration 015")
+
+	var got string
+	require.NoError(t, db.QueryRow("SELECT date FROM notes WHERE id = ?", auto.ID).Scan(&got))
+	assert.Equal(t, "2023-10-21", got,
+		"the repair must not survive a failed guard")
+}
+
+// The repair covers every auto row, not only the visibly broken ones — a hallucination
+// that landed inside the right year is indistinguishable from a real date, so a test on
+// the year would leave it wrong and silent. Manual rows are never touched.
+func TestMigration015_RepairsEveryAutoRow(t *testing.T) {
+	ctx, r := testDBAndRepos(t)
+	db := r.notes.db
+
+	_, err := db.Exec("DELETE FROM _migrations WHERE name = ?", "015_repair_auto_note_dates.sql")
+	require.NoError(t, err)
+
+	c := newTestClass(t, r.classes, "test-group", "user1", "Math", "")
+	s, err := r.students.Create(ctx, c.ID, "Alice")
+	require.NoError(t, err)
+
+	seed := func(date, source string) *Note {
+		n := &Note{StudentID: s.ID, Date: date, Summary: "obs", Source: source}
+		require.NoError(t, r.notes.Create(ctx, n))
+		return n
+	}
+	malformed := seed("Friday, Marcia, 1740", "auto")
+	offYear := seed("2023-10-21", "auto")
+	sameYearWrong := seed("2001-01-01", "auto") // rewritten to the insert day like the rest
+	manualBackdated := seed("2019-04-02", "manual")
+
+	require.NoError(t, RunMigrations(db))
+
+	var insertDay string
+	require.NoError(t, db.QueryRow(
+		"SELECT substr(created_at,1,10) FROM notes WHERE id = ?", malformed.ID).Scan(&insertDay))
+
+	dateOf := func(id int64) string {
+		var d string
+		require.NoError(t, db.QueryRow("SELECT date FROM notes WHERE id = ?", id).Scan(&d))
+		return d
+	}
+	assert.Equal(t, insertDay, dateOf(malformed.ID))
+	assert.Equal(t, insertDay, dateOf(offYear.ID))
+	assert.Equal(t, insertDay, dateOf(sameYearWrong.ID))
+	assert.Equal(t, "2019-04-02", dateOf(manualBackdated.ID),
+		"a teacher may legitimately backdate a manual note")
+
+	// updated_at records teacher edits; a repair the teacher never saw is not one.
+	var updatedAt, createdAt string
+	require.NoError(t, db.QueryRow(
+		"SELECT updated_at, created_at FROM notes WHERE id = ?", offYear.ID).Scan(&updatedAt, &createdAt))
+	assert.Equal(t, createdAt, updatedAt, "repair must not stamp updated_at")
+}

@@ -22,50 +22,50 @@
 -- So created_at reproduces every known-good auto date, and the three groups
 -- (13 malformed + 56 off-year + 92 exact) account for all 161 auto rows.
 --
--- Not repaired: a hallucination that landed inside the right year (date 2026-05-12 on
--- a row inserted 2026-03-22). Nothing here can tell one from a real date, and the census
--- above leaves that group empty on this database — the 161 auto rows are exactly the 13
--- malformed plus the 56 off-year plus the 92 already correct. On any other database it
--- may not be empty, so do not read a clean run of this migration as proof that every
--- note date is now right.
+-- Every auto row, not just the visibly broken ones. Two reasons:
 --
--- Scope is deliberately the broken rows rather than every auto row: updating all of
--- them would give the same result on today's data, but would also overwrite a
--- correct date if one ever differed from its insert day. After this migration that
--- becomes possible — the code now dates a note from the voice note's upload time, so
--- a job retried the next day writes date < created_at on purpose.
-
--- 1. Malformed: not YYYY-MM-DD at all ("Saturday", "Friday, Marcia, 1740").
+--   * It is the only way to catch a hallucination that landed inside the right year
+--     (date 2026-05-12 on a row inserted 2026-03-22). Nothing can tell one of those
+--     from a real date, so a test on the year would leave it wrong and silent. The
+--     census above leaves that group empty here, but not necessarily on another
+--     database.
+--   * It cannot overwrite a good date. Every auto row that exists when this runs was
+--     written by the old code, which took its date from the model. Migrations run at
+--     startup before the server accepts requests, so no row from the new code can be
+--     present yet.
+--
+-- That second point stops holding the moment this migration finishes: the new code
+-- dates a note from the voice note's upload time, so a job retried the next day
+-- writes date < created_at on purpose. Do not copy this blanket UPDATE into a later
+-- migration.
+--
+-- updated_at is deliberately left alone. It records when a teacher last edited the
+-- note, and the implicit-feedback signal reads edits; repairing a column the teacher
+-- never saw is not an edit, and stamping it would make these 161 rows look like 161
+-- teacher corrections.
 UPDATE notes
-   SET date = substr(created_at, 1, 10),
-       updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
- WHERE source = 'auto'
-   AND date NOT GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]';
+   SET date = substr(created_at, 1, 10)
+ WHERE source = 'auto';
 
--- 2. Well-formed but the year is invented (2023, 1615) — the note cannot predate or
---    outlive the row that holds it.
-UPDATE notes
-   SET date = substr(created_at, 1, 10),
-       updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
- WHERE source = 'auto'
-   AND date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'
-   AND substr(date, 1, 4) <> substr(created_at, 1, 4);
-
--- 3. Guard: abort naming the first note whose date is still not YYYY-MM-DD. Applies
---    to every source, not just auto — a malformed manual date would mean the API
---    accepted one, which the validation shipping alongside this migration forbids.
---    Off-year is deliberately not guarded: a teacher may legitimately backdate a
---    manual note into a previous year.
+-- Guard: abort naming the first note whose date is still not YYYY-MM-DD. Applies to
+-- every source, not just auto — after the UPDATE above no auto row can fail, so this
+-- can only fire on a manual row, which would mean the API accepted one.
 --
---    The API validation shipping alongside this migration only forbids such a row from
---    being written from now on; a hand-seeded dev database or an old restored backup can
---    still hold one, and this aborts server startup rather than serving. That is the
---    intended failure — but the way out is to repair the named row by hand
---    (UPDATE notes SET date = substr(created_at,1,10) WHERE id = <id>) and start again,
---    not to weaken the guard.
+-- Off-year is deliberately not guarded: a teacher may legitimately backdate a manual
+-- note into a previous year.
 --
---    Migrations run inside a transaction (migrate.go), so RAISE(ABORT) rolls the
---    whole file back rather than leaving a partial repair.
+-- The API validation shipping alongside this migration only forbids such a row from
+-- being written from now on; a hand-seeded dev database or an old restored backup can
+-- still hold one, and this aborts server startup rather than serving. That is the
+-- intended failure — but the way out is to repair the named row by hand
+-- (UPDATE notes SET date = substr(created_at,1,10) WHERE id = <id>) and start again,
+-- not to weaken the guard.
+--
+-- Nothing partial commits, but not because of ABORT on its own: RAISE(ABORT) rolls back
+-- only the statement that raised it and leaves the transaction open. What discards the
+-- UPDATE above is migrate.go — it runs each file inside a tx and calls tx.Rollback() on
+-- the error Exec returns. Run this file through the sqlite3 CLI instead and the UPDATE
+-- does commit, because the CLI is in autocommit.
 CREATE TEMP TABLE _repair_note_dates_guard(x);
 CREATE TEMP TRIGGER _repair_note_dates_guard_check BEFORE INSERT ON _repair_note_dates_guard
 BEGIN
