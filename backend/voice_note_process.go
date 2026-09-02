@@ -167,6 +167,14 @@ func processVoiceNote(ctx context.Context, d deps, q JobQueue[VoiceNoteJob], key
 
 	var noteLinks []NoteLink
 
+	// The note's date is the day the teacher recorded, which is the day the job was
+	// created at upload (voice_note_dispatch.go) — not time.Now(). Processing is queued
+	// and retryable (handleJobRetry republishes the same job struct, and Publish stores
+	// it verbatim), so the processing clock can land days after the recording and would
+	// drop the note out of the report window it belongs to. Do not "simplify" this to
+	// time.Now(). UTC, matching every created_at column.
+	noteDate := job.CreatedAt.UTC().Format(time.DateOnly)
+
 	// Drops are only interpretable as a rate, so the completion record below needs a
 	// denominator and a per-reason breakdown. note_count alone yields notes-created,
 	// never mentions-extracted.
@@ -227,7 +235,7 @@ func processVoiceNote(ctx context.Context, d deps, q JobQueue[VoiceNoteJob], key
 			StudentName:  student.Name,
 			QuotedText:   student.QuotedText, // Changed from Summary
 			Transcript:   transcript,
-			Date:         extractResult.Date,
+			Date:         noteDate,
 			ModelVersion: extractor.Model(),
 		})
 		if err != nil {
