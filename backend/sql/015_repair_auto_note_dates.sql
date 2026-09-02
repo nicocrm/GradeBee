@@ -22,6 +22,13 @@
 -- So created_at reproduces every known-good auto date, and the three groups
 -- (13 malformed + 56 off-year + 92 exact) account for all 161 auto rows.
 --
+-- Not repaired: a hallucination that landed inside the right year (date 2026-05-12 on
+-- a row inserted 2026-03-22). Nothing here can tell one from a real date, and the census
+-- above leaves that group empty on this database — the 161 auto rows are exactly the 13
+-- malformed plus the 56 off-year plus the 92 already correct. On any other database it
+-- may not be empty, so do not read a clean run of this migration as proof that every
+-- note date is now right.
+--
 -- Scope is deliberately the broken rows rather than every auto row: updating all of
 -- them would give the same result on today's data, but would also overwrite a
 -- correct date if one ever differed from its insert day. After this migration that
@@ -49,6 +56,13 @@ UPDATE notes
 --    accepted one, which the validation shipping alongside this migration forbids.
 --    Off-year is deliberately not guarded: a teacher may legitimately backdate a
 --    manual note into a previous year.
+--
+--    The API validation shipping alongside this migration only forbids such a row from
+--    being written from now on; a hand-seeded dev database or an old restored backup can
+--    still hold one, and this aborts server startup rather than serving. That is the
+--    intended failure — but the way out is to repair the named row by hand
+--    (UPDATE notes SET date = substr(created_at,1,10) WHERE id = <id>) and start again,
+--    not to weaken the guard.
 --
 --    Migrations run inside a transaction (migrate.go), so RAISE(ABORT) rolls the
 --    whole file back rather than leaving a partial repair.
