@@ -1,30 +1,63 @@
 {
+  "_comment": "Lina and Lucie share one span, so each needs a phrase that only that span can satisfy. \"did well\" cannot be it: the group span appends \"All the kids did well...\" to every student, so it would pass with another child's text in Lina's note. \"jumping\" comes from their span and is one content word, so it survives a re-worded summary — but only the must_not_quote_substrings on the other three children make it exclusive. Without those, a run that puts clause 19 in the group span hands Lina and Lucie their phrase out of text every child got, which is the leak this fixture is supposed to catch. \"Yes, I can\" is vocabulary the children are being taught, which the prompt classifies as \"none\": dropping it is the right answer, not a lost observation. \"animals could\" is on every student because it is the group span, which fans out to everyone who resolved from a child span.",
   "expected_students": [
     {
       "name": "Théo",
       "class_name": "Marcia · Wed · 14:10",
-      "must_quote_substrings": ["very good participation and motivation", "/making (?:the )?full sentences/", "I can", "animals could"]
+      "must_quote_substrings": [
+        "very good participation and motivation",
+        "/making (?:the )?full sentences/",
+        "animals could"
+      ],
+      "must_not_quote_substrings": [
+        "jumping",
+        "playing"
+      ]
     },
     {
       "name": "Inaya",
       "class_name": "Marcia · Wed · 14:10",
-      "must_quote_substrings": ["/repeat.* in full structures/", "animals could"]
+      "must_quote_substrings": [
+        "/repeat.* in full structures/",
+        "animals could"
+      ],
+      "must_not_quote_substrings": [
+        "jumping",
+        "playing"
+      ]
     },
     {
       "name": "Camille",
       "class_name": "Marcia · Wed · 14:10",
-      "must_quote_substrings": ["/repeat.* in full structures/", "/easily kn(?:owing|ew) what to take .* area/", "animals could"]
+      "must_quote_substrings": [
+        "/repeat.* in full structures/",
+        "/easily kn(?:owing|ew) what to take .* area/",
+        "animals could"
+      ],
+      "must_not_quote_substrings": [
+        "jumping",
+        "playing"
+      ]
     },
     {
       "name": "Lina",
       "class_name": "Marcia · Wed · 14:10",
-      "must_quote_substrings": ["/Lina.*did well/", "animals could"]
+      "must_quote_substrings": [
+        "/jumping/",
+        "animals could"
+      ]
     },
     {
       "name": "Lucie",
       "class_name": "Marcia · Wed · 14:10",
-      "must_quote_substrings": ["/Lucie.*did well/", "animals could"]
+      "must_quote_substrings": [
+        "/jumping/",
+        "animals could"
+      ]
     }
   ],
-  "must_not_extract": ["Margot", "Romain"]
+  "must_not_extract": [
+    "Margot",
+    "Romain"
+  ]
 }

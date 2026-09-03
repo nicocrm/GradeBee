@@ -19,38 +19,38 @@ providers:
         type: json_schema
         json_schema:
           # Schema mirrors extractResponseSchema() in backend/extract.go's
-          # overall shape. Deliberate divergence: in production, class_name
-          # is constrained to an enum of the roster's actual class names
-          # (per-fixture rosters aren't easily templated into this static
-          # provider config), so it stays a plain string here — this eval
-          # does not gate on the enum constraint. Update the rest of this
-          # block if ExtractResponse's shape changes.
+          # overall shape: clause-index spans plus the class the recording is
+          # about, never a student name (#99). Deliberate divergence: in
+          # production, class_name is constrained to an enum of the roster's
+          # actual class names plus "" (per-fixture rosters aren't easily
+          # templated into this static provider config), so it stays a plain
+          # string here — this eval does not gate on the enum constraint, and
+          # a class name the roster does not have comes back unattributed from
+          # AssembleNotes either way. Update this block if SegmentResponse's
+          # shape changes.
           name: extract_response
           strict: true
           schema:
             type: object
             properties:
-              students:
+              class_name: { type: string }
+              spans:
                 type: array
                 items:
                   type: object
                   properties:
-                    name:        { type: string }
-                    class_name:  { type: string }
-                    quoted_text: { type: string }
-                    confidence:  { type: number }
-                    candidates:
+                    start: { type: integer }
+                    end:   { type: integer }
+                    kind:
+                      type: string
+                      enum: [child, group, none]
+                    spoken_labels:
                       type: array
-                      items:
-                        type: object
-                        properties:
-                          name:  { type: string }
-                          class_name: { type: string }
-                        required: [name, class_name]
-                        additionalProperties: false
-                  required: [name, class_name, quoted_text, confidence, candidates]
+                      items: { type: string }
+                    summary: { type: string }
+                  required: [start, end, kind, spoken_labels, summary]
                   additionalProperties: false
-            required: [students]
+            required: [class_name, spans]
             additionalProperties: false
 
   # Comparison provider. Not tracked for regressions — it is the weaker model,
@@ -60,13 +60,34 @@ providers:
     label: gradebee-extract-small
     config: *extract_schema
 
-# Default options: use a stronger judge model for llm-rubric assertions.
+# Default options.
+#
+# transform runs the model's spans through AssembleNotes — the same Go code
+# production calls — before any assertion sees the output, so these fixtures
+# grade the notes a teacher gets rather than the raw segmentation. It returns
+# the {students:[{name, class_name, quoted_text}]} shape scoring/extraction.js
+# already reads, with each span's summary as quoted_text.
+#
+# provider is the stronger judge model for llm-rubric assertions.
 defaultTest:
   options:
+    transform: file://scoring/assemble.js
     provider:
       id: openai:chat:gpt-5.5
       config:
         temperature: 0
+  # Prepended to every test's own assertions, so a new fixture cannot forget
+  # it. This replaces the `is-json` assertion each case used to open with,
+  # which the transform made unconditional — it now hands the assertions its
+  # own JSON.stringify output. The check is the same one in spirit: did the
+  # whole pipeline run? A model response Go could not parse, or a span tiling
+  # reject, exits eval-cli non-zero and comes back as assemble_error, which
+  # must fail the case rather than be scored as an empty set of notes.
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return !o.assemble_error && Array.isArray(o.students);
 
 tests:
   - description: "extraction: preserves teacher voice (no paraphrasing)"
@@ -75,25 +96,38 @@ tests:
       transcript: "file://fixtures/extraction/voice_preservation/transcript.txt"
       classes: "file://fixtures/extraction/voice_preservation/classes.json"
     assert:
-      - type: is-json
       - type: javascript
         value: file://scoring/extraction.js
         config:
           expected: file://fixtures/extraction/voice_preservation/expected.json
           metric: voice_preservation
 
-  - description: "extraction: identifies correct students across two classes"
+  # Since #99 a recording is about exactly one class, so a transcript naming
+  # two of them must produce no notes at all rather than pick one. This is the
+  # eval-level successor to TestExtractAmbiguousClassLowConfidence, which the
+  # multi-class confidence rule's removal retired.
+  - description: "extraction: a recording spanning two classes produces no notes"
     vars:
       task: build-extract-prompt
       transcript: "file://fixtures/extraction/multi_class/transcript.txt"
       classes: "file://fixtures/extraction/multi_class/classes.json"
     assert:
-      - type: is-json
       - type: javascript
         value: file://scoring/extraction.js
         config:
           expected: file://fixtures/extraction/multi_class/expected.json
           metric: precision_recall
+      # Zero notes is this fixture's pass condition, so say *why* there are
+      # none: the model declined. Without this the row would also go green if
+      # the model pinned a class and resolution then failed for an unrelated
+      # reason. unknown_class_name separates declining from inventing a class
+      # name — AssembleNotes leaves class_name empty for both, and only this
+      # eval can see an invented one, since production's schema constrains
+      # class_name to an enum of the roster's classes.
+      - type: javascript
+        value: |
+          const o = JSON.parse(output);
+          return o.class_name === '' && !o.unknown_class_name;
 
   - description: "extraction: fuzzy name matching (Inaia→Inaya, Liana→Lina)"
     vars:
@@ -101,7 +135,6 @@ tests:
       transcript: "file://fixtures/extraction/fuzzy_name_matching/transcript.txt"
       classes: "file://fixtures/extraction/fuzzy_name_matching/classes.json"
     assert:
-      - type: is-json
       - type: javascript
         value: file://scoring/extraction.js
         config:
@@ -114,7 +147,6 @@ tests:
       transcript: "file://fixtures/extraction/cross_student_bleed/transcript.txt"
       classes: "file://fixtures/extraction/cross_student_bleed/classes.json"
     assert:
-      - type: is-json
       - type: javascript
         value: file://scoring/extraction.js
         config:
@@ -127,20 +159,32 @@ tests:
       transcript: "file://fixtures/extraction/pronoun_run_bleed/transcript.txt"
       classes: "file://fixtures/extraction/pronoun_run_bleed/classes.json"
     assert:
-      - type: is-json
       - type: javascript
         value: file://scoring/extraction.js
         config:
           expected: file://fixtures/extraction/pronoun_run_bleed/expected.json
           metric: attribution
 
+  # Known red — see evals/README.md, "Known-red fixtures".
+  - description: "extraction: two children in one exchange keep separate notes"
+    vars:
+      task: build-extract-prompt
+      transcript: "file://fixtures/extraction/shared_clause/transcript.txt"
+      classes: "file://fixtures/extraction/shared_clause/classes.json"
+    assert:
+      - type: javascript
+        value: file://scoring/extraction.js
+        config:
+          expected: file://fixtures/extraction/shared_clause/expected.json
+          metric: attribution
+
+  # Known red — see evals/README.md, "Known-red fixtures".
   - description: "extraction: applies group observation only to relevant class"
     vars:
       task: build-extract-prompt
       transcript: "file://fixtures/extraction/group_observation/transcript.txt"
       classes: "file://fixtures/extraction/group_observation/classes.json"
     assert:
-      - type: is-json
       - type: javascript
         value: file://scoring/extraction.js
         config:

@@ -1,7 +1,8 @@
 {
+  "_comment": "KNOWN RED, task #110 — see evals/README.md, 'Known-red fixtures'. The class-wide observation is comma-joined to a thinking-aloud clause and sits next to the class header; the canonical model marks the whole run 'none', 4/4, so \"fractions worksheet\" reaches neither note. Measured: without the thinking-aloud clause the model returns 'group' 3/3, and with it but moved to the end of the transcript, 'group' 3/3. Reshaping the transcript would make this fixture green and delete the only signal that the observation is being dropped, so it stays as spoken. The axis itself is unchanged and correct: a group observation reaches every child who resolved in the pinned class and nobody else, so Zoe never gets a note. Roster names were full names until #108 switched them to first names, the shape the teacher speaks — see task #111.",
   "expected_students": [
     {
-      "name": "Olivia Chen",
+      "name": "Olivia",
       "class_name": "Class B",
       "must_quote_substrings": [
         "finished early",
@@ -13,7 +14,7 @@
       ]
     },
     {
-      "name": "Marcus Davis",
+      "name": "Marcus",
       "class_name": "Class B",
       "must_quote_substrings": [
         "not turning in homework",

@@ -7,6 +7,14 @@
 //
 // Output is a JSON messages array: [{"role":"system","content":"..."},...]
 // promptfoo owns the LLM call; eval-cli is a pure prompt builder.
+//
+// # Usage (output-transform mode — invoked by evals/scoring/assemble.js)
+//
+//	eval-cli '{"vars":{...},"config":{"task":"assemble-extract"}}'
+//
+// Output is the assembled notes: {"students":[{name,class_name,quoted_text}],
+// "unattributed":[...]}. Still no LLM call — the model already ran, and its
+// spans arrive as vars.response.
 package main
 
 import (
@@ -65,8 +73,10 @@ func runPromptMode(jsonArg string) error {
 		return runBuildExtractPrompt(ec)
 	case "build-report-prompt":
 		return runBuildReportPrompt(ec)
+	case "assemble-extract":
+		return runAssembleExtract(ec)
 	default:
-		return fmt.Errorf("unknown task %q: set vars.task or config.task to build-extract-prompt or build-report-prompt", task)
+		return fmt.Errorf("unknown task %q: set vars.task or config.task to build-extract-prompt, build-report-prompt or assemble-extract", task)
 	}
 }
 
@@ -90,6 +100,78 @@ func runBuildExtractPrompt(ec evalContext) error {
 		{"role": "system", "content": handler.BuildExtractionPrompt(classes)},
 		{"role": "user", "content": handler.BuildExtractionUserPrompt(transcript)},
 	})
+}
+
+// assembledOutput is what the extraction scorer reads. It keeps the field
+// names the scorer and every fixture already use — the span summary lands in
+// quoted_text — so scoring the notes Go assembles needed no scorer change.
+type assembledOutput struct {
+	Students  []assembledStudent `json:"students"`
+	ClassName string             `json:"class_name"`
+	// UnknownClassName distinguishes the model declining to name a class from
+	// the model inventing one. Production's schema constrains class_name to an
+	// enum, so only the eval can see an invented name — and an empty ClassName
+	// alone reads the same either way.
+	UnknownClassName string                     `json:"unknown_class_name"`
+	Unattributed     []handler.UnattributedSpan `json:"unattributed"`
+	Misses           []handler.LabelMiss        `json:"misses"`
+}
+
+type assembledStudent struct {
+	Name       string `json:"name"`
+	ClassName  string `json:"class_name"`
+	QuotedText string `json:"quoted_text"`
+}
+
+// runAssembleExtract feeds the model's spans through the same AssembleNotes
+// production calls, so the eval grades the notes teachers get rather than the
+// raw model output. Reads vars.response (the model's JSON), vars.transcript
+// and vars.classes; makes no network call.
+func runAssembleExtract(ec evalContext) error {
+	var classes []handler.ClassGroup
+	if err := ec.unmarshalVar("classes", &classes); err != nil {
+		return err
+	}
+	var transcript string
+	if err := ec.unmarshalVar("transcript", &transcript); err != nil {
+		return err
+	}
+	if transcript == "" {
+		return fmt.Errorf("vars.transcript is required")
+	}
+	var resp handler.SegmentResponse
+	if err := ec.unmarshalVar("response", &resp); err != nil {
+		return err
+	}
+
+	assembled, err := handler.AssembleNotes(transcript, classes, resp)
+	if err != nil {
+		// A tiling reject fails the job in production, so it must fail the
+		// eval too. Non-zero exit; the transform turns it into a zero score.
+		return err
+	}
+
+	out := assembledOutput{
+		Students:         make([]assembledStudent, 0, len(assembled.Notes)),
+		ClassName:        assembled.ClassName,
+		UnknownClassName: assembled.UnknownClassName,
+		Unattributed:     assembled.Unattributed,
+		Misses:           assembled.Misses,
+	}
+	for _, n := range assembled.Notes {
+		out.Students = append(out.Students, assembledStudent{
+			Name:       n.Name,
+			ClassName:  n.ClassName,
+			QuotedText: n.Text,
+		})
+	}
+	if out.Unattributed == nil {
+		out.Unattributed = []handler.UnattributedSpan{}
+	}
+	if out.Misses == nil {
+		out.Misses = []handler.LabelMiss{}
+	}
+	return writeJSON(out)
 }
 
 // runBuildReportPrompt outputs a promptfoo messages array for report generation.

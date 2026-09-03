@@ -190,11 +190,9 @@ Tests override `serviceDeps` with stubs. All handler functions call through this
 
 The extraction model never sees a student name: shown the roster it re-cuts the transcript to fit
 the slots it has committed to. Go resolves instead. Three pure, table-tested modules carry the
-deterministic half. `voice_note_process.go` calls `AssembleNotes`; eval-cli will too once #108
-lands, so the eval grades production code rather than a copy. Until then the extraction eval is
-stale and `make eval` scores nothing meaningful on it: eval-cli now emits the segmentation prompt
-and numbered clauses, while `evals/promptfooconfig.extract.yaml` still pins the retired
-`students[]` response schema.
+deterministic half. `voice_note_process.go` calls `AssembleNotes`, and so does eval-cli — the
+extraction eval runs the model's spans back through the same function before scoring, so it grades
+production code rather than a copy. See "LLM Evaluation Harness" below and `evals/README.md`.
 
 The prompt (`prompts_version.go`) carries the class display names and nothing else. The user
 message is `BuildExtractionUserPrompt` — the clauses numbered 1..N — and span indices point into
@@ -530,6 +528,7 @@ backend/evals/
   promptfooconfig.yaml          promptfoo test suite
   baseline.json                 pinned baseline scores (committed to repo)
   scoring/extraction.js         custom JS precision/recall + voice-preservation scorer
+  scoring/assemble.js           extraction output transform — runs AssembleNotes over the spans
   scripts/diff-baseline.js      baseline diff reporter (Node, always exits 0)
   results/                      per-run result JSONs (git-ignored)
   fixtures/
@@ -568,6 +567,12 @@ cd backend && make eval-baseline   # runs eval then copies latest result to base
 ### How it works
 
 `make eval` builds `bin/eval-cli` (from `cmd/eval-cli/`), then invokes promptfoo. For each test case, promptfoo calls eval-cli as an **exec-prompt function** (passing a single JSON arg), and eval-cli returns a messages array — no LLM call. Promptfoo sends the messages to its native OpenAI provider (with structured output schema for extraction), scores the response, and writes results. Model selection lives entirely in `promptfooconfig.yaml`; `EVAL_MODEL` is no longer read.
+
+Extraction has one extra step. The model returns clause-index spans, not notes, so
+`evals/scoring/assemble.js` — wired as `defaultTest.options.transform` — runs the output back
+through `eval-cli assemble-extract`, which calls `AssembleNotes`. The assertions then score the
+notes Go assembles, in the field names the fixtures already use. Two extraction fixtures are red
+in the committed baseline on purpose; `evals/README.md` says which, and why.
 
 Debug a single case:
 ```bash

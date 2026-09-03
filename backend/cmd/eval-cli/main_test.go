@@ -91,6 +91,104 @@ func TestRunBuildExtractPrompt_MissingTranscript(t *testing.T) {
 	assert.Contains(t, err.Error(), "transcript")
 }
 
+// segmentResponse is what the model returns for the transcript below: the
+// header, one child span whose label the roster has and one it does not.
+// Clause 1 is "Grade 3A," and clause 2 "Monday." — the splitter cuts on the
+// comma too.
+const segmentResponse = `{"class_name":"Grade 3A","spans":[` +
+	`{"start":1,"end":2,"kind":"none","spoken_labels":[],"summary":""},` +
+	`{"start":3,"end":3,"kind":"child","spoken_labels":["Alice"],"summary":"Alice read well."},` +
+	`{"start":4,"end":4,"kind":"child","spoken_labels":["Polly"],"summary":"Polly was quiet."}]}`
+
+const segmentTranscript = "Grade 3A, Monday. Alice read well today. Polly was quiet."
+
+func TestRunAssembleExtract(t *testing.T) {
+	ec := evalContext{Vars: mustRawMap(map[string]interface{}{
+		"transcript": segmentTranscript,
+		"classes": []interface{}{map[string]interface{}{
+			"name":     "Grade 3A",
+			"students": []interface{}{map[string]interface{}{"name": "Alice Chen"}},
+		}},
+		"response": segmentResponse,
+	})}
+	out, err := captureOutput(func() error { return runAssembleExtract(ec) })
+	require.NoError(t, err)
+
+	var got struct {
+		Students []struct {
+			Name       string `json:"name"`
+			ClassName  string `json:"class_name"`
+			QuotedText string `json:"quoted_text"`
+		} `json:"students"`
+		Unattributed []struct {
+			Source string `json:"source"`
+		} `json:"unattributed"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(strings.TrimSpace(out)), &got))
+
+	// The scorer reads students[].quoted_text, so the span summary has to land
+	// there — that is what lets the fixtures grade the notes Go assembles.
+	require.Len(t, got.Students, 1)
+	assert.Equal(t, "Alice Chen", got.Students[0].Name)
+	assert.Equal(t, "Grade 3A", got.Students[0].ClassName)
+	assert.Equal(t, "Alice read well.", got.Students[0].QuotedText)
+
+	// A label matching nobody produces no note, and its clauses stay readable.
+	require.Len(t, got.Unattributed, 1)
+	assert.Contains(t, got.Unattributed[0].Source, "Polly was quiet.")
+}
+
+// The eval config drops production's class_name enum, so a class name the
+// roster does not have is possible here and nowhere else. multi_class asserts
+// on unknown_class_name to tell that apart from the model declining, both of
+// which leave class_name empty.
+func TestRunAssembleExtract_InventedClassName(t *testing.T) {
+	ec := evalContext{Vars: mustRawMap(map[string]interface{}{
+		"transcript": segmentTranscript,
+		"classes": []interface{}{map[string]interface{}{
+			"name":     "Grade 3A",
+			"students": []interface{}{map[string]interface{}{"name": "Alice"}},
+		}},
+		"response": strings.Replace(segmentResponse, "Grade 3A", "Grade 9Z", 1),
+	})}
+	out, err := captureOutput(func() error { return runAssembleExtract(ec) })
+	require.NoError(t, err)
+
+	var got struct {
+		Students         []struct{} `json:"students"`
+		ClassName        string     `json:"class_name"`
+		UnknownClassName string     `json:"unknown_class_name"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(strings.TrimSpace(out)), &got))
+	assert.Empty(t, got.Students)
+	assert.Equal(t, "", got.ClassName)
+	assert.Equal(t, "Grade 9Z", got.UnknownClassName)
+}
+
+// A tiling reject fails the job in production, so it must fail here too rather
+// than print a partial set of notes.
+func TestRunAssembleExtract_TilingReject(t *testing.T) {
+	ec := evalContext{Vars: mustRawMap(map[string]interface{}{
+		"transcript": segmentTranscript,
+		"classes":    []interface{}{},
+		"response":   `{"class_name":"","spans":[{"start":1,"end":1,"kind":"none","spoken_labels":[],"summary":""}]}`,
+	})}
+	_, err := captureOutput(func() error { return runAssembleExtract(ec) })
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "tile")
+}
+
+func TestRunAssembleExtract_MissingTranscript(t *testing.T) {
+	ec := evalContext{Vars: mustRawMap(map[string]interface{}{
+		"transcript": "",
+		"classes":    []interface{}{},
+		"response":   segmentResponse,
+	})}
+	_, err := captureOutput(func() error { return runAssembleExtract(ec) })
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "transcript")
+}
+
 func TestRunBuildReportPrompt(t *testing.T) {
 	ec := evalContext{Vars: mustRawMap(map[string]interface{}{
 		"student_name":        "Alice",

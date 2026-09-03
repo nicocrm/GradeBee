@@ -23,9 +23,61 @@ Previously the harness used `exec:` providers where eval-cli built the prompt **
    bin/eval-cli '{"vars":{...},"config":{"task":"build-report-prompt"}}'
    ```
 3. eval-cli outputs a JSON messages array (no LLM call): `[{"role":"system","content":"..."},{"role":"user","content":"..."}]`
-4. promptfoo sends the messages to the native provider (with structured output schema for extraction) and scores the response against the assertions.
-5. Results from both configs are merged into a single combined JSON.
-6. `make eval` prints a diff vs the pinned baseline.
+4. promptfoo sends the messages to the native provider (with structured output schema for extraction).
+5. Extraction only: `scoring/assemble.js` runs the model's output back through eval-cli (`assemble-extract`) before any assertion sees it — see "What the extraction eval grades".
+6. promptfoo scores the response against the assertions.
+7. Results from both configs are merged into a single combined JSON.
+8. `make eval` prints a diff vs the pinned baseline.
+
+## What the extraction eval grades
+
+The extraction model returns no student names. It returns clause-index spans
+plus a class name, and Go turns those into notes (#99). Scoring the raw spans
+would grade something no teacher ever sees, and would need a second clause
+splitter in JS to do it.
+
+So the extraction config wires `scoring/assemble.js` as
+`defaultTest.options.transform`. promptfoo applies it to the provider's output
+before assertions run; it spawns `bin/eval-cli assemble-extract`, which calls
+the same `AssembleNotes` production calls, and returns
+`{students:[{name, class_name, quoted_text}], class_name, unattributed, misses}`.
+Each span's summary lands in `quoted_text`, which is the field the scorer and
+every fixture already read — so the fixtures grade the notes a teacher gets,
+against the production code path, with no copy of it in JS.
+
+Consequences for fixture authors:
+
+- `quoted_text` is the model's **summary** of a span, not a verbatim quote. The
+  prompt asks for the teacher's vocabulary with the filler cleaned up. In
+  practice the canonical model keeps whole spoken phrases intact and strips
+  only the false starts — `voice_preservation` pins two of them 4/4 — so
+  measure before loosening a required phrase. Loosen to a distinctive content
+  word when a run actually rewords it, not on the theory that it might.
+- A recording is about **exactly one class**. A transcript with no spoken class
+  header, or one naming two classes, produces no notes at all — by design.
+  Every fixture transcript needs a header matching one entry in its
+  `classes.json`.
+- A label matching no roster entry produces no note. Its text is still in
+  `unattributed`, which the scorer does not read: forbidden content sitting
+  there is the correct outcome, not a leak.
+- A span tiling violation exits eval-cli non-zero; the transform then returns
+  an empty student list with `assemble_error`, so the case scores zero instead
+  of dropping out of the results table.
+
+## Known-red fixtures
+
+Some fixtures are red in the committed baseline on purpose. A red row for one of
+these is not a new regression — read the diff table with this list in hand.
+
+Two kinds, and the difference matters. An **accepted limitation** is a trade
+someone decided to make; it stays red until the design changes. An **open
+defect** is a bug the harness caught and nobody has fixed yet; it stays red
+until someone fixes it.
+
+| Fixture | Kind | Why it is red | Goes green when |
+| --- | --- | --- | --- |
+| `shared_clause` | accepted limitation | One clause, two children, a different observation about each. A clause is the smallest unit a span can hold and a span carries one summary, so one of the two children gets the other's observation or nothing (real note 655). The transcript joins the two in one clause deliberately: note 655's own comma-separated wording splits correctly 2 of 4 runs, and a coin-flip row is no regression signal. That 2/4 is worth knowing on its own — the merge is intermittent, not constant. | A per-span summarisation call lands. |
+| `group_observation` | open defect (task #110) | `"The whole class really struggled with the fractions worksheet today, I think we need to revisit that next week"` is comma-joined to a thinking-aloud clause, which the prompt classifies as `none`. The canonical model marks the whole run `none` and folds it into the class header, 4/4, so the observation reaches no note at all. Measured: drop the thinking-aloud clause and it comes back `group` 3/3; keep it but move the sentence to the end of the transcript and it is `group` 3/3. So the trigger is a group observation mixed with thinking aloud **and** adjacent to the header. | The segmentation prompt stops letting a `none` clause pull the observation it is joined to into the header span. |
 
 ## Running
 
@@ -66,7 +118,7 @@ Each config runs a **canonical** provider plus any number of **comparison** prov
 
 The canonical provider must grade the model **production actually runs** — `defaultModels()` in `backend/llm_provider.go`, which resolves to `mistral-medium-2508` for both extraction and report generation. `diff-baseline.js` counts regressions on canonical rows alone, so a canonical provider pinned to anything else means the regression signal describes a model we do not ship. That is exactly what happened before: the extraction config graded `mistral-small-2603` for its whole life while production ran `mistral-medium-2508`.
 
-`TestEvalConfigsTrackProductionModels` in `backend/evals_config_test.go` parses both configs and fails if a canonical provider's `id` drifts from `defaultModels()`. It needs no API key and runs under `make test`. It checks the Mistral defaults only — the configs hardcode `mistral:`-prefixed provider ids, so a deployment overriding `LLM_PROVIDER` or `LLM_MODEL_*` is outside what this guard can see. **If you deliberately change a production model, update `defaultModels()` and the config together, then regenerate the baseline.**
+`TestEvalConfigsTrackProductionModels` in `backend/evals_config_test.go` parses both configs and fails if a canonical provider's `id` drifts from `defaultModels()`. `TestExtractConfigSchemaMatchesProduction`, beside it, does the same for the extraction response schema against `extractResponseSchema()` — that pair drifted through the whole of #99, leaving the model asked to segment and structurally forced to answer in the retired `students[]` shape. It needs no API key and runs under `make test`. It checks the Mistral defaults only — the configs hardcode `mistral:`-prefixed provider ids, so a deployment overriding `LLM_PROVIDER` or `LLM_MODEL_*` is outside what this guard can see. **If you deliberately change a production model, update `defaultModels()` and the config together, then regenerate the baseline.**
 
 Comparison providers are unconstrained — they exist to measure other models and the test ignores them. `gradebee-extract-small` (`mistral-small-2603`) is kept as the weaker model: a prompt change that outgrows it shows up as a widening gap against the canonical row before it costs anything in production. Note that extraction providers pin no `temperature`, so comparison scores move a little between runs; treat small deltas on non-canonical rows as noise.
 
@@ -77,7 +129,10 @@ cd backend
 make bin/eval-cli
 
 # Build extraction prompt (exec-prompt mode)
-./bin/eval-cli '{"vars":{"transcript":"Alice read well today.","classes":[{"name":"Grade 3A","students":["Alice Chen"]}]},"config":{"task":"build-extract-prompt"}}'
+./bin/eval-cli '{"vars":{"transcript":"Grade 3A, Monday. Alice read well today.","classes":[{"name":"Grade 3A","students":[{"name":"Alice Chen"}]}]},"config":{"task":"build-extract-prompt"}}'
+
+# Assemble notes from a model response (what scoring/assemble.js runs)
+./bin/eval-cli '{"vars":{"transcript":"Grade 3A, Monday. Alice read well today.","classes":[{"name":"Grade 3A","students":[{"name":"Alice Chen"}]}],"response":"{\"class_name\":\"Grade 3A\",\"spans\":[{\"start\":1,\"end\":2,\"kind\":\"none\",\"spoken_labels\":[],\"summary\":\"\"},{\"start\":3,\"end\":3,\"kind\":\"child\",\"spoken_labels\":[\"Alice\"],\"summary\":\"Alice read well.\"}]}"},"config":{"task":"assemble-extract"}}'
 
 # Build report prompt (exec-prompt mode)
 ./bin/eval-cli '{"vars":{"student_name":"Alice Chen","class_name":"Grade 3A","notes":[{"date":"2026-01-15","summary":"Strong reading fluency."}],"report_instructions":"Two sections: Progress, Behaviour. Each with a Comment paragraph.","instructions":""},"config":{"task":"build-report-prompt"}}'
@@ -91,12 +146,13 @@ evals/
   promptfooconfig.report.yaml     report test suite
   baseline.json                   pinned baseline scores (committed, merged extract+report)
   scoring/extraction.js           custom JS scorer (precision/recall + voice preservation + attribution)
+  scoring/assemble.js             extraction output transform — runs AssembleNotes over the model's spans
   scripts/diff-baseline.js        baseline diff reporter (Node, always exits 0)
   scripts/merge-results.js        merges multiple result JSONs into one
   results/                        per-run result JSONs (git-ignored)
   fixtures/
     extraction/<case>/
-      transcript.txt              teacher audio transcript (synthetic)
+      transcript.txt              teacher audio transcript (synthetic), opening with a spoken class header
       classes.json                class roster
       expected.json               expected students + must_quote_substrings / must_not_quote_substrings
     reports/<case>/
@@ -132,7 +188,7 @@ check fails the test instead.
 
 ## Adding a fixture
 
-1. Create `fixtures/{extraction,reports}/<descriptive-name>/` with the required files — for a report fixture that means `report_instructions.txt` (the Level's report specification; the hard gate forbids generating from an empty one).
+1. Create `fixtures/{extraction,reports}/<descriptive-name>/` with the required files — for a report fixture that means `report_instructions.txt` (the Level's report specification; the hard gate forbids generating from an empty one); for an extraction fixture, a transcript opening with a spoken class header (see "What the extraction eval grades").
 2. Add a test entry in the appropriate config file (`promptfooconfig.extract.yaml` or `promptfooconfig.report.yaml`) with flat `vars` (no `body` wrapper).
 3. Run `make eval` (or `make eval-extract` / `make eval-report`) to see the score; if correct, run `make eval-baseline`.
 
