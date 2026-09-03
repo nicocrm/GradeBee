@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -221,6 +222,9 @@ func TestMatchStudent_Gates(t *testing.T) {
 		{"He", students("Hector"), ""},
 		{"everyone", students("Evelyn"), ""},
 		{"one", students("Oney", "Arthur 1"), ""},
+		// A stranded "and" (a fused label with a name dropped) would
+		// otherwise reach Ana at 0.67 (#112).
+		{"and", students("Ana", "Bram"), ""},
 		// Case and accents never matter.
 		{"levi", students("Lévi"), "Lévi"},
 		{"LÉVI", students("Lévi"), "Lévi"},
@@ -343,30 +347,37 @@ func TestMatchStudent_NumberedNames(t *testing.T) {
 	})
 }
 
-func TestSplitLabel(t *testing.T) {
-	cases := map[string][]string{
-		"Zachariah and Anaya":       {"Zachariah", "Anaya"},
-		"Jules, Eleanor and Elise":  {"Jules", "Eleanor", "Elise"},
-		"Jules, Eleanor, and Elise": {"Jules", "Eleanor", "Elise"},
-		"Emma, and, Ryan":           {"Emma", "Ryan"},
-		"Andy and":                  {"Andy"},
-		"and":                       nil, // nothing left: names nobody
-		"Vasco AND Matthew":         {"Vasco", "Matthew"},
-		"Jean-Luc et Marie":         {"Jean-Luc et Marie"}, // English joiners only
-		"Emma & Ryan":               {"Emma", "Ryan"},
-		"Emma/Ryan":                 {"Emma", "Ryan"},
-		"Liam; Luca":                {"Liam", "Luca"},
-		"Anna Rose Lee":             {"Anna Rose Lee"},
-		"Anne-and-Marie":            {"Anne-and-Marie"},
-		"Andrea":                    {"Andrea"},
-		"Colette":                   {"Colette"},
-		"Arthur 2":                  {"Arthur 2"},
-		"Emma":                      {"Emma"},
-		"":                          nil,
-		" , ":                       nil,
+// fusedJoiner matches the ways a teacher joins two names in one breath —
+// the same shapes the removed splitLabel used to repair. Production code
+// no longer cares; the live guard (TestExtractTwoChildrenOneObservationLabelsEach,
+// llm_live_test.go) still needs to tell a fused label from a clean one to
+// catch the model regressing (#112).
+var fusedJoiner = regexp.MustCompile(`(?i)[,;&/]|\s+and\s+`)
+
+// looksFused reports whether label sounds like it names more than one child.
+func looksFused(label string) bool {
+	return fusedJoiner.MatchString(label)
+}
+
+// TestLooksFused pins the guard itself: a typo in fusedJoiner would leave
+// TestExtractTwoChildrenOneObservationLabelsEach silently green forever,
+// since only a live model run exercises it.
+func TestLooksFused(t *testing.T) {
+	cases := map[string]bool{
+		"Zachariah and Anaya":      true,
+		"Jules, Eleanor and Elise": true,
+		"Emma & Ryan":              true,
+		"Emma/Ryan":                true,
+		"Liam; Luca":               true,
+		"Vasco AND Matthew":        true, // case-insensitive
+		"Anne-and-Marie":           false,
+		"Andrea":                   false,
+		"Anna Rose Lee":            false,
+		"Emma":                     false,
+		"Andy and":                 false, // a stranded conjunction, not a fused label
 	}
-	for in, want := range cases {
-		assert.Equal(t, want, splitLabel(in), "%q", in)
+	for label, want := range cases {
+		assert.Equal(t, want, looksFused(label), "%q", label)
 	}
 }
 

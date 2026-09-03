@@ -32,18 +32,10 @@
 // `Arthur 2` alone. A bare `Arthur` carries no number, meets both, and
 // ties. A child whose name carries no number is never gated.
 //
-// A label naming several children at once (`Zachariah and Anaya`, note
-// 618) is split on `and` and punctuation by splitLabel before any of this,
-// and each part resolves on its own; the span then belongs to every child
-// named.
-// The prompt asks for one label per child, and the model fuses them
-// anyway in a steady share of runs (research round 11).
-//
 // Breaking a tie by roster order would reproduce the root cause inside Go.
 package handler
 
 import (
-	"regexp"
 	"slices"
 	"strings"
 	"unicode"
@@ -63,7 +55,10 @@ const (
 // labelStopList holds folded labels that are never a name: the pronouns the
 // teacher falls back on when a child is not named, plus the collective
 // referents a mislabelled group span might carry. Checked before any fuzzy
-// score — `They` scores 0.75 against `Théo` with a 0.75 margin.
+// score — `They` scores 0.75 against `Théo` with a 0.75 margin. `and` is
+// here too: a label naming nobody but the conjunction (`Zachariah and
+// Anaya` with a name dropped) would otherwise reach `Ana`, `Andy`, `Andre`
+// and the rest of that name family at 0.67-0.86 (#112).
 var labelStopList = map[string]bool{
 	"he": true, "him": true, "his": true,
 	"she": true, "her": true, "hers": true,
@@ -75,33 +70,7 @@ var labelStopList = map[string]bool{
 	"this": true, "that": true, "these": true, "those": true,
 	"who": true, "someone": true, "somebody": true, "anyone": true, "anybody": true,
 	"everyone": true, "everybody": true, "nobody": true, "noone": true,
-	"all": true, "both": true, "one": true,
-}
-
-// labelJoiners are the ways a teacher joins two names in one breath. The
-// transcripts are English, so `and` only. The word joiner needs whitespace
-// on both sides, so `Andrea` and `Anne-and-Marie` stay whole; a comma may
-// carry the conjunction with it (`Jules, Eleanor, and Elise`).
-var labelJoiners = regexp.MustCompile(`(?i)\s*[,;&/]\s*(?:and\s+)?|\s+and\s+`)
-
-// strandedJoiner is a conjunction left at either end of a part: `Emma,
-// and, Ryan`, `Andy and`.
-var strandedJoiner = regexp.MustCompile(`(?i)^and(?:\s+|$)|\s+and$`)
-
-// splitLabel cuts a spoken label naming several children into one label
-// per child, in spoken order; a stranded conjunction is dropped. A label
-// naming one child comes back as is. A label that is nothing but joiners
-// (`and`) names nobody and comes back empty: matched whole, `and` would
-// reach `Ana`.
-func splitLabel(label string) []string {
-	var out []string
-	for _, part := range labelJoiners.Split(label, -1) {
-		part = strings.TrimSpace(strandedJoiner.ReplaceAllString(strings.TrimSpace(part), ""))
-		if part != "" {
-			out = append(out, part)
-		}
-	}
-	return out
+	"all": true, "both": true, "one": true, "and": true,
 }
 
 // MatchStudent resolves label against the students of one class and returns

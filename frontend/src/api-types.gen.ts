@@ -271,13 +271,6 @@ against both stems and would tie on the margin; gated, it meets
 `Arthur 2` alone. A bare `Arthur` carries no number, meets both, and
 ties. A child whose name carries no number is never gated.
 
-A label naming several children at once (`Zachariah and Anaya`, note
-618) is split on `and` and punctuation by splitLabel before any of this,
-and each part resolves on its own; the span then belongs to every child
-named.
-The prompt asks for one label per child, and the model fuses them
-anyway in a steady share of runs (research round 11).
-
 Breaking a tie by roster order would reproduce the root cause inside Go.
 */
 

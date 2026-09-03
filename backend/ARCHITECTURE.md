@@ -207,10 +207,9 @@ prompt now ends the header span at the header, and a run mixing an observation w
 keeps the observation's kind. `TestExtractGroupObservationJoinedToThinkingAloud` pins it live.
 The label rule shows the output shape for a shared observation, `["Zachariah", "Anaya"]`, one name
 per item (#110): told only "verbatim as spoken", the model returned the phrase as one label about
-half the time. `splitLabel` repairs such a label before resolution and before counting (#111), so
-no note or counter changes; the prompt fix makes labels arrive in the shape the schema means and
-leaves the regex a backstop. `TestExtractTwoChildrenOneObservationLabelsEach` reads the raw labels
-because that shape is visible nowhere else.
+half the time. Go resolves each spoken label as is (#112) — a fused label resolves nobody and
+goes to `unattributed`, never a repair. `TestExtractTwoChildrenOneObservationLabelsEach` reads the
+raw labels because that shape is visible nowhere else, and goes red if the model fuses again.
 
 The decline is unconditional: a transcript with no spoken class header comes back `""` however many
 classes are on the roster, and no note is created. Teachers state the class when they record, so
@@ -224,8 +223,8 @@ and unattributed spans keep the right text with the right boundaries.
 | Function | File | Rule |
 |----------|------|------|
 | `SplitClauses` | `clauses.go` | Split on `.!?` + whitespace, `.!?` + capital (`Billy.Elise`), `,`/`;` + whitespace. A bare comma or `17.45` never splits. Over-splitting is harmless; under-splitting is fatal. |
-| `MatchStudent` | `match.go` | One class's students only. Fold (lowercase, strip accents, drop punctuation/space). Exact name-or-alias wins outright; two students sharing the string → nobody. Then the pronoun stop-list: a typed string may be `He`, a derived part (`Wei He`) must not be. Else exact on a whitespace-separated part of a name (`Emma` reaches `Emma Torres`, #111) — after the typed strings, so an alias never ties with another child's first name; a shared first name is still a tie. Else normalised Levenshtein over names, parts of three runes or more, and aliases: score ≥ 0.50, margin ≥ 0.15 over the best *other* student. A child whose name carries a number scores 0 against a label carrying a different one, so `Artur 2` meets `Arthur 2` alone. |
-| `AssembleNotes` | `spans.go` | Reject (never repair) spans that do not tile clauses 1..N or carry an unknown `kind` (`ErrSpanTiling`). Pin `class_name`; empty or unknown → zero notes, every span unattributed, every label a miss; an unknown class is reported back separately from a decline. `child` spans resolve each label on its own, a label naming several children (`Zachariah and Anaya`) split on `and` and punctuation first; `group` spans fan out to students resolved from `child` spans in this transcript, nobody else; `none` spans are discarded. Note text is the span summary, falling back to the verbatim clauses. Returns notes keyed by canonical `(name, class_name)`, unattributed spans with their source text, and every label that resolved to nobody. |
+| `MatchStudent` | `match.go` | One class's students only. Fold (lowercase, strip accents, drop punctuation/space). Exact name-or-alias wins outright; two students sharing the string → nobody. Then the stop-list: a typed string may be `He`, a derived part (`Wei He`) must not be; `and` is in it too, so a fused label stripped to its conjunction (`Zachariah and Anaya` with a name dropped) reaches nobody rather than `Ana` (#112). Else exact on a whitespace-separated part of a name (`Emma` reaches `Emma Torres`, #111) — after the typed strings, so an alias never ties with another child's first name; a shared first name is still a tie. Else normalised Levenshtein over names, parts of three runes or more, and aliases: score ≥ 0.50, margin ≥ 0.15 over the best *other* student. A child whose name carries a number scores 0 against a label carrying a different one, so `Artur 2` meets `Arthur 2` alone. |
+| `AssembleNotes` | `spans.go` | Reject (never repair) spans that do not tile clauses 1..N or carry an unknown `kind` (`ErrSpanTiling`). Pin `class_name`; empty or unknown → zero notes, every span unattributed, every label a miss; an unknown class is reported back separately from a decline. `child` spans resolve each label on its own, as spoken — a fused label (`Zachariah and Anaya`) resolves nobody and is a miss; `group` spans fan out to students resolved from `child` spans in this transcript, nobody else; `none` spans are discarded. Note text is the span summary, falling back to the verbatim clauses. Returns notes keyed by canonical `(name, class_name)`, unattributed spans with their source text, and every label that resolved to nobody. |
 
 
 ## External Services
@@ -493,7 +492,7 @@ assert the envelope, skip the content. Three rules, each with an in-tree templat
    decoded field compared, including the regenerated body vs. the stored one.
 2. **Make expected values distinct.** Three buckets that each expect length 1 stay green
    when two of them are swapped. Size fixtures so no two counters can be confused —
-   `TestProcessJob_CompletionRecordCountsMentions` (7/2/1/4/3) and `TestJobList_GroupsByStatus`
+   `TestProcessJob_CompletionRecordCountsMentions` (6/2/4/3) and `TestJobList_GroupsByStatus`
    (3/2/1, asserted by upload id) — and prefer asserting the members over the count.
 3. **Pair every absence with a presence.** `NotContains` on a string the code never emits,
    or on a fixture that never held the key (`sentry_test.go`'s `Cookie`), proves nothing.

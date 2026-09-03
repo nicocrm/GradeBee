@@ -218,35 +218,26 @@ func TestAssembleNotes_MultiLabelSpan(t *testing.T) {
 	assert.Empty(t, got.Unattributed)
 }
 
-// TestAssembleNotes_FusedLabelReachesEveryChildNamed: the prompt asks for
-// one label per child, and the model still returns `Zachariah and Anaya`
-// as one label in a steady share of runs (note 618). The label is split
-// before matching, so the span reaches both children instead of nobody;
-// a part that resolves nobody is a miss on its own.
-func TestAssembleNotes_FusedLabelReachesEveryChildNamed(t *testing.T) {
-	transcript := "Zachariah and Anaya did very well. Jules, Eleanor and Elise were a little tired. Zakaria and Polly sang."
+// TestAssembleNotes_FusedLabelResolvesNobody: a label naming two children at
+// once (`Zachariah and Anaya`) is resolved as spoken, never repaired (#112).
+// It matches no student, so it is one miss carrying the whole label and its
+// span is unattributed — never split into two mentions, and never the wrong
+// child.
+func TestAssembleNotes_FusedLabelResolvesNobody(t *testing.T) {
+	transcript := "Zachariah and Anaya did very well."
 	classes := []ClassGroup{{Name: "Pam & Paul · Wed · 14.10", Students: rosterPPWed1410}}
 	resp := SegmentResponse{
 		ClassName: "Pam & Paul · Wed · 14.10",
 		Spans: []Span{
 			{Start: 1, End: 1, Kind: SpanChild, SpokenLabels: []string{"Zachariah and Anaya"}, Summary: "Did very well."},
-			{Start: 2, End: 3, Kind: SpanChild, SpokenLabels: []string{"Jules, Eleanor, and Elise"}, Summary: "A little tired."},
-			{Start: 4, End: 4, Kind: SpanChild, SpokenLabels: []string{"Zakaria & Polly", "and"}, Summary: "Sang."},
 		},
 	}
 	got, err := AssembleNotes(transcript, classes, resp)
 	require.NoError(t, err)
-	assert.Equal(t, []AssembledNote{
-		{Name: "Zakaria", ClassName: "Pam & Paul · Wed · 14.10", Text: "Did very well.\n\nSang."},
-		{Name: "Inaya", ClassName: "Pam & Paul · Wed · 14.10", Text: "Did very well."},
-		{Name: "Jules", ClassName: "Pam & Paul · Wed · 14.10", Text: "A little tired."},
-		{Name: "Eléonore", ClassName: "Pam & Paul · Wed · 14.10", Text: "A little tired."},
-		{Name: "Elise", ClassName: "Pam & Paul · Wed · 14.10", Text: "A little tired."},
-	}, got.Notes)
-	// A label that is nothing but a joiner names nobody and is a miss as
-	// itself, never matched whole: `and` would reach `Ana`.
-	assert.Equal(t, []LabelMiss{{Label: "Polly", Start: 4, End: 4}, {Label: "and", Start: 4, End: 4}}, got.Misses)
-	assert.Empty(t, got.Unattributed)
+	assert.Empty(t, got.Notes)
+	assert.Equal(t, []LabelMiss{{Label: "Zachariah and Anaya", Start: 1, End: 1}}, got.Misses)
+	require.Len(t, got.Unattributed, 1)
+	assert.Equal(t, "Zachariah and Anaya did very well.", got.Unattributed[0].Source)
 }
 
 // TestAssembleNotes_SummaryFallsBackToSource: a blank summary is replaced

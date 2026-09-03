@@ -51,9 +51,9 @@ const PromptVersionTag = "4"
 // 12/12, with span boundaries unchanged across the 22-transcript corpus
 // (research round 11). The rule sits last on purpose: placed before the
 // label rules it padded labels with pronouns on note 671 in 4/6 runs
-// against 0/6 before and 1/6 here. #111 has since made splitLabel split a
-// fused label and the matcher skip a padded pronoun, so that cost is mostly
-// recovered; the placement stays because it is the arm measured green.
+// against 0/6 before and 1/6 here. #111 has since made the matcher skip a
+// padded pronoun, so some of that cost is recovered; the placement stays
+// because it is the arm measured green.
 // One shift in the pinned baseline, not a defect: on pronoun_run_bleed two
 // pronoun-only spans merge under "Polly", which the pronoun-continuation
 // rule asks for and changes no note. Two others showed in one regeneration
@@ -70,10 +70,8 @@ const PromptVersionTag = "4"
 // only "verbatim as spoken", the model copied the phrase as one label in
 // 13/24 probe runs on the three corpus notes that name two children at
 // once; shown the shape, 0/24, with the corpus boundaries unchanged
-// (round 11, arm D). splitLabel (spans.go, voice_note_process.go) has
-// repaired a fused label since #111, notes and counters alike, so this
-// changes no note today: it makes labels arrive in the shape the schema
-// means, and leaves the regex a backstop rather than the mechanism.
+// (round 11, arm D). Go resolves each spoken label as is (#112): a fused
+// label resolves nobody rather than being repaired.
 // TestExtractTwoChildrenOneObservationLabelsEach pins it: red 6/6 on the
 // old wording, green 6/6 on this one.
 const extractionPromptPrefix = `You are segmenting a teacher's spoken notes about their

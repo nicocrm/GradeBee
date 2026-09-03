@@ -8,8 +8,8 @@
 // teacher would actually see. Asserting on the raw segmentation instead would
 // grade a shape no teacher reads (#99). One exception, and it says why:
 // TestExtractTwoChildrenOneObservationLabelsEach reads the raw labels, because
-// Go repairs a fused label before any note exists and the prompt's own output
-// is visible nowhere else.
+// a fused label resolves nobody and the prompt's own output is visible
+// nowhere else.
 package handler
 
 import (
@@ -288,11 +288,10 @@ func TestExtractGroupObservationJoinedToThinkingAloud(t *testing.T) {
 // TestExtractTwoChildrenOneObservationLabelsEach pins the label shape for
 // "Zachariah and Anaya did very well": two items, one name each. The model
 // returned the phrase as one label in 13/24 probe runs before the rule showed
-// the array form (research round 11, arm D). splitLabel repairs a fused label
-// since #111, notes and counters alike, so the notes alone cannot tell the
-// prompt from the backstop — this is the one test that reads the raw labels.
-// It pins that the shape the schema means is the shape that arrives, so the
-// regex stays a backstop rather than the mechanism.
+// the array form (research round 11, arm D). Go resolves each spoken label
+// as is (#112): a fused label resolves nobody, so the notes alone cannot
+// tell the prompt from a defect — this is the one test that reads the raw
+// labels and goes red if the model fuses again.
 func TestExtractTwoChildrenOneObservationLabelsEach(t *testing.T) {
 	// Note 618's shape with synthetic names: two children share one observation
 	// twice, three children share another, and a drill list trails.
@@ -307,7 +306,7 @@ func TestExtractTwoChildrenOneObservationLabelsEach(t *testing.T) {
 	require.NoError(t, err)
 	for _, sp := range resp.Spans {
 		for _, label := range sp.SpokenLabels {
-			assert.Less(t, len(splitLabel(label)), 2,
+			assert.False(t, looksFused(label),
 				"label %q fuses two names; spans: %+v", label, resp.Spans)
 		}
 	}

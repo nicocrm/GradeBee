@@ -240,17 +240,14 @@ func processVoiceNote(ctx context.Context, d deps, q JobQueue[VoiceNoteJob], key
 	// denominator and a per-reason breakdown. note_count alone yields notes-created,
 	// never mentions-extracted.
 	//
-	// A mention is one child named on one child span — the unit AssembleNotes resolves
+	// A mention is one spoken label on one child span — the unit AssembleNotes resolves
 	// and the unit that can be dropped, so the numerator below stays a subset of this.
-	// A fused label ("Zachariah and Anaya") is split the same way it is there, so it
-	// counts once per child. Group spans that fanned out to nobody are counted
-	// separately, as spans: they carry no label and were never a mention.
+	// Group spans that fanned out to nobody are counted separately, as spans: they
+	// carry no label and were never a mention.
 	mentionsTotal := 0
 	for _, sp := range segmentation.Spans {
 		if sp.Kind == SpanChild {
-			for _, label := range sp.SpokenLabels {
-				mentionsTotal += max(1, len(splitLabel(label))) // a joiner-only label is one miss
-			}
+			mentionsTotal += len(sp.SpokenLabels)
 		}
 	}
 
