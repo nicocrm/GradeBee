@@ -177,6 +177,20 @@ Tests override `serviceDeps` with stubs. All handler functions call through this
 | `ReportGenerator` | `report_generator.go` | `llmReportGenerator` | LLM-based report card generation (HTML output) |
 | `JobQueue[VoiceNoteJob]` | `job_queue.go` | `MemQueue[VoiceNoteJob]` | Generic in-memory async job queue with worker pool |
 
+### Span resolution (#99, pure modules — not yet wired)
+
+The extraction model never sees a student name: shown the roster it re-cuts the transcript to fit
+the slots it has committed to. Go resolves instead. Three pure, table-tested modules carry the
+deterministic half; `voice_note_process.go` and eval-cli will both call `AssembleNotes`, so the eval
+grades production code.
+
+| Function | File | Rule |
+|----------|------|------|
+| `SplitClauses` | `clauses.go` | Split on `.!?` + whitespace, `.!?` + capital (`Billy.Elise`), `,`/`;` + whitespace. A bare comma or `17.45` never splits. Over-splitting is harmless; under-splitting is fatal. |
+| `MatchStudent` | `match.go` | One class's students only. Fold (lowercase, strip accents, drop punctuation/space). Exact name-or-alias wins outright; two students sharing the string → nobody. Else normalised Levenshtein over names + aliases: not a pronoun (stop-list), score ≥ 0.50, margin ≥ 0.15 over the best *other* student. |
+| `AssembleNotes` | `spans.go` | Reject (never repair) spans that do not tile clauses 1..N or carry an unknown `kind` (`ErrSpanTiling`). Pin `class_name`; empty or unknown → zero notes, every span unattributed, every label a miss; an unknown class is reported back separately from a decline. `child` spans resolve each label on its own; `group` spans fan out to students resolved from `child` spans in this transcript, nobody else; `none` spans are discarded. Note text is the span summary, falling back to the verbatim clauses. Returns notes keyed by canonical `(name, class_name)`, unattributed spans with their source text, and every label that resolved to nobody. |
+
+
 ## External Services
 
 ### Google OAuth (`google.go`)
@@ -300,6 +314,9 @@ The `clerkAuthMiddleware` enforces that every `/api/` request carries an active 
 | `voice_note_drive_import.go` | POST /voice-notes/drive-import — download from Drive → disk + voice_notes table + dispatch job |
 | `google_token.go` | GET /google-token — return user's Google OAuth access token |
 | `extract.go` | `Extractor` interface + `llmExtractor` for transcript analysis |
+| `clauses.go` | `SplitClauses` — transcript → clauses the extraction model indexes spans into (#99) |
+| `match.go` | `MatchStudent` — spoken label → canonical student within one class: exact name/alias, else Levenshtein with stop-list, threshold and margin (#99) |
+| `spans.go` | `Span`/`SegmentResponse` types, tiling validation, `AssembleNotes` — spans + class → per-student notes, unattributed spans, label misses (#99) |
 | `notes.go` | `NoteCreator` interface + `dbNoteCreator`, note CRUD handlers |
 | `report_generator.go` | `ReportGenerator` interface + `llmReportGenerator` (HTML output) |
 | `report_prompt.go` | GPT prompt construction for report generation. `BuildReportPrompt` emits ranked sections: the Level's Report Specification (mandatory), then ad-hoc instructions (override the Specification where they conflict), then Student Notes (sole source of facts), then feedback. Requests HTML output. |

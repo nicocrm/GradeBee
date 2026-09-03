@@ -252,6 +252,29 @@ loggerFromContext / loggerFromRequest.
 
 
 //////////
+// source: match.go
+/*
+match.go resolves a spoken label ("Levy", "Zachariah", "As a Xand") to a
+student in one class (#99). The extraction model never sees the roster —
+shown student names it re-cuts the transcript to fit them — so this is the
+only place a name is resolved, and it is pure so eval-cli can feed it
+fixture rosters.
+
+Resolution order, measured in research rounds 5 and 9:
+
+ 1. Exact match on a folded name or alias wins outright: no threshold, no
+    margin. An alias is the teacher's override and must never lose to a
+    heuristic. Two students sharing the string is a real tie → nobody.
+ 2. Otherwise normalised Levenshtein over every name and alias, a
+    student's score being the best of their strings. Three gates, all
+    required: the label is not a pronoun; score >= 0.50; margin >= 0.15
+    over the best score of a *different* student.
+
+Breaking a tie by roster order would reproduce the root cause inside Go.
+*/
+
+
+//////////
 // source: notes.go
 /*
 notes.go implements the NoteCreator interface backed by SQLite and provides
@@ -682,6 +705,110 @@ sentry.go initialises the Sentry SDK and exposes helpers for capturing
 non-error feedback events from server-side code paths.
 */
 
+
+//////////
+// source: spans.go
+/*
+spans.go turns the extraction model's segmentation of a transcript into
+per-student notes (#99). The model returns clause-index spans and a class
+name, never a student name; AssembleNotes validates the spans, pins the
+class, resolves each spoken label with MatchStudent and fans group spans
+out. It is pure: voice_note_process.go and eval-cli both call it, so the
+eval grades production, not a copy.
+*/
+
+/**
+ * SpanKind says what a span is about.
+ */
+export type SpanKind = string;
+/**
+ * SpanChild is the teacher talking about one child — or several at
+ * once, when SpokenLabels holds more than one name.
+ */
+export const SpanChild: SpanKind = "child";
+/**
+ * SpanGroup is a statement about the class as a whole.
+ */
+export const SpanGroup: SpanKind = "group";
+/**
+ * SpanNone is not an observation: the header, a greeting, taught
+ * vocabulary. Discarded.
+ */
+export const SpanNone: SpanKind = "none";
+/**
+ * Span is one contiguous run of clauses, Start..End inclusive, 1-based
+ * into SplitClauses(transcript).
+ */
+export interface Span {
+  start: number /* int */;
+  end: number /* int */;
+  kind: SpanKind;
+  spoken_labels: string[];
+  summary: string;
+}
+/**
+ * SegmentResponse is the extraction model's structured output: spans that
+ * tile the clauses of the transcript, and the class the recording is about.
+ * ClassName is "" when the model could not identify exactly one class.
+ */
+export interface SegmentResponse {
+  spans: Span[];
+  class_name: string;
+}
+/**
+ * AssembledNote is the note text for one student, keyed by canonical roster
+ * name and class name. The processor resolves the student ID with the
+ * existing exact FindByNameAndClass.
+ */
+export interface AssembledNote {
+  name: string;
+  class_name: string;
+  /**
+   * Text is each contributing span's summary, in transcript order,
+   * falling back to the span's source clauses when the summary is blank.
+   */
+  text: string;
+}
+/**
+ * UnattributedSpan is a child or group span that produced no note. Source
+ * is the span's clauses, verbatim, so the teacher can assign it later.
+ */
+export interface UnattributedSpan {
+  span: Span;
+  source: string;
+}
+/**
+ * LabelMiss is a spoken label that resolved to nobody, with the span it
+ * came from. A multi-label span can produce a note and a miss at once.
+ */
+export interface LabelMiss {
+  label: string;
+  start: number /* int */;
+  end: number /* int */;
+}
+/**
+ * AssembledNotes is the outcome of AssembleNotes.
+ */
+export interface AssembledNotes {
+  /**
+   * ClassName is the pinned class, or "" when the model declined or named
+   * a class not in the roster — then every span is unattributed.
+   */
+  class_name: string;
+  /**
+   * UnknownClassName is the class the model named when the roster has no
+   * such class ("" otherwise). Declining is expected; this is a schema or
+   * prompt defect worth alerting on.
+   */
+  unknown_class_name?: string;
+  notes: AssembledNote[];
+  unattributed: UnattributedSpan[];
+  /**
+   * Misses is every child-span label that got no student — because it
+   * failed to resolve, or because no class was pinned to resolve it in.
+   */
+  misses: LabelMiss[];
+}
 
 //////////
 // source: students.go
