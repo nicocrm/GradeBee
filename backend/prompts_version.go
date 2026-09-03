@@ -41,6 +41,41 @@ const PromptVersionTag = "4"
 // carry that: the span arithmetic, stated before anything else, and the
 // pronoun-continuation rule. Dropping either produced overlapping spans on
 // note 694, which fails the whole job rather than degrading.
+//
+// The "none never takes an observation with it" rule is #110. The model swept
+// a class-wide observation comma-joined to the teacher thinking aloud, straight
+// after the header, into the header's "none" span, and it reached nobody — not
+// even the unattributed log, which holds only child and group spans. Listing
+// "thinking aloud" under "none" without qualification is what pulled the
+// mixed run that way: the fixture went from red in 3/6 runs to green in
+// 12/12, with span boundaries unchanged across the 22-transcript corpus
+// (research round 11). The rule sits last on purpose: placed before the
+// label rules it padded labels with pronouns on note 671 in 4/6 runs
+// against 0/6 before and 1/6 here. #111 has since made splitLabel split a
+// fused label and the matcher skip a padded pronoun, so that cost is mostly
+// recovered; the placement stays because it is the arm measured green.
+// One shift in the pinned baseline, not a defect: on pronoun_run_bleed two
+// pronoun-only spans merge under "Polly", which the pronoun-continuation
+// rule asks for and changes no note. Two others showed in one regeneration
+// and not the next, on a model with no pinned temperature: a framing clause
+// ("so today I wanted to talk about Emma") opening Emma's span, and a
+// trailing "group" span absorbing the drill vocabulary after it ("Yes, they
+// can. No, they can't."). That second one is the risk to watch: "the whole
+// run keeps the observation's kind" pulls against the "none" bullet's
+// taught vocabulary whenever the two are joined. Nothing pins it; tighten
+// the rule if it shows up in the pinned baseline.
+//
+// The label rule shows the array shape ("Zachariah and Anaya did very well"
+// is ["Zachariah", "Anaya"]) and says one name per item, also #110. Told
+// only "verbatim as spoken", the model copied the phrase as one label in
+// 13/24 probe runs on the three corpus notes that name two children at
+// once; shown the shape, 0/24, with the corpus boundaries unchanged
+// (round 11, arm D). splitLabel (spans.go, voice_note_process.go) has
+// repaired a fused label since #111, notes and counters alike, so this
+// changes no note today: it makes labels arrive in the shape the schema
+// means, and leaves the regex a backstop rather than the mechanism.
+// TestExtractTwoChildrenOneObservationLabelsEach pins it: red 6/6 on the
+// old wording, green 6/6 on this one.
 const extractionPromptPrefix = `You are segmenting a teacher's spoken notes about their
 students.
 
@@ -62,14 +97,16 @@ Each span has:
     that names one child, or describes only one child, is NEVER "group", however it is
     joined to the rest of the sentence.
   - "none" — not an observation about children: the date, the class header, a greeting,
-    thinking aloud, vocabulary the children are being taught.
-- "spoken_labels": for a "child" span, the names the teacher speaks for it, verbatim as
-  spoken. Usually one. Use several ONLY when the teacher makes the same observation about
-  several children at once ("Zachariah and Anaya did very well") — then the span belongs to
-  all of them. If the observations differ between the children, they are separate spans,
-  not one span with several labels. If the child's name is never spoken, use the pronoun
-  the teacher uses — but never list a pronoun alongside a name in the same span: one child,
-  one label. Empty list for "group" and "none".
+    vocabulary the children are being taught, thinking aloud that describes no child and
+    no class.
+- "spoken_labels": for a "child" span, the names the teacher speaks for it, each name
+  verbatim as spoken. One name per list item, never two joined by "and" or a comma.
+  Usually one item. Use several ONLY when the teacher makes the same observation about
+  several children at once: "Zachariah and Anaya did very well" is ["Zachariah", "Anaya"],
+  and the span belongs to both. If the observations differ between the children, they are
+  separate spans, not one span with several labels. If the child's name is never spoken,
+  use the pronoun the teacher uses — but never list a pronoun alongside a name in the same
+  span: one child, one label. Empty list for "group" and "none".
 - "summary": the observations in that span, rewritten as clear sentences.
 
 Rules:
@@ -88,6 +125,11 @@ Rules:
   used it. Clean up false starts, filler words and repetitions. Do NOT soften, formalise,
   add or editorialise — if the teacher said a child was "impossibly bad", the summary says
   "impossibly bad".
+- "none" never takes an observation with it. The header span ends with the header itself:
+  the first clause that describes the children opens a new span, even when it is spoken in
+  the same breath. When an observation is joined to the teacher thinking aloud ("everyone
+  was restless, might try the song earlier next time"), the whole run keeps the
+  observation's kind — here "group" — never "none".
 
 Also return "class_name": which class this recording is about. The transcript usually opens
 with a spoken header — level name, weekday, time. Match it to one of:

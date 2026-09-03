@@ -6,7 +6,10 @@
 // Every test here runs the production path whole: the model segments
 // (Extract), Go resolves (AssembleNotes), and the assertion is on the notes a
 // teacher would actually see. Asserting on the raw segmentation instead would
-// grade a shape no teacher reads (#99).
+// grade a shape no teacher reads (#99). One exception, and it says why:
+// TestExtractTwoChildrenOneObservationLabelsEach reads the raw labels, because
+// Go repairs a fused label before any note exists and the prompt's own output
+// is visible nowhere else.
 package handler
 
 import (
@@ -258,6 +261,63 @@ func TestExtractGroupObservationScopedToPinnedClass(t *testing.T) {
 		"only Tommy is named; Lisa, Sarah and Jake must get nothing")
 	assert.Contains(t, noteFor(t, got, "Tommy").Text, "loud",
 		"Tommy should carry Period 1's group observation")
+}
+
+// TestExtractGroupObservationJoinedToThinkingAloud is the group_observation
+// eval fixture (#110). A class-wide observation comma-joined to the teacher
+// thinking aloud, right after the class header, was swept into the header's
+// "none" span and reached nobody — not even the unattributed log. Both named
+// children must carry it.
+func TestExtractGroupObservationJoinedToThinkingAloud(t *testing.T) {
+	transcript := `Quick note about Class B from this afternoon. The whole class really struggled with the fractions worksheet today, I think we need to revisit that next week. Specifically though, Olivia did really well — she finished early and helped a neighbor. Marcus still not turning in homework, third time this week.`
+
+	got := liveNotes(t, transcript, []ClassGroup{
+		{Name: "Class A", Students: []ClassStudent{{Name: "Lucas"}, {Name: "Isabelle"}}},
+		{Name: "Class B", Students: []ClassStudent{{Name: "Olivia"}, {Name: "Marcus"}, {Name: "Zoe"}}},
+	})
+
+	require.Equal(t, "Class B", got.ClassName)
+	require.ElementsMatch(t, []string{"Olivia", "Marcus"}, noteNames(got),
+		"Zoe is never named and must get nothing")
+	for _, name := range []string{"Olivia", "Marcus"} {
+		assert.Contains(t, noteFor(t, got, name).Text, "fractions",
+			"%s lost the group observation. Unattributed: %+v", name, got.Unattributed)
+	}
+}
+
+// TestExtractTwoChildrenOneObservationLabelsEach pins the label shape for
+// "Zachariah and Anaya did very well": two items, one name each. The model
+// returned the phrase as one label in 13/24 probe runs before the rule showed
+// the array form (research round 11, arm D). splitLabel repairs a fused label
+// since #111, notes and counters alike, so the notes alone cannot tell the
+// prompt from the backstop — this is the one test that reads the raw labels.
+// It pins that the shape the schema means is the shape that arrives, so the
+// regex stays a backstop rather than the mechanism.
+func TestExtractTwoChildrenOneObservationLabelsEach(t *testing.T) {
+	// Note 618's shape with synthetic names: two children share one observation
+	// twice, three children share another, and a drill list trails.
+	transcript := `Wednesday, 1410, Pam and Paul. Tobias and Mila did very well with repeating, were able to answer independently the days of the week and how they followed. They were able to repeat the after school activities without any difficulty. Noor, Eleanor and Elise were a little tired. They needed extra motivation to answer. They repeated after me correctly. Noor struggled with the numbers. Tobias and Mila did well with the numbers. For example, 80, 88, 69, 73. All the kids repeated the chores, first class of the first new story.`
+	classes := []ClassGroup{
+		{Name: "Pam & Paul · Wed · 14.10", Students: []ClassStudent{
+			{Name: "Tobias"}, {Name: "Mila"}, {Name: "Noor"}, {Name: "Eleanor"}, {Name: "Elise"},
+		}},
+	}
+
+	resp, err := newTestLLMExtractor(t).Extract(t.Context(), ExtractRequest{Transcript: transcript, Classes: classes})
+	require.NoError(t, err)
+	for _, sp := range resp.Spans {
+		for _, label := range sp.SpokenLabels {
+			assert.Less(t, len(splitLabel(label)), 2,
+				"label %q fuses two names; spans: %+v", label, resp.Spans)
+		}
+	}
+
+	got, err := AssembleNotes(transcript, classes, *resp)
+	require.NoError(t, err, "spans: %+v", resp.Spans)
+	assert.ElementsMatch(t, []string{"Tobias", "Mila", "Noor", "Eleanor", "Elise"}, noteNames(got))
+	for _, name := range []string{"Tobias", "Mila"} {
+		assert.Contains(t, noteFor(t, got, name).Text, "repeating", "%s lost the shared observation", name)
+	}
 }
 
 // containsAny reports whether s contains any of subs. The live model is free

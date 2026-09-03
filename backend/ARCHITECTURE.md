@@ -200,6 +200,18 @@ that same split, so nothing else may ever number a transcript. `class_name` is a
 roster's names plus `""`, which is how the model declines: it cannot invent a class, and a recording
 covering two classes is expected to come back declined rather than pinned to one.
 
+A `none` clause never takes an observation with it (#110). The model swept a class-wide observation
+joined to the teacher thinking aloud, straight after the header, into the header's `none` span, and
+it reached nobody — not even the unattributed log, which holds only `child` and `group` spans. The
+prompt now ends the header span at the header, and a run mixing an observation with thinking aloud
+keeps the observation's kind. `TestExtractGroupObservationJoinedToThinkingAloud` pins it live.
+The label rule shows the output shape for a shared observation, `["Zachariah", "Anaya"]`, one name
+per item (#110): told only "verbatim as spoken", the model returned the phrase as one label about
+half the time. `splitLabel` repairs such a label before resolution and before counting (#111), so
+no note or counter changes; the prompt fix makes labels arrive in the shape the schema means and
+leaves the regex a backstop. `TestExtractTwoChildrenOneObservationLabelsEach` reads the raw labels
+because that shape is visible nowhere else.
+
 The decline is unconditional: a transcript with no spoken class header comes back `""` however many
 classes are on the roster, and no note is created. Teachers state the class when they record, so
 this costs nothing they would otherwise get — and a live test whose fixture omits the header is

@@ -178,7 +178,6 @@ tests:
           expected: file://fixtures/extraction/shared_clause/expected.json
           metric: attribution
 
-  # Known red — see evals/README.md, "Known-red fixtures".
   - description: "extraction: applies group observation only to relevant class"
     vars:
       task: build-extract-prompt

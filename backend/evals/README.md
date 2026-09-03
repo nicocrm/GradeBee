@@ -69,15 +69,14 @@ Consequences for fixture authors:
 Some fixtures are red in the committed baseline on purpose. A red row for one of
 these is not a new regression — read the diff table with this list in hand.
 
-Two kinds, and the difference matters. An **accepted limitation** is a trade
-someone decided to make; it stays red until the design changes. An **open
-defect** is a bug the harness caught and nobody has fixed yet; it stays red
-until someone fixes it.
+Kind says why. An **accepted limitation** is a trade someone decided to make
+and stays red until the design changes; an **open defect** is a bug the harness
+caught, listed here with its task until someone fixes it (`group_observation`
+was one, fixed in #110).
 
 | Fixture | Kind | Why it is red | Goes green when |
 | --- | --- | --- | --- |
 | `shared_clause` | accepted limitation | One clause, two children, a different observation about each. A clause is the smallest unit a span can hold and a span carries one summary, so one of the two children gets the other's observation or nothing (real note 655). The transcript joins the two in one clause deliberately: note 655's own comma-separated wording splits correctly 2 of 4 runs, and a coin-flip row is no regression signal. That 2/4 is worth knowing on its own — the merge is intermittent, not constant. | A per-span summarisation call lands. |
-| `group_observation` | open defect (task #110) | `"The whole class really struggled with the fractions worksheet today, I think we need to revisit that next week"` is comma-joined to a thinking-aloud clause, which the prompt classifies as `none`. The canonical model marks the whole run `none` and folds it into the class header, 4/4, so the observation reaches no note at all. Measured: drop the thinking-aloud clause and it comes back `group` 3/3; keep it but move the sentence to the end of the transcript and it is `group` 3/3. So the trigger is a group observation mixed with thinking aloud **and** adjacent to the header. | The segmentation prompt stops letting a `none` clause pull the observation it is joined to into the header span. |
 
 ## Running
 
