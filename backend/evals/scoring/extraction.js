@@ -7,7 +7,8 @@
  *   - voice_preservation: every must_quote_substring appears verbatim in quoted_text
  *   - attribution: no must_not_quote_substring appears in that student's quoted_text
  *
- * The assertion passes (score >= 0.7) if all four sub-scores pass their thresholds.
+ * The assertion passes only if all four sub-scores pass their thresholds and
+ * no must_not_extract phrase appears in any student's quoted_text.
  *
  * must_not_quote_substrings is the per-student counterpart of the global
  * must_not_extract: it catches cross-student bleed, where one student's
@@ -141,18 +142,23 @@ module.exports = async (output, context) => {
   numMetrics++;
 
   // --- Must-not-extract check ---
+  // Global: content nobody owns must land in no entry. The per-student
+  // attribution axis only sees leaks into an *expected* student, so a
+  // fixture with one expected student needs this axis to fail the test.
+  let forbiddenLeaked = false;
   for (const forbidden of mustNotExtract) {
     const leaked = extracted.some(
       (ext) => ext.quoted_text && ext.quoted_text.toLowerCase().includes(forbidden.toLowerCase())
     );
     if (leaked) {
+      forbiddenLeaked = true;
       totalScore -= 0.5;
       reasons.push(`FAIL: forbidden content "${forbidden}" leaked into output`);
     }
   }
 
   const avgScore = numMetrics > 0 ? Math.max(0, totalScore / numMetrics) : 0;
-  const pass = precision >= 0.7 && recall >= 0.7 && voiceScore === 1 && attributionScore === 1;
+  const pass = precision >= 0.7 && recall >= 0.7 && voiceScore === 1 && attributionScore === 1 && !forbiddenLeaked;
 
   return {
     pass,

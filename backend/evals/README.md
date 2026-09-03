@@ -107,14 +107,14 @@ evals/
 
 ## Extraction scoring axes
 
-`scoring/extraction.js` grades four axes; the assertion passes only if all four do.
+`scoring/extraction.js` grades four axes plus one global one; the assertion passes only if all five do.
 
 | Axis | Fixture field | What it catches |
 | --- | --- | --- |
 | precision / recall | `expected_students[].name` | the wrong set of students was extracted |
 | voice_preservation | `must_quote_substrings` | a student's own observation was dropped or paraphrased away |
 | attribution | `must_not_quote_substrings` | cross-student bleed — another student's observation landed in this entry |
-| (global) | `must_not_extract` | forbidden content leaked into any entry |
+| (global) | `must_not_extract` | forbidden content leaked into any entry, expected student or not |
 
 `must_not_quote_substrings` is the per-student counterpart of `must_not_extract`.
 It exists because precision/recall compare only the *set* of extracted names: a
@@ -124,6 +124,11 @@ reached production unnoticed, so every new multi-student fixture should carry
 `must_not_quote_substrings` listing the other named students.
 
 Both substring fields accept a plain substring or `/pattern/flags` regex syntax.
+
+`must_not_extract` is the axis for content nobody owns. `pronoun_run_bleed`
+lists one expected student, so a leak of the unnamed child's sentences into
+some *other* entry is invisible to `must_not_quote_substrings`; the global
+check fails the test instead.
 
 ## Adding a fixture
 

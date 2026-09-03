@@ -121,6 +121,19 @@ tests:
           expected: file://fixtures/extraction/cross_student_bleed/expected.json
           metric: attribution
 
+  - description: "extraction: pronoun run after an unmatched name stays out of every entry"
+    vars:
+      task: build-extract-prompt
+      transcript: "file://fixtures/extraction/pronoun_run_bleed/transcript.txt"
+      classes: "file://fixtures/extraction/pronoun_run_bleed/classes.json"
+    assert:
+      - type: is-json
+      - type: javascript
+        value: file://scoring/extraction.js
+        config:
+          expected: file://fixtures/extraction/pronoun_run_bleed/expected.json
+          metric: attribution
+
   - description: "extraction: applies group observation only to relevant class"
     vars:
       task: build-extract-prompt
