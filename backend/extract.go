@@ -1,49 +1,36 @@
 // extract.go defines the Extractor interface and its LLM implementation.
-// The extractor takes a transcript and student roster, returning structured
-// per-student extraction results with fuzzy name matching and confidence scores.
+//
+// The extractor segments a transcript: it takes the transcript plus the class
+// display names and returns clause-index spans and a class name (#99). It
+// never sees a student name — shown a roster the model resolves first and
+// re-cuts the transcript to fit the slots it committed to. AssembleNotes
+// (spans.go) turns the segmentation into per-student notes.
 package handler
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 )
 
-// Extractor takes a transcript + student roster and returns structured extraction.
+// Extractor takes a transcript + class names and returns the segmentation.
 type Extractor interface {
-	Extract(ctx context.Context, req ExtractRequest) (*ExtractResponse, error)
+	Extract(ctx context.Context, req ExtractRequest) (*SegmentResponse, error)
 	// Model returns the model ID used for extraction (for stamping model_version).
 	Model() string
 }
 
-// ExtractRequest is the input to an extraction call.
+// ExtractRequest is the input to an extraction call. Classes carries the
+// students only so callers can pass the roster straight through to
+// AssembleNotes; the prompt reads nothing but the class names.
 type ExtractRequest struct {
 	Transcript string
 	Classes    []ClassGroup
 }
 
-// ExtractResponse is the structured output from extraction.
-type ExtractResponse struct {
-	Students []MatchedStudent `json:"students"`
-}
-
-// MatchedStudent is a single student extraction result.
-type MatchedStudent struct {
-	Name       string             `json:"name"`
-	ClassName  string             `json:"class_name"`
-	QuotedText string             `json:"quoted_text"` // Extracted passages from transcript, unchanged
-	Confidence float64            `json:"confidence"`
-	Candidates []StudentCandidate `json:"candidates,omitempty"`
-}
-
-// StudentCandidate is a possible roster match for a low-confidence extraction.
-type StudentCandidate struct {
-	Name      string `json:"name"`
-	ClassName string `json:"class_name"`
-}
-
-// llmExtractor uses an LLMProvider to extract student mentions from transcripts.
+// llmExtractor uses an LLMProvider to segment transcripts.
 type llmExtractor struct {
 	provider LLMProvider
 }
@@ -56,13 +43,11 @@ func (e *llmExtractor) Model() string {
 	return e.provider.Model(LLMTaskExtraction)
 }
 
-func (e *llmExtractor) Extract(ctx context.Context, req ExtractRequest) (*ExtractResponse, error) {
-	systemPrompt := BuildExtractionPrompt(req.Classes)
-
-	var result ExtractResponse
+func (e *llmExtractor) Extract(ctx context.Context, req ExtractRequest) (*SegmentResponse, error) {
+	var result SegmentResponse
 	_, err := e.provider.ChatJSON(ctx, ChatJSONRequest{
-		SystemPrompt: systemPrompt,
-		UserPrompt:   req.Transcript,
+		SystemPrompt: BuildExtractionPrompt(req.Classes),
+		UserPrompt:   BuildExtractionUserPrompt(req.Transcript),
 		SchemaName:   "extract_response",
 		Schema:       extractResponseSchema(req.Classes),
 	}, &result)
@@ -73,75 +58,79 @@ func (e *llmExtractor) Extract(ctx context.Context, req ExtractRequest) (*Extrac
 	return &result, nil
 }
 
+// BuildExtractionPrompt returns the system prompt: the segmentation rules
+// around the list of class display names. Students are deliberately absent —
+// see extractionPromptPrefix.
 func BuildExtractionPrompt(classes []ClassGroup) string {
 	var sb strings.Builder
 	sb.WriteString(extractionPromptPrefix)
 	for _, c := range classes {
-		for _, s := range c.Students {
-			if len(s.Aliases) > 0 {
-				sb.WriteString(fmt.Sprintf("- %s (aka %s) (class_name %s)\n", s.Name, strings.Join(s.Aliases, ", "), c.Name))
-			} else {
-				sb.WriteString(fmt.Sprintf("- %s (class_name %s)\n", s.Name, c.Name))
-			}
-		}
+		sb.WriteString("- " + c.Name + "\n")
 	}
 	sb.WriteString(extractionPromptSuffix)
 	return sb.String()
 }
 
+// BuildExtractionUserPrompt renders transcript as the numbered clause list the
+// model indexes its spans into.
+//
+// The numbering is 1..N over SplitClauses(transcript) and AssembleNotes slices
+// the same split with the same indices, so this is the only place a clause is
+// ever numbered. Number a transcript anywhere else and the two sides drift.
+func BuildExtractionUserPrompt(transcript string) string {
+	var sb strings.Builder
+	for i, clause := range SplitClauses(transcript) {
+		sb.WriteString(strconv.Itoa(i + 1))
+		sb.WriteString(". ")
+		sb.WriteString(clause)
+		sb.WriteString("\n")
+	}
+	return sb.String()
+}
+
 // extractResponseSchema returns the JSON schema for structured outputs.
-// class_name is constrained to an enum of the roster's actual class names
-// (from classes) so the model is structurally forced to pick a real class,
-// rather than relying on the prompt instruction alone. If classes is empty
-// (schema-shape tests, or a live extraction whose roster read failed — see
-// voice_note_process.go), class_name falls back to a plain string so the
-// schema never demands an unsatisfiable enum.
+//
+// class_name is an enum of the roster's actual class names plus "", so the
+// model is structurally able to decline and structurally unable to invent —
+// the prompt instruction alone left it inventing class names. An empty roster
+// yields the enum [""], the only honest answer when there is no class to name;
+// every span then comes back unattributed from AssembleNotes.
 func extractResponseSchema(classes []ClassGroup) json.RawMessage {
-	classNames := make([]string, 0, len(classes))
+	classNames := make([]string, 0, len(classes)+1)
 	for _, c := range classes {
 		classNames = append(classNames, c.Name)
 	}
+	classNames = append(classNames, "")
 
-	classNameSchema := map[string]any{"type": "string"}
-	if len(classNames) > 0 {
-		classNameSchema["enum"] = classNames
-	}
-
-	candidateSchema := map[string]any{
+	spanSchema := map[string]any{
 		"type": "object",
 		"properties": map[string]any{
-			"name":       map[string]any{"type": "string"},
-			"class_name": classNameSchema,
-		},
-		"required":             []string{"name", "class_name"},
-		"additionalProperties": false,
-	}
-
-	studentSchema := map[string]any{
-		"type": "object",
-		"properties": map[string]any{
-			"name":        map[string]any{"type": "string"},
-			"class_name":  classNameSchema,
-			"quoted_text": map[string]any{"type": "string"},
-			"confidence":  map[string]any{"type": "number"},
-			"candidates": map[string]any{
-				"type":  "array",
-				"items": candidateSchema,
+			"start": map[string]any{"type": "integer"},
+			"end":   map[string]any{"type": "integer"},
+			"kind": map[string]any{
+				"type": "string",
+				"enum": []string{string(SpanChild), string(SpanGroup), string(SpanNone)},
 			},
+			"spoken_labels": map[string]any{
+				"type":  "array",
+				"items": map[string]any{"type": "string"},
+			},
+			"summary": map[string]any{"type": "string"},
 		},
-		"required":             []string{"name", "class_name", "quoted_text", "confidence", "candidates"},
+		"required":             []string{"start", "end", "kind", "spoken_labels", "summary"},
 		"additionalProperties": false,
 	}
 
 	schema := map[string]any{
 		"type": "object",
 		"properties": map[string]any{
-			"students": map[string]any{
+			"class_name": map[string]any{"type": "string", "enum": classNames},
+			"spans": map[string]any{
 				"type":  "array",
-				"items": studentSchema,
+				"items": spanSchema,
 			},
 		},
-		"required":             []string{"students"},
+		"required":             []string{"class_name", "spans"},
 		"additionalProperties": false,
 	}
 

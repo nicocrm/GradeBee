@@ -2,10 +2,14 @@
 // skips itself via requireLiveLLM when the active provider's API key is
 // unset, so `make test` is safe without credentials and exercises them
 // automatically when a key is present.
+//
+// Every test here runs the production path whole: the model segments
+// (Extract), Go resolves (AssembleNotes), and the assertion is on the notes a
+// teacher would actually see. Asserting on the raw segmentation instead would
+// grade a shape no teacher reads (#99).
 package handler
 
 import (
-	"context"
 	"strings"
 	"testing"
 
@@ -31,367 +35,238 @@ func newTestLLMExtractor(t *testing.T) Extractor {
 	return newLLMExtractor(provider)
 }
 
-// contains is a readability helper for the live extraction assertions.
-func contains(s, substr string) bool {
-	return strings.Contains(s, substr)
+// liveNotes runs transcript through the live model and then through
+// AssembleNotes, exactly as voice_note_process.go does. A tiling rejection
+// fails the test with the spans that caused it — in production it fails the
+// job, so it is never an acceptable outcome here either.
+func liveNotes(t *testing.T, transcript string, classes []ClassGroup) *AssembledNotes {
+	t.Helper()
+	ext := newTestLLMExtractor(t)
+
+	resp, err := ext.Extract(t.Context(), ExtractRequest{Transcript: transcript, Classes: classes})
+	require.NoError(t, err)
+
+	got, err := AssembleNotes(transcript, classes, *resp)
+	require.NoError(t, err, "spans: %+v", resp.Spans)
+	return got
+}
+
+// noteFor returns the note assembled for name, failing the test when there is
+// none. It reports every note it did find, so a failure names the shape that
+// arrived rather than just the one that did not.
+func noteFor(t *testing.T, got *AssembledNotes, name string) AssembledNote {
+	t.Helper()
+	for _, n := range got.Notes {
+		if n.Name == name {
+			return n
+		}
+	}
+	t.Fatalf("no note for %q; got %v in class %q", name, noteNames(got), got.ClassName)
+	return AssembledNote{}
+}
+
+func noteNames(got *AssembledNotes) []string {
+	names := make([]string, len(got.Notes))
+	for i, n := range got.Notes {
+		names[i] = n.Name
+	}
+	return names
 }
 
 func TestLLM_SingleStudentCorrectClass(t *testing.T) {
-	ext := newTestLLMExtractor(t)
 	classes := []ClassGroup{
-		{Name: "Math 101", Students: []ClassStudent{{Name: "Alice Johnson"}, {Name: "Bob Smith"}}},
-		{Name: "Science 202", Students: []ClassStudent{{Name: "Charlie Brown"}, {Name: "Diana Lee"}}},
+		{Name: "Math 101", Students: []ClassStudent{{Name: "Alice"}, {Name: "Bob"}}},
+		{Name: "Science 202", Students: []ClassStudent{{Name: "Charlie"}, {Name: "Diana"}}},
 	}
 
-	result, err := ext.Extract(t.Context(), ExtractRequest{
-		Transcript: "Alice Johnson demonstrated excellent problem-solving skills on today's algebra quiz. She scored 95% and helped her classmates understand the quadratic formula.",
-		Classes:    classes,
-	})
-	require.NoError(t, err)
-	require.Len(t, result.Students, 1, "got %+v", result.Students)
-	assert.Equal(t, "Alice Johnson", result.Students[0].Name)
-	assert.Equal(t, "Math 101", result.Students[0].ClassName)
+	got := liveNotes(t, "Alice demonstrated excellent problem-solving skills on today's algebra quiz. She scored 95% and helped her classmates understand the quadratic formula.", classes)
+
+	assert.Equal(t, "Math 101", got.ClassName)
+	assert.Equal(t, []string{"Alice"}, noteNames(got))
 }
 
-func TestLLM_MultiStudentDifferentClasses(t *testing.T) {
-	ext := newTestLLMExtractor(t)
-	// Bob appears in both rosters — the LLM must use transcript context to pick the right class.
+// TestLLM_MultiClassTranscriptSplitsCleanly pins a consequence of the #99
+// design: Go resolves names within exactly one class, so a recording covering
+// two classes yields notes for at most one of them.
+//
+// What the model does with the class is not asserted. It is asked to decline
+// and usually does, but it sometimes pins the class the transcript names first
+// — which is not a defect: that class's notes are right and the other class
+// gets none. The decline path itself is covered deterministically by
+// TestAssembleNotes_NoClassPinned (#105). What is asserted here is the
+// invariant that holds either way, and the one a teacher would notice broken:
+// no note may carry the other class's observation.
+func TestLLM_MultiClassTranscriptSplitsCleanly(t *testing.T) {
 	classes := []ClassGroup{
-		{Name: "Math 101", Students: []ClassStudent{{Name: "Alice Johnson"}, {Name: "Bob Smith"}}},
-		{Name: "Science 202", Students: []ClassStudent{{Name: "Bob Smith"}, {Name: "Diana Lee"}}},
+		{Name: "Math 101", Students: []ClassStudent{{Name: "Alice"}, {Name: "Bob"}}},
+		{Name: "Science 202", Students: []ClassStudent{{Name: "Diana"}, {Name: "Evan"}}},
+	}
+	// One marker phrase per class, unique to that class's half of the recording.
+	elsewhere := map[string][]string{
+		"Math 101":    {"chemistry", "lab notes"},
+		"Science 202": {"fractions", "on the board"},
 	}
 
-	result, err := ext.Extract(t.Context(), ExtractRequest{
-		Transcript: "Today I observed two students. In Math 101, Bob Smith was very engaged during the fractions lesson and volunteered to solve problems on the board. In Science 202, Diana Lee conducted her chemistry experiment carefully and wrote detailed lab notes.",
-		Classes:    classes,
-	})
-	require.NoError(t, err)
-	require.GreaterOrEqual(t, len(result.Students), 2, "got %+v", result.Students)
+	got := liveNotes(t, "Today I observed two students. In Math 101, Bob was very engaged during the fractions lesson and volunteered to solve problems on the board. In Science 202, Diana conducted her chemistry experiment carefully and wrote detailed lab notes.", classes)
 
-	found := map[string]string{}
-	for _, s := range result.Students {
-		found[s.Name] = s.ClassName
+	require.Contains(t, []string{"", "Math 101", "Science 202"}, got.ClassName)
+	if got.ClassName == "" {
+		assert.Empty(t, noteNames(got), "no class pinned, so no name can resolve")
+		assert.NotEmpty(t, got.Unattributed, "the observations must survive as unattributed spans")
+		return
 	}
-	assert.Equal(t, "Math 101", found["Bob Smith"])
-	assert.Equal(t, "Science 202", found["Diana Lee"])
+	for _, n := range got.Notes {
+		assert.Equal(t, got.ClassName, n.ClassName, "a note may only belong to the pinned class")
+		for _, phrase := range elsewhere[got.ClassName] {
+			assert.NotContains(t, n.Text, phrase,
+				"%s's note carries an observation from the other class", n.Name)
+		}
+	}
 }
 
+// TestLLM_UnknownClassSkipped covers a recording about a class the teacher
+// does not have. class_name is an enum of the real names plus "", so the model
+// cannot invent one; the honest answer is the decline, and nobody resolves.
 func TestLLM_UnknownClassSkipped(t *testing.T) {
-	ext := newTestLLMExtractor(t)
 	classes := []ClassGroup{
-		{Name: "Math 101", Students: []ClassStudent{{Name: "Alice Johnson"}, {Name: "Bob Smith"}}},
-		{Name: "Science 202", Students: []ClassStudent{{Name: "Charlie Brown"}}},
+		{Name: "Math 101", Students: []ClassStudent{{Name: "Alice"}, {Name: "Bob"}}},
+		{Name: "Science 202", Students: []ClassStudent{{Name: "Charlie"}}},
 	}
 
-	result, err := ext.Extract(t.Context(), ExtractRequest{
-		Transcript: "Report card for Tommy Wilson, Art 303. Tommy shows great creativity in his paintings and participates actively in class discussions about art history.",
-		Classes:    classes,
-	})
-	require.NoError(t, err)
+	got := liveNotes(t, "Report card for Tommy Wilson, Art 303. Tommy shows great creativity in his paintings and participates actively in class discussions about art history.", classes)
 
-	// Tommy Wilson is not in any roster class. The extractor should return no students
-	// (or possibly empty results). It must NOT invent a class name.
-	validClasses := map[string]bool{"Math 101": true, "Science 202": true}
-	for _, s := range result.Students {
-		assert.True(t, validClasses[s.ClassName], "student %q assigned to invalid class %q", s.Name, s.ClassName)
-	}
+	assert.Empty(t, got.UnknownClassName, "the schema enum must make an invented class impossible")
+	assert.Empty(t, noteNames(got))
 }
 
+// TestLLM_PartialNameMatch covers a nickname truncated at the end (Alex for
+// Alexander). What the live model owes here is the label verbatim: it never
+// sees the roster, so "Alex Hamilton" must come back as spoken — a tidied
+// "Alexander Hamilton" would be invented. Go's matcher does the rest.
+//
+// The transcript opens by naming the class, as a real recording does. Without
+// that the model has nothing to pin on — an essay on democracy fits English and
+// History alike — and correctly declines, which is a separate behaviour covered
+// by TestLLM_MultiClassTranscriptSplitsCleanly.
 func TestLLM_PartialNameMatch(t *testing.T) {
-	ext := newTestLLMExtractor(t)
 	classes := []ClassGroup{
 		{Name: "English 101", Students: []ClassStudent{{Name: "Alexander Hamilton"}, {Name: "Elizabeth Bennet"}}},
 		{Name: "History 201", Students: []ClassStudent{{Name: "Theodore Roosevelt"}}},
 	}
 
-	result, err := ext.Extract(t.Context(), ExtractRequest{
-		Transcript: "Alex Hamilton wrote an outstanding essay on democracy today. His arguments were well-structured and his writing has improved significantly this semester.",
-		Classes:    classes,
-	})
-	require.NoError(t, err)
-	require.GreaterOrEqual(t, len(result.Students), 1)
+	got := liveNotes(t, "English 101. Alex Hamilton wrote an outstanding essay on democracy today. His arguments were well-structured and his writing has improved significantly this semester.", classes)
 
-	var found bool
-	for _, s := range result.Students {
-		if s.Name == "Alexander Hamilton" {
-			found = true
-			assert.Equal(t, "English 101", s.ClassName)
-			break
-		}
-	}
-	assert.True(t, found, "Alexander Hamilton not found in results: %+v", result.Students)
+	assert.Equal(t, "English 101", got.ClassName)
+	noteFor(t, got, "Alexander Hamilton")
 }
 
-// TestLLM_TruncatedNameMatch covers a transcription dropping a leading substring
-// of a name (e.g. "Malia" for "Amalia"), as distinct from TestLLM_PartialNameMatch's
-// trailing-truncated nickname (Alex -> Alexander).
+// TestLLM_TruncatedNameMatch covers a transcription dropping a leading
+// substring of a name (Malia for Amalia), as distinct from
+// TestLLM_PartialNameMatch's trailing-truncated nickname.
 func TestLLM_TruncatedNameMatch(t *testing.T) {
-	ext := newTestLLMExtractor(t)
 	classes := []ClassGroup{
-		{Name: "English 101", Students: []ClassStudent{{Name: "Amalia Rodriguez"}, {Name: "Elizabeth Bennet"}}},
-		{Name: "History 201", Students: []ClassStudent{{Name: "Theodore Roosevelt"}}},
+		{Name: "English 101", Students: []ClassStudent{{Name: "Amalia"}, {Name: "Elizabeth"}}},
+		{Name: "History 201", Students: []ClassStudent{{Name: "Theodore"}}},
 	}
 
-	result, err := ext.Extract(t.Context(), ExtractRequest{
-		Transcript: "Malia gave a fantastic presentation on the water cycle today. She answered every follow-up question with confidence.",
-		Classes:    classes,
-	})
-	require.NoError(t, err)
-	require.GreaterOrEqual(t, len(result.Students), 1)
+	got := liveNotes(t, "English 101. Malia gave a fantastic presentation on the water cycle today. She answered every follow-up question with confidence.", classes)
 
-	var found bool
-	for _, s := range result.Students {
-		if s.Name == "Amalia Rodriguez" {
-			found = true
-			assert.Equal(t, "English 101", s.ClassName)
-			break
-		}
-	}
-	assert.True(t, found, "Amalia Rodriguez not found in results: %+v", result.Students)
+	assert.Equal(t, "English 101", got.ClassName)
+	noteFor(t, got, "Amalia")
 }
 
-// TestExtractPreservesTeacherVoice verifies that extracted QuotedText preserves
-// the teacher's original language and emotion, not rewritten summaries.
+// TestExtractPreservesTeacherVoice verifies that a note keeps the teacher's
+// own language and emotion. The note text is now the span summary, so the
+// preservation rule lives in the segmentation prompt: cleaning up speech
+// artifacts must not become rewriting.
 func TestExtractPreservesTeacherVoice(t *testing.T) {
-	provider := requireLiveLLM(t)
-	extractor := newLLMExtractor(provider)
-
-	// Example: raw teacher notes with strong emotion
-	transcript := `Thursday. Maxence was impossibly bad today. I'm ready to choke the living
+	// The transcript opens by naming the class, as every real recording does: with
+	// no spoken header the model declines and no note is created at all.
+	transcript := `Period 3, Thursday. Maxence was impossibly bad today. I'm ready to choke the living
 sh*t out of him. He wouldn't stop talking during the lesson.
 Amara was great - very attentive and helpful to other students.`
 
-	req := ExtractRequest{
-		Transcript: transcript,
-		Classes: []ClassGroup{
-			{
-				Name: "Period 3",
-				Students: []ClassStudent{
-					{Name: "Maxence"},
-					{Name: "Amara"},
-				},
-			},
-		},
-	}
+	got := liveNotes(t, transcript, []ClassGroup{
+		{Name: "Period 3", Students: []ClassStudent{{Name: "Maxence"}, {Name: "Amara"}}},
+	})
 
-	result, err := extractor.Extract(context.Background(), req)
-	require.NoError(t, err, "Extract failed")
-	require.Len(t, result.Students, 2, "Expected 2 students")
-
-	// Find Maxence
-	var maxence *MatchedStudent
-	for i := range result.Students {
-		if result.Students[i].Name == "Maxence" {
-			maxence = &result.Students[i]
-			break
-		}
-	}
-	require.NotNil(t, maxence, "Maxence not found in extraction")
-
-	// Verify QuotedText contains original phrasing, not formal rewrite
-	assert.NotEmpty(t, maxence.QuotedText, "QuotedText is empty")
-
-	// The quoted text should contain evidence of teacher's original voice
-	// (not formal language like "had a very difficult day")
-	assert.True(t, contains(maxence.QuotedText, "impossibly bad"),
-		"QuotedText does not preserve original phrasing. Got: %s", maxence.QuotedText)
+	assert.ElementsMatch(t, []string{"Maxence", "Amara"}, noteNames(got))
+	assert.Contains(t, noteFor(t, got, "Maxence").Text, "impossibly bad",
+		"note does not preserve the teacher's original phrasing")
 }
 
-// TestExtractGroupObservations verifies that group-level observations
-// are included for individually mentioned students but do NOT create
-// entries for unmentioned students.
+// TestExtractGroupObservations verifies that a group span reaches every child
+// who resolved from a child span — and nobody else. Lisa is on the roster but
+// never named, so a note saying the class was loud must not reach her.
 func TestExtractGroupObservations(t *testing.T) {
-	provider := requireLiveLLM(t)
-	extractor := newLLMExtractor(provider)
-
-	transcript := `Today the class was way too loud and unfocused. Everyone was talking over each other.
+	transcript := `Period 1. Today the class was way too loud and unfocused. Everyone was talking over each other.
 Specific note: Tommy helped me organize the materials, which was great.`
 
-	req := ExtractRequest{
-		Transcript: transcript,
-		Classes: []ClassGroup{
-			{
-				Name: "Period 1",
-				Students: []ClassStudent{
-					{Name: "Tommy"},
-					{Name: "Lisa"},
-				},
-			},
-		},
-	}
+	got := liveNotes(t, transcript, []ClassGroup{
+		{Name: "Period 1", Students: []ClassStudent{{Name: "Tommy"}, {Name: "Lisa"}}},
+	})
 
-	result, err := extractor.Extract(context.Background(), req)
-	require.NoError(t, err, "Extract failed")
-
-	// Only Tommy should be extracted — Lisa is not individually mentioned
-	if len(result.Students) != 1 {
-		names := make([]string, len(result.Students))
-		for i, s := range result.Students {
-			names[i] = s.Name
-		}
-		t.Fatalf("Expected 1 student (Tommy only), got %d: %v", len(result.Students), names)
-	}
-
-	tommy := result.Students[0]
-	require.Equal(t, "Tommy", tommy.Name)
-
-	// Tommy's QuotedText should include both his individual mention and the group observation
-	assert.True(t, contains(tommy.QuotedText, "organize"),
-		"Tommy QuotedText missing individual observation. Got: %s", tommy.QuotedText)
-	assert.True(t, contains(tommy.QuotedText, "too loud") || contains(tommy.QuotedText, "unfocused") || contains(tommy.QuotedText, "talking over"),
-		"Tommy QuotedText missing group observation. Got: %s", tommy.QuotedText)
+	require.Equal(t, []string{"Tommy"}, noteNames(got), "only the named child gets a note")
+	tommy := noteFor(t, got, "Tommy")
+	assert.Contains(t, tommy.Text, "organize", "missing Tommy's own observation")
+	assert.True(t,
+		containsAny(tommy.Text, "too loud", "unfocused", "talking over"),
+		"missing the group observation. Got: %s", tommy.Text)
 }
 
 // TestExtractNoCrossStudentBleed verifies that an observation about one named
-// student never lands in another named student's note. Production regression:
+// child never lands in another named child's note. Production regression:
 // "Harry was doing great, but today Dinara was not doing that good" produced
-// the full transcript under both Harry and Dinara, because the prompt's
-// group-observation propagation rule had no counterweight forbidding another
-// student's individual observation.
+// the full transcript under both names.
 //
 // This is deliberately the smallest transcript that shows the bug — two
-// students, one assertion each way. Wider shapes (a "whereas" sentence naming
-// three students at once) are covered by the cross_student_bleed eval fixture,
-// which is graded rather than gated; piling them in here only grows the
-// assertion surface of a live-model test.
+// children, one assertion each way. Wider shapes are covered by the
+// cross_student_bleed and pronoun_run_bleed eval fixtures, which are graded
+// rather than gated.
 func TestExtractNoCrossStudentBleed(t *testing.T) {
-	provider := requireLiveLLM(t)
-	extractor := newLLMExtractor(provider)
-
 	// No collective referent anywhere, so the two halves must not be shared.
 	transcript := "Oliver Thursday. Harry was doing great, but today Dinara was not doing that good."
 
-	req := ExtractRequest{
-		Transcript: transcript,
-		Classes: []ClassGroup{
-			{
-				Name: "Oliver \u00b7 Thu",
-				Students: []ClassStudent{
-					{Name: "Dinara"},
-					{Name: "Harry"},
-				},
-			},
-		},
-	}
+	got := liveNotes(t, transcript, []ClassGroup{
+		{Name: "Oliver · Thu", Students: []ClassStudent{{Name: "Dinara"}, {Name: "Harry"}}},
+	})
 
-	result, err := extractor.Extract(context.Background(), req)
-	require.NoError(t, err, "Extract failed")
+	harry := noteFor(t, got, "Harry")
+	assert.Contains(t, harry.Text, "doing great", "missing Harry's own observation")
+	assert.NotContains(t, harry.Text, "Dinara", "Harry's note leaked Dinara's observation")
 
-	byName := make(map[string]MatchedStudent, len(result.Students))
-	for _, s := range result.Students {
-		byName[s.Name] = s
-	}
-
-	harry, ok := byName["Harry"]
-	require.True(t, ok, "Harry should be extracted, got %v", result.Students)
-	assert.True(t, contains(harry.QuotedText, "doing great"),
-		"Harry QuotedText missing his own observation. Got: %s", harry.QuotedText)
-	assert.NotContains(t, harry.QuotedText, "Dinara",
-		"Harry QuotedText leaked Dinara's observation. Got: %s", harry.QuotedText)
-
-	dinara, ok := byName["Dinara"]
-	require.True(t, ok, "Dinara should be extracted, got %v", result.Students)
-	assert.True(t, contains(dinara.QuotedText, "not doing that good"),
-		"Dinara QuotedText missing her own observation. Got: %s", dinara.QuotedText)
-	assert.NotContains(t, dinara.QuotedText, "Harry",
-		"Dinara QuotedText leaked Harry's observation. Got: %s", dinara.QuotedText)
+	dinara := noteFor(t, got, "Dinara")
+	assert.Contains(t, dinara.Text, "not doing that good", "missing Dinara's own observation")
+	assert.NotContains(t, dinara.Text, "Harry", "Dinara's note leaked Harry's observation")
 }
 
-// TestExtractGroupObservationsMultiClass verifies that group-level observations
-// are scoped to the class being discussed, not applied across all classes.
-func TestExtractGroupObservationsMultiClass(t *testing.T) {
-	provider := requireLiveLLM(t)
-	extractor := newLLMExtractor(provider)
+// TestExtractGroupObservationScopedToPinnedClass verifies that a group
+// observation stays inside the class the recording is about. Go scopes it
+// structurally — the group span fans out only to children resolved within the
+// pinned class — so this checks the model pins the class the transcript names
+// rather than the other one on the roster.
+func TestExtractGroupObservationScopedToPinnedClass(t *testing.T) {
+	transcript := `Period 1 notes: Tommy was great today, really focused. The whole class was loud though.`
 
-	transcript := `Period 1 notes: Tommy was great today, really focused. The whole class was loud though.
-Period 2 notes: Sarah did an amazing presentation on volcanoes.`
+	got := liveNotes(t, transcript, []ClassGroup{
+		{Name: "Period 1", Students: []ClassStudent{{Name: "Tommy"}, {Name: "Lisa"}}},
+		{Name: "Period 2", Students: []ClassStudent{{Name: "Sarah"}, {Name: "Jake"}}},
+	})
 
-	req := ExtractRequest{
-		Transcript: transcript,
-		Classes: []ClassGroup{
-			{
-				Name: "Period 1",
-				Students: []ClassStudent{
-					{Name: "Tommy"},
-					{Name: "Lisa"},
-				},
-			},
-			{
-				Name: "Period 2",
-				Students: []ClassStudent{
-					{Name: "Sarah"},
-					{Name: "Jake"},
-				},
-			},
-		},
-	}
-
-	result, err := extractor.Extract(context.Background(), req)
-	require.NoError(t, err, "Extract failed")
-
-	// Only Tommy and Sarah should be extracted (individually mentioned).
-	// Lisa and Jake are not mentioned by name.
-	nameSet := make(map[string]MatchedStudent)
-	for _, s := range result.Students {
-		nameSet[s.Name] = s
-	}
-
-	assert.Contains(t, nameSet, "Tommy", "Tommy should be extracted (individually mentioned)")
-	assert.Contains(t, nameSet, "Sarah", "Sarah should be extracted (individually mentioned)")
-	assert.NotContains(t, nameSet, "Lisa", "Lisa should NOT be extracted (not individually mentioned)")
-	assert.NotContains(t, nameSet, "Jake", "Jake should NOT be extracted (not individually mentioned)")
-
-	// Tommy should have the group observation about the class being loud
-	tommy := nameSet["Tommy"]
-	assert.True(t, contains(tommy.QuotedText, "loud"),
-		"Tommy should include Period 1 group observation about loudness. Got: %s", tommy.QuotedText)
-
-	// Sarah should NOT have the "loud" group observation — that was about Period 1
-	sarah := nameSet["Sarah"]
-	assert.False(t, contains(sarah.QuotedText, "loud"),
-		"Sarah should NOT have Period 1's group observation. Got: %s", sarah.QuotedText)
+	require.Equal(t, "Period 1", got.ClassName)
+	require.Equal(t, []string{"Tommy"}, noteNames(got),
+		"only Tommy is named; Lisa, Sarah and Jake must get nothing")
+	assert.Contains(t, noteFor(t, got, "Tommy").Text, "loud",
+		"Tommy should carry Period 1's group observation")
 }
 
-// TestExtractAmbiguousClassLowConfidence verifies that when a mentioned
-// student's name exists in more than one class and the transcript gives no
-// clue which class is meant, the extractor reports low confidence for that
-// entry (below the 0.5 auto-create threshold in voice_note_process.go)
-// rather than confidently picking one of the real-but-guessed classes.
-// This guards against extractResponseSchema's class_name enum (task #79)
-// silently forcing a wrong-but-valid class pick.
-func TestExtractAmbiguousClassLowConfidence(t *testing.T) {
-	provider := requireLiveLLM(t)
-	extractor := newLLMExtractor(provider)
-
-	transcript := `Alex did great work on the project today.`
-
-	req := ExtractRequest{
-		Transcript: transcript,
-		Classes: []ClassGroup{
-			{
-				Name: "Period 1",
-				Students: []ClassStudent{
-					{Name: "Alex"},
-				},
-			},
-			{
-				Name: "Period 2",
-				Students: []ClassStudent{
-					{Name: "Alex"},
-				},
-			},
-		},
-	}
-
-	result, err := extractor.Extract(context.Background(), req)
-	require.NoError(t, err, "Extract failed")
-
-	for _, s := range result.Students {
-		if s.Name != "Alex" {
-			continue
+// containsAny reports whether s contains any of subs. The live model is free
+// to pick which of several equivalent phrases it keeps.
+func containsAny(s string, subs ...string) bool {
+	for _, sub := range subs {
+		if strings.Contains(s, sub) {
+			return true
 		}
-		assert.Less(t, s.Confidence, 0.5,
-			"ambiguous class match for %q should report confidence < 0.5 (auto-create threshold), got %v with class_name %q",
-			s.Name, s.Confidence, s.ClassName)
 	}
+	return false
 }

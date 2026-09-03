@@ -11,7 +11,7 @@
 // by manually bumping the tag.
 //
 // The builder functions in extract.go and report_prompt.go still live there and
-// interpolate dynamic values (roster, notes, feedback) into the
+// interpolate dynamic values (class names, notes, feedback) into the
 // templates.  Hashing the static portion is a reasonable proxy: substantive
 // changes almost always touch the static text.
 package handler
@@ -29,96 +29,79 @@ const PromptVersionTag = "4"
 // --- Extraction prompt templates ---
 
 // extractionPromptPrefix is the static preamble that opens every extraction
-// prompt (before the per-class roster is interpolated).
-const extractionPromptPrefix = `You are a teaching assistant analyzing a teacher's audio
-transcript about student observations.
+// prompt (before the list of class display names is interpolated).
+//
+// No student name ever reaches this prompt (#99). Shown a roster, the model
+// resolves first and re-cuts the transcript to fit the slots it has committed
+// to — measured at 2/4 correct boundaries against 4/4 with class names only.
+// It segments; Go resolves the names it hears.
+//
+// The wording is the one measured over 54 transcripts in research round 10,
+// which reached 18/22 structurally clean with no tiling violation. Two rules
+// carry that: the span arithmetic, stated before anything else, and the
+// pronoun-continuation rule. Dropping either produced overlapping spans on
+// note 694, which fails the whole job rather than degrading.
+const extractionPromptPrefix = `You are segmenting a teacher's spoken notes about their
+students.
 
-Your task:
-1. Identify which students are mentioned in the transcript
-2. Match each mentioned name to the student roster below (handle phonetic/partial matches)
-3. Split the transcript into individual observations and attribute each one to a single
-   owner: one named student, or the class as a whole. A single sentence often carries
-   several observations about different students ("Luis struggled, whereas Rayan was on
-   fire and Gatien kept interrupting" is three separate observations) — split it at the
-   clause level rather than treating the sentence as one unit.
-4. Write a summary per student from the observations owned by that student, plus the
-   observations owned by their class
-   - Clean up speech artifacts (false starts, filler words, repetitions) into clear
-     sentences
-   - Preserve the teacher's voice, tone, and specific observations — do NOT add details
-     or opinions not present in the transcript
-   - Keep the teacher's vocabulary and perspective (first person if they used it)
-   - Combine multiple mentions of the same student into a cohesive note
-   - Never put an observation owned by one student into another student's summary
+The notes arrive as a numbered list of clauses, one per line, in the order the teacher
+spoke them. A clause may be a partial sentence: the speech is split at commas as well as
+full stops.
 
-Student Roster:
+Return "spans": contiguous, non-overlapping ranges covering the whole list in order. Span
+1 starts at clause 1, each following span starts at the previous span's end + 1, and the
+last span ends at the final clause.
+
+Each span has:
+- "start" and "end": the first and last clause number, inclusive. A span of one clause has
+  start == end.
+- "kind":
+  - "child" — the teacher is talking about one individual child.
+  - "group" — a statement about the class as a whole, using a collective referent
+    ("everyone", "all the kids", "the class", "they" meaning the whole group). A statement
+    that names one child, or describes only one child, is NEVER "group", however it is
+    joined to the rest of the sentence.
+  - "none" — not an observation about children: the date, the class header, a greeting,
+    thinking aloud, vocabulary the children are being taught.
+- "spoken_labels": for a "child" span, the names the teacher speaks for it, verbatim as
+  spoken. Usually one. Use several ONLY when the teacher makes the same observation about
+  several children at once ("Zachariah and Anaya did very well") — then the span belongs to
+  all of them. If the observations differ between the children, they are separate spans,
+  not one span with several labels. If the child's name is never spoken, use the pronoun
+  the teacher uses — but never list a pronoun alongside a name in the same span: one child,
+  one label. Empty list for "group" and "none".
+- "summary": the observations in that span, rewritten as clear sentences.
+
+Rules:
+- A child span runs from where the teacher starts talking about that child to the clause
+  before the teacher moves on. It usually opens with the child's name and then continues in
+  pronouns; every pronoun clause after that name belongs to that child until the next child
+  is named. Do NOT open a new span for a pronoun the teacher is still using for the same
+  child.
+- Copy "spoken_labels" from the clauses. Do NOT correct, complete, tidy or re-spell a name,
+  even when it is obviously garbled — a corrected name matches the wrong child. If the
+  teacher said "As a Xand", the label is "As a Xand".
+- Never write a name that does not appear in the clauses.
+- The summary uses ONLY the clauses in its own span. Never bring in an observation from
+  another span, even an adjacent one.
+- The summary keeps the teacher's voice: their vocabulary, their tone, first person if they
+  used it. Clean up false starts, filler words and repetitions. Do NOT soften, formalise,
+  add or editorialise — if the teacher said a child was "impossibly bad", the summary says
+  "impossibly bad".
+
+Also return "class_name": which class this recording is about. The transcript usually opens
+with a spoken header — level name, weekday, time. Match it to one of:
 `
 
-// extractionPromptSuffix is the static rules block that closes every extraction
-// prompt (after the per-class roster).
+// extractionPromptSuffix closes the prompt, after the class list.
 //
-// Bullets wrap at roughly 90 columns with a two-space continuation indent, so
-// each "- " marks a new rule and everything indented under it belongs to the
-// rule above.
+// The decline is unconditional: a transcript with no spoken header returns ""
+// however many classes are listed, and no note is created. Teachers state the
+// class when they record, so this costs nothing they would otherwise get.
 const extractionPromptSuffix = `
-Rules:
-- Match mentioned names against the roster even if pronunciation differs slightly
-- Some roster entries include "(aka ...)" aliases — if a teacher uses an alias, match it
-  to the canonical name and return the canonical name in the "name" field
-- Set confidence 0.0-1.0 for each match. Use >= 0.7 for confident matches.
-- If confidence < 0.7, include up to 3 closest roster matches in "candidates"
-- "class_name" is REQUIRED to be one of the roster's real class names — you cannot leave
-  it blank or invent one.
-- Before setting confidence, check the roster for the mentioned name: if it appears under
-  more than one class and the transcript gives no clue which class is meant, the class is
-  a guess. Still pick one class_name, but set that entry's confidence to 0.3 so it is not
-  auto-created against the guess, and list the other plausible (name, class_name) pairs in
-  "candidates". Reserve a confidence above 0.5 for a class_name you are actually sure of.
-- A student is "individually mentioned" ONLY if the teacher uses their name (or a
-  recognizable nickname/variant of their name). Generic group references like "everyone",
-  "all students", "the class" do NOT count as individual mentions.
-- Do NOT create entries for students who are never individually mentioned by name. If a
-  student is only covered by group-level observations (e.g. "the class was loud") but
-  never called out by name, they must NOT appear in the output.
-- Each student's quoted_text must contain ONLY (a) the observations the teacher made about
-  that student and (b) group-level observations about that student's class. It MUST NOT
-  contain an observation about any other named student, even one made in the same
-  sentence. Never copy the whole transcript into every entry.
-- A "group-level observation" is a statement about the class as a whole — it uses a
-  collective referent such as "everyone", "all the kids", "the class", "they" (meaning the
-  whole group). A statement that names a student, or describes only one student, is NEVER
-  a group-level observation, no matter how it is joined to the rest of the sentence.
-  Conjunctions and contrasts ("but", "and", "whereas", "while", "although", a comma) join
-  separate individual observations; they do not merge them into one shared observation.
-- Only group-level observations are shared between students. Append each one to the
-  quoted_text of every individually-mentioned student in that class, wherever it fell in
-  the transcript (beginning, middle, or end) and whoever was named next to it. Individual
-  observations are never shared: they appear in exactly one entry, their own student's.
-  Example A (a group observation is shared): Transcript says "Alice did great. Bob was
-    quiet. The whole class struggled with fractions." → Alice's quoted_text is "Alice did
-    great. The whole class struggled with fractions." and Bob's is "Bob was quiet. The
-    whole class struggled with fractions." BOTH carry the fractions observation; NEITHER
-    carries the other student's individual observation.
-  Example B (one sentence, several students, nothing shared): Transcript says "Priya was
-    on fire the whole hour, whereas Sam kept interrupting and Dan never opened his book."
-    → Priya's quoted_text is "Priya was on fire the whole hour.", Sam's is "Sam kept
-    interrupting.", Dan's is "Dan never opened his book." No collective referent appears,
-    so nothing is shared and each entry names only its own student.
-- If the transcript contains group references like "everyone", "all students", or "the
-  class", apply those observations only to students in the class being discussed, not to
-  ALL classes. Use context clues (class name mentions, prior student mentions) to
-  determine which class is meant.
-- Produce exactly one entry for every individually-mentioned student, in every class the
-  transcript covers. A transcript that moves from one class to the next still owes an
-  entry for each student named in each of them — do not stop after the first class.
-- If a mentioned student cannot be matched to any roster entry, do not include them in the
-  output
-- If no students are clearly mentioned, return an empty students array
-- The "class_name" field for each student MUST exactly match one of the class names from
-  the roster above. Do not invent or abbreviate class names — if you are unsure which
-  class a student belongs to, see the confidence/candidates rule above.
-- IMPORTANT: Clean up speech into readable sentences, but do NOT invent observations or
-  editorialize. Stay faithful to what the teacher actually said.
+If the header is missing, or does not clearly identify exactly one of the classes listed,
+return "" — an empty string — rather than guessing. A wrong class attaches a child's
+observations to a different child; no class attaches them to nobody, which is recoverable.
 `
 
 // --- Report prompt templates ---
@@ -167,9 +150,9 @@ var ExtractionPromptHash string
 var ReportPromptHash string
 
 func init() {
-	// The extraction hash covers both the prefix and suffix (the roster is
+	// The extraction hash covers both the prefix and suffix (the class list is
 	// dynamic, so we use a sentinel to represent it).
-	ExtractionPromptHash = hashPrompt(extractionPromptPrefix + "<<<roster>>>" + extractionPromptSuffix)
+	ExtractionPromptHash = hashPrompt(extractionPromptPrefix + "<<<classes>>>" + extractionPromptSuffix)
 
 	// The report hash covers all static fragments concatenated with separators.
 	// Dynamic parts (student name, notes, examples, feedback) are represented by

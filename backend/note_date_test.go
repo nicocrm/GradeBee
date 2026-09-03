@@ -41,13 +41,11 @@ func TestProcessJob_DatesNoteFromUploadTime(t *testing.T) {
 		transcriber: &stubTranscriber{result: "Alice did great today."},
 		roster: &stubRoster{
 			classNames: []string{"Math"},
-			students:   []ClassGroup{{Name: "Math", Students: []ClassStudent{{Name: "Alice"}}}},
+			students:   []ClassGroup{{Name: "Math · Mon", Students: []ClassStudent{{Name: "Alice"}}}},
 		},
-		extractor: &stubExtractor{result: &ExtractResponse{
-			Students: []MatchedStudent{
-				{Name: "Alice", ClassName: "Math · Mon", QuotedText: "Did great", Confidence: 0.9},
-			},
-		}},
+		extractor: &stubExtractor{
+			result: segmentPerClause("Math · Mon", "Alice did great today.", "Alice"),
+		},
 		noteCreator:   nc,
 		studentRepo:   studentRepo,
 		voiceNoteRepo: voiceNoteRepo,

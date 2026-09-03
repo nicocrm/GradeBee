@@ -76,7 +76,9 @@ func TestRunBuildExtractPrompt(t *testing.T) {
 	assert.Equal(t, "system", msgs[0]["role"])
 	assert.NotEmpty(t, msgs[0]["content"])
 	assert.Equal(t, "user", msgs[1]["role"])
-	assert.Equal(t, "Alice read well today.", msgs[1]["content"])
+	// The user message is the numbered clause list production sends, not the raw
+	// transcript: span indices are 1..N over that same split.
+	assert.Equal(t, "1. Alice read well today.\n", msgs[1]["content"])
 }
 
 func TestRunBuildExtractPrompt_MissingTranscript(t *testing.T) {

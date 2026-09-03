@@ -11,18 +11,6 @@ import (
 	"time"
 )
 
-// Minimum extraction confidence to auto-create a note.
-const autoCreateConfidenceThreshold = 0.5
-
-// Ceiling for the mentions_below_0_7 counter on the completion record. It exists
-// so "is autoCreateConfidenceThreshold set right?" is answerable as a Sentry query
-// rather than as a second observation cycle. It gates nothing.
-//
-// The attribute name hardcodes this value, so changing the const without renaming
-// the attribute silently changes what every saved Sentry query is measuring while
-// the name goes on claiming 0.7. Change both or neither.
-const thresholdHeadroomCeiling = 0.7
-
 // errNoSpeechDetected marks an empty/silent recording. It's a user-input
 // condition, not an application bug, so fail() logs it as a warning instead
 // of an error — keeping it out of Sentry issues while still failing the job.
@@ -173,7 +161,11 @@ func processVoiceNote(ctx context.Context, d deps, q JobQueue[VoiceNoteJob], key
 
 	classes, err := roster.Students(ctx)
 	if err != nil {
-		log.Warn("process voice note: could not read students for extraction", "error", err)
+		// Fail rather than continue. With the roster out of the prompt this read is
+		// load-bearing: no classes means nothing pins, every label misses and the job
+		// finishes clean with zero notes. A transient DB error must not look like a
+		// recording nobody was named in. The transcript is persisted, so a retry is free.
+		return fail("read roster", err)
 	}
 
 	extractor, err := d.GetExtractor()
@@ -181,12 +173,41 @@ func processVoiceNote(ctx context.Context, d deps, q JobQueue[VoiceNoteJob], key
 		return fail("init extractor", err)
 	}
 
-	extractResult, err := extractor.Extract(ctx, ExtractRequest{
+	segmentation, err := extractor.Extract(ctx, ExtractRequest{
 		Transcript: transcript,
 		Classes:    classes,
 	})
 	if err != nil {
 		return fail("extract", err)
+	}
+
+	// The model segments; Go resolves the names (#99). AssembleNotes rejects spans
+	// that do not tile the clauses rather than repairing them — a repaired partition
+	// is a guess about which child owns the missing text, the failure this whole
+	// pipeline exists to remove.
+	assembled, err := AssembleNotes(transcript, classes, *segmentation)
+	if err != nil {
+		// ErrSpanTiling is AssembleNotes's only error. "reject span tiling" is its
+		// own stable query key, separate from every other extraction failure. No
+		// automatic retry: the same transcript through the same model tiles no
+		// better. The transcript is already persisted, so the teacher can re-run.
+		return failJob("reject span tiling",
+			"could not split this recording into per-student observations", err)
+	}
+	if assembled.UnknownClassName != "" {
+		// The schema constrains class_name to an enum of real names plus "", so a
+		// name outside it means the schema was not applied — a prompt or provider
+		// defect, not a teacher's recording.
+		//
+		// The name itself is withheld. Everywhere else class_name is a string this
+		// code put in the enum; here it is whatever an unconstrained model wrote,
+		// and a model writing freely into a class field can write a child's name
+		// (docs/adr/0003). Its length is enough to tell a truncated response from a
+		// hallucinated class, and the transcript on the row has the rest.
+		log.Warn("process voice note: model named a class not on the roster",
+			"key", key, "user_id", userID, "upload_id", uploadID,
+			"class_name_len", len([]rune(assembled.UnknownClassName)),
+			"model", extractor.Model(), "prompt_hash", ExtractionPromptHash)
 	}
 
 	// --- Step 3: Create notes ---
@@ -218,62 +239,62 @@ func processVoiceNote(ctx context.Context, d deps, q JobQueue[VoiceNoteJob], key
 	// Drops are only interpretable as a rate, so the completion record below needs a
 	// denominator and a per-reason breakdown. note_count alone yields notes-created,
 	// never mentions-extracted.
-	mentionsTotal := len(extractResult.Students)
-	var mentionsBelowHeadroom, droppedLowConfidence, droppedNoRosterMatch int
-
-	for _, student := range extractResult.Students {
-		// Counts every mention under the ceiling, including those already under the
-		// auto-create gate — so this is the total at a stricter threshold, not the
-		// additional drops that moving the gate there would cause.
-		if student.Confidence < thresholdHeadroomCeiling {
-			mentionsBelowHeadroom++
+	//
+	// A mention is one spoken label on one child span — the unit the model produces and
+	// the unit that can be dropped, so the numerator below stays a subset of this.
+	// Group spans that fanned out to nobody are counted separately, as spans: they
+	// carry no label and were never a mention.
+	mentionsTotal := 0
+	for _, sp := range segmentation.Spans {
+		if sp.Kind == SpanChild {
+			mentionsTotal += len(sp.SpokenLabels)
 		}
+	}
 
-		if student.Confidence < autoCreateConfidenceThreshold {
-			droppedLowConfidence++
-			// "process voice note: mention dropped" is a stable query key: the Sentry
-			// readout filters on this exact string paired with reason, and reason is
-			// already a live attribute elsewhere in this project, so it is not
-			// selective on its own. Both drop sites share the string deliberately;
-			// do not reword either without updating the saved queries.
-			// No student name in telemetry: these logs reach Sentry. See docs/adr/0003.
-			log.Info("process voice note: mention dropped",
-				"reason", "low_confidence",
-				"key", key, "user_id", userID, "upload_id", uploadID,
-				"confidence", student.Confidence,
-				"candidate_count", len(student.Candidates),
-				"class_name", student.ClassName,
-				"model", extractor.Model(), "prompt_hash", ExtractionPromptHash)
-			continue
-		}
+	droppedNoRosterMatch := len(assembled.Misses)
+	for _, miss := range assembled.Misses {
+		// "process voice note: mention dropped" is a stable query key: the Sentry
+		// readout filters on this exact string paired with reason. Do not reword it
+		// without updating the saved queries.
+		//
+		// The label that missed is a name as the teacher spoke it, so it never
+		// reaches telemetry (docs/adr/0003) — the span's clause range locates it in
+		// the persisted transcript instead. class_name is the diagnostic field: it
+		// is empty whenever the model declined to pin a class, which drops every
+		// label at once.
+		log.Info("process voice note: mention dropped",
+			"reason", "no_roster_match",
+			"key", key, "user_id", userID, "upload_id", uploadID,
+			"class_name", assembled.ClassName,
+			"span_start", miss.Start, "span_end", miss.End,
+			"model", extractor.Model(), "prompt_hash", ExtractionPromptHash)
+	}
 
-		studentID, err := studentRepo.FindByNameAndClass(ctx, student.Name, student.ClassName, userID)
+	for _, note := range assembled.Notes {
+		// AssembleNotes returns canonical roster names, so this lookup is an ID
+		// read, not a second matcher: the exact NOCASE match is expected to hit.
+		studentID, err := studentRepo.FindByNameAndClass(ctx, note.Name, note.ClassName, userID)
 		if err != nil {
 			if errors.Is(err, ErrNotFound) {
+				// The roster read and this lookup disagree — the class was renamed
+				// or the student deleted between them.
 				droppedNoRosterMatch++
-				// Same stable query key as the low-confidence site; only reason
-				// separates them. class_name is the diagnostic field here — the one
-				// observed production drop of this kind was a malformed class name,
-				// not a bad student name.
-				// No student name in telemetry: these logs reach Sentry. See docs/adr/0003.
 				log.Info("process voice note: mention dropped",
 					"reason", "no_roster_match",
 					"key", key, "user_id", userID, "upload_id", uploadID,
-					"confidence", student.Confidence,
-					"candidate_count", len(student.Candidates),
-					"class_name", student.ClassName,
+					"class_name", note.ClassName,
 					"model", extractor.Model(), "prompt_hash", ExtractionPromptHash)
 				continue
 			}
 			// The failed lookup is the only source of an identifier here, so telemetry
 			// carries none; the teacher still gets the name that failed to resolve.
-			return failWith("find student", "find student "+student.Name, err)
+			return failWith("find student", "find student "+note.Name, err)
 		}
 
 		result, err := noteCreator.CreateNote(ctx, CreateNoteRequest{
 			StudentID:    studentID,
-			StudentName:  student.Name,
-			QuotedText:   student.QuotedText, // Changed from Summary
+			StudentName:  note.Name,
+			QuotedText:   note.Text,
 			Transcript:   transcript,
 			Date:         noteDate,
 			ModelVersion: extractor.Model(),
@@ -281,12 +302,12 @@ func processVoiceNote(ctx context.Context, d deps, q JobQueue[VoiceNoteJob], key
 		if err != nil {
 			return failWith(
 				fmt.Sprintf("create note for student %d", studentID),
-				"create note for "+student.Name,
+				"create note for "+note.Name,
 				err)
 		}
 		noteLinks = append(noteLinks, NoteLink{
-			Name: student.Name, NoteID: result.NoteID,
-			StudentID: studentID, ClassName: student.ClassName,
+			Name: note.Name, NoteID: result.NoteID,
+			StudentID: studentID, ClassName: note.ClassName,
 		})
 	}
 
@@ -298,6 +319,7 @@ func processVoiceNote(ctx context.Context, d deps, q JobQueue[VoiceNoteJob], key
 
 	job.Status = JobStatusDone
 	job.NoteLinks = noteLinks
+	job.NoNotesReason = noNotesReason(len(noteLinks), mentionsTotal, assembled.ClassName)
 	job.Error = ""
 	job.FailedAt = nil
 	if err := q.UpdateJob(ctx, *job); err != nil {
@@ -317,9 +339,29 @@ func processVoiceNote(ctx context.Context, d deps, q JobQueue[VoiceNoteJob], key
 		"key", key, "user_id", userID, "upload_id", uploadID,
 		"note_count", len(noteLinks),
 		"mentions_total", mentionsTotal,
-		"mentions_below_0_7", mentionsBelowHeadroom,
-		"dropped_low_confidence", droppedLowConfidence,
 		"dropped_no_roster_match", droppedNoRosterMatch,
+		"unattributed_spans", len(assembled.Unattributed),
+		"class_pinned", assembled.ClassName != "",
 		"model", extractor.Model(), "prompt_hash", ExtractionPromptHash)
 	return nil
+}
+
+// noNotesReason explains a job that created no note, for the teacher rather
+// than for telemetry — the done card shows it verbatim in intent.
+//
+// Order matters. A recording that named nobody has nothing to attribute
+// whatever the class, so it is not a class problem even when the class was
+// also declined; saying otherwise would send the teacher to re-record
+// something that was never going to produce a note.
+func noNotesReason(noteCount, mentionsTotal int, pinnedClass string) string {
+	switch {
+	case noteCount > 0:
+		return ""
+	case mentionsTotal == 0:
+		return NoNotesNobodyNamed
+	case pinnedClass == "":
+		return NoNotesClassUnclear
+	default:
+		return NoNotesNoNameMatched
+	}
 }

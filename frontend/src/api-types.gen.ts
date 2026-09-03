@@ -69,43 +69,26 @@ into a JSON body without leaking internal text to the caller.
 // source: extract.go
 /*
 extract.go defines the Extractor interface and its LLM implementation.
-The extractor takes a transcript and student roster, returning structured
-per-student extraction results with fuzzy name matching and confidence scores.
+
+The extractor segments a transcript: it takes the transcript plus the class
+display names and returns clause-index spans and a class name (#99). It
+never sees a student name — shown a roster the model resolves first and
+re-cuts the transcript to fit the slots it committed to. AssembleNotes
+(spans.go) turns the segmentation into per-student notes.
 */
 
 /**
- * Extractor takes a transcript + student roster and returns structured extraction.
+ * Extractor takes a transcript + class names and returns the segmentation.
  */
 export type Extractor = any;
 /**
- * ExtractRequest is the input to an extraction call.
+ * ExtractRequest is the input to an extraction call. Classes carries the
+ * students only so callers can pass the roster straight through to
+ * AssembleNotes; the prompt reads nothing but the class names.
  */
 export interface ExtractRequest {
   Transcript: string;
   Classes: ClassGroup[];
-}
-/**
- * ExtractResponse is the structured output from extraction.
- */
-export interface ExtractResponse {
-  students: MatchedStudent[];
-}
-/**
- * MatchedStudent is a single student extraction result.
- */
-export interface MatchedStudent {
-  name: string;
-  class_name: string;
-  quoted_text: string; // Extracted passages from transcript, unchanged
-  confidence: number /* float64 */;
-  candidates?: StudentCandidate[];
-}
-/**
- * StudentCandidate is a possible roster match for a low-confidence extraction.
- */
-export interface StudentCandidate {
-  name: string;
-  class_name: string;
 }
 
 //////////
@@ -325,7 +308,7 @@ PromptVersionTag prefix so that non-template logic changes can be captured
 by manually bumping the tag.
 
 The builder functions in extract.go and report_prompt.go still live there and
-interpolate dynamic values (roster, notes, feedback) into the
+interpolate dynamic values (class names, notes, feedback) into the
 templates.  Hashing the static portion is a reasonable proxy: substantive
 changes almost always touch the static text.
 */
@@ -923,6 +906,21 @@ export const JobStatusDone = "done";
  */
 export const JobStatusFailed = "failed";
 /**
+ * NoNotesNobodyNamed: the recording named no child at all. Nothing to do.
+ */
+export const NoNotesNobodyNamed = "nobody_named";
+/**
+ * NoNotesClassUnclear: children were named, but no class was pinned, so
+ * there was no roster to resolve them against. Saying the class and time
+ * at the start of the next recording fixes it.
+ */
+export const NoNotesClassUnclear = "class_unclear";
+/**
+ * NoNotesNoNameMatched: the class was pinned and every spoken name missed
+ * the roster. An alias fixes the recurring ones; #80 will fix the rest.
+ */
+export const NoNotesNoNameMatched = "no_name_matched";
+/**
  * NoteLink pairs a student name with the ID of the created note.
  */
 export interface NoteLink {
@@ -945,6 +943,11 @@ export interface VoiceNoteJob {
   status: string;
   createdAt: string;
   noteLinks?: NoteLink[];
+  /**
+   * NoNotesReason is set only on a done job that created no note, to one of
+   * the NoNotes* constants. Empty whenever a note was created.
+   */
+  noNotesReason?: string;
   error?: string;
   failedAt?: string;
 }
@@ -967,14 +970,6 @@ export interface JobListResponse {
   failed: VoiceNoteJob[];
   done: VoiceNoteJob[];
 }
-
-//////////
-// source: voice_note_process.go
-/*
-voice_note_process.go implements the voice note processing pipeline
-(transcribe → extract → create notes). Called by MemQueue workers.
-*/
-
 
 //////////
 // source: voice_note_upload.go

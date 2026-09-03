@@ -49,14 +49,11 @@ func TestIntegration_PublishToNoteCreation(t *testing.T) {
 		transcriber: &stubTranscriber{result: "Alice did great. Bob needs work."},
 		roster: &stubRoster{
 			classNames: []string{"Math"},
-			students:   []ClassGroup{{Name: "Math", Students: []ClassStudent{{Name: "Alice"}, {Name: "Bob"}}}},
+			students:   []ClassGroup{{Name: "Math · Mon", Students: []ClassStudent{{Name: "Alice"}, {Name: "Bob"}}}},
 		},
-		extractor: &stubExtractor{result: &ExtractResponse{
-			Students: []MatchedStudent{
-				{Name: "Alice", ClassName: "Math · Mon", QuotedText: "Did great", Confidence: 0.9},
-				{Name: "Bob", ClassName: "Math · Mon", QuotedText: "Needs work", Confidence: 0.8},
-			},
-		}},
+		extractor: &stubExtractor{
+			result: segmentPerClause("Math · Mon", "Alice did great. Bob needs work.", "Alice", "Bob"),
+		},
 		noteCreator:   nc,
 		studentRepo:   studentRepo,
 		voiceNoteRepo: voiceNoteRepo,
@@ -144,9 +141,9 @@ func TestIntegration_RetryAfterFailure(t *testing.T) {
 	d := &mockDepsAll{
 		transcriber: failingTranscriber,
 		roster:      &stubRoster{},
-		extractor: &stubExtractor{result: &ExtractResponse{
-			Students: []MatchedStudent{{Name: "Alice", ClassName: "Math · Mon", QuotedText: "ok", Confidence: 0.9}},
-		}},
+		extractor: &stubExtractor{
+			result: segmentPerClause("Math · Mon", "Alice did great.", "Alice"),
+		},
 		noteCreator:    nc,
 		voiceNoteQueue: queue,
 		studentRepo:    studentRepo,

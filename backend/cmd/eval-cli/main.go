@@ -83,10 +83,12 @@ func runBuildExtractPrompt(ec evalContext) error {
 	if transcript == "" {
 		return fmt.Errorf("vars.transcript is required")
 	}
-	systemPrompt := handler.BuildExtractionPrompt(classes)
+	// The user message is the numbered clause list, exactly as production sends
+	// it: span indices are 1..N over the same split AssembleNotes slices, so the
+	// two must never number a transcript differently.
 	return writeJSON([]map[string]string{
-		{"role": "system", "content": systemPrompt},
-		{"role": "user", "content": transcript},
+		{"role": "system", "content": handler.BuildExtractionPrompt(classes)},
+		{"role": "user", "content": handler.BuildExtractionUserPrompt(transcript)},
 	})
 }
 

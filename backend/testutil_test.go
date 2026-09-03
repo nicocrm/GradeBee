@@ -134,14 +134,16 @@ func (m *mockDepsAll) GetFeedbackRepo() *ArtifactFeedbackRepo { return m.feedbac
 func (m *mockDepsAll) GetLevelRepo() *LevelRepo               { return m.levelRepo }
 func (m *mockDepsAll) GetUploadsDir() string                  { return m.uploadsDir }
 
-// stubExtractor implements Extractor for tests.
+// stubExtractor implements Extractor for tests. result is the segmentation the
+// model would return; its spans must tile SplitClauses of the transcript the
+// stub transcriber produces, or AssembleNotes rejects them and the job fails.
 type stubExtractor struct {
-	result *ExtractResponse
+	result *SegmentResponse
 	err    error
 	model  string
 }
 
-func (s *stubExtractor) Extract(_ context.Context, _ ExtractRequest) (*ExtractResponse, error) {
+func (s *stubExtractor) Extract(_ context.Context, _ ExtractRequest) (*SegmentResponse, error) {
 	return s.result, s.err
 }
 
@@ -150,6 +152,31 @@ func (s *stubExtractor) Model() string {
 		return s.model
 	}
 	return "stub-model"
+}
+
+// segmentPerClause builds the segmentation a well-behaved model would return
+// for transcript: one span per clause, tiling it exactly, with labels[i] as
+// clause i's spoken label. An empty label makes that clause a "none" span —
+// not an observation. Each span's summary is its own clause, so an assembled
+// note reads back as the teacher's words.
+//
+// It panics on a label count that does not match the clause count, because a
+// stub whose spans do not tile is rejected by AssembleNotes and every test
+// using it fails with the same opaque error.
+func segmentPerClause(className, transcript string, labels ...string) *SegmentResponse {
+	clauses := SplitClauses(transcript)
+	if len(clauses) != len(labels) {
+		panic(fmt.Sprintf("segmentPerClause: %d clauses, %d labels: %q", len(clauses), len(labels), clauses))
+	}
+	resp := &SegmentResponse{ClassName: className}
+	for i, clause := range clauses {
+		sp := Span{Start: i + 1, End: i + 1, Kind: SpanNone, Summary: clause}
+		if labels[i] != "" {
+			sp.Kind, sp.SpokenLabels = SpanChild, []string{labels[i]}
+		}
+		resp.Spans = append(resp.Spans, sp)
+	}
+	return resp
 }
 
 // stubNoteCreator implements NoteCreator for tests.

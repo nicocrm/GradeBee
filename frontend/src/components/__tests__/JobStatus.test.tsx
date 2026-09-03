@@ -2,6 +2,7 @@ import { render, screen, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { JobListResponse } from '../../api'
+import { NoNotesClassUnclear, NoNotesNoNameMatched, NoNotesNobodyNamed } from '../../api-types.gen'
 
 const mockFetchJobs = vi.fn()
 const mockRetryFailedJobs = vi.fn()
@@ -129,6 +130,58 @@ describe('JobStatus', () => {
     expect(screen.getByText('2 notes created')).toBeInTheDocument()
     const links = screen.getAllByText(/Alice|Bob/)
     expect(links).toHaveLength(2)
+  })
+
+  // A job that produced nothing can mean three different things and the teacher
+  // can act on two of them, so the card must not say the same words for all
+  // three. The messages are asserted by value: a card that renders the wrong
+  // one sends the teacher to do the wrong thing next.
+  it.each([
+    [NoNotesClassUnclear, "No notes — the class wasn't clear. Say the class and time at the start."],
+    [NoNotesNoNameMatched, 'No notes — no names matched your roster.'],
+    [NoNotesNobodyNamed, 'No notes — nobody was named.'],
+  ])('explains a done job with no notes: %s', async (reason, message) => {
+    mockFetchJobs.mockResolvedValue({
+      active: [],
+      failed: [],
+      done: [{
+        uploadId: 4,
+        fileName: 'quiet.m4a',
+        status: 'done' as const,
+        noteLinks: [],
+        noNotesReason: reason,
+        createdAt: '2026-03-26T08:00:00Z',
+      }],
+    })
+    const { default: JobStatus } = await import('../JobStatus')
+    render(<JobStatus />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('job-done')).toBeInTheDocument()
+    })
+    expect(screen.getByText(message)).toBeInTheDocument()
+  })
+
+  // An older job, or one from a server that does not send the field yet.
+  it('falls back to the bare line when a no-note job carries no reason', async () => {
+    mockFetchJobs.mockResolvedValue({
+      active: [],
+      failed: [],
+      done: [{
+        uploadId: 5,
+        fileName: 'quiet.m4a',
+        status: 'done' as const,
+        noteLinks: [],
+        createdAt: '2026-03-26T08:00:00Z',
+      }],
+    })
+    const { default: JobStatus } = await import('../JobStatus')
+    render(<JobStatus />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('job-done')).toBeInTheDocument()
+    })
+    expect(screen.getByText('No notes created')).toBeInTheDocument()
   })
 
   it('shows "new" badge for newly completed jobs', async () => {

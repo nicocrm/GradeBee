@@ -3,7 +3,6 @@ package handler
 import (
 	"context"
 	"errors"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -221,27 +220,6 @@ func TestAliasDeleteCascadesWithStudent(t *testing.T) {
 	// The alias should be gone — RemoveAlias with original student ID should return ErrNotFound
 	err = r.students.RemoveAlias(ctx, s.ID, a.ID)
 	assert.True(t, errors.Is(err, ErrNotFound), "alias should be cascade-deleted, got: %v", err)
-}
-
-// TestBuildExtractionPrompt_AliasesIncluded verifies that aliases appear in the prompt.
-func TestBuildExtractionPrompt_AliasesIncluded(t *testing.T) {
-	classes := []ClassGroup{
-		{
-			Name: "Period 1",
-			Students: []ClassStudent{
-				{Name: "Alexander", Aliases: []string{"Alex", "Xander"}},
-				{Name: "Katherine"},
-			},
-		},
-	}
-	prompt := BuildExtractionPrompt(classes)
-
-	assert.True(t, strings.Contains(prompt, "Alexander (aka Alex, Xander)"),
-		"prompt missing alias line, got: %s", prompt)
-	assert.True(t, strings.Contains(prompt, "Katherine (class_name Period 1)"),
-		"prompt missing no-alias line, got: %s", prompt)
-	assert.True(t, strings.Contains(prompt, "return the canonical name"),
-		"prompt missing alias instruction, got: %s", prompt)
 }
 
 // TestRemoveAlias_WrongStudent verifies alias ID is scoped to the student.

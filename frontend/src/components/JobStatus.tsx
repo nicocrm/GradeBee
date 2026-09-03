@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { fetchJobs, retryFailedJobs, dismissJobs } from '../api'
 import type { UploadJob, JobListResponse } from '../api'
+import { NoNotesClassUnclear, NoNotesNoNameMatched, NoNotesNobodyNamed } from '../api-types.gen'
 import StudentDetail from './StudentDetail'
 import TranscriptReview from './TranscriptReview'
 
@@ -292,6 +293,27 @@ export default function JobStatus({ pollNowRef }: { pollNowRef?: React.MutableRe
   )
 }
 
+// A job can finish with no note for three different reasons and the teacher can
+// act on two of them, so one line for all three sends them the wrong way — or
+// nowhere. The class case is the one worth wording carefully: the model is
+// allowed to decline a class rather than guess, and a correctly spoken header
+// can still fail to identify one, so the fix is to say the time as well.
+// The cases come from api-types.gen, not from string literals: rename a
+// constant in Go and this stops compiling, where a literal would fall through
+// to the generic line and show every teacher nothing.
+function noNotesMessage(reason: string | undefined): string {
+  switch (reason) {
+    case NoNotesClassUnclear:
+      return "No notes — the class wasn't clear. Say the class and time at the start."
+    case NoNotesNoNameMatched:
+      return 'No notes — no names matched your roster.'
+    case NoNotesNobodyNamed:
+      return 'No notes — nobody was named.'
+    default:
+      return 'No notes created'
+  }
+}
+
 function DoneJobCard({ job, isNew, onDismissNew, onDismiss, onOpenStudent }: { job: UploadJob; isNew: boolean; onDismissNew: () => void; onDismiss: () => void; onOpenStudent: (link: { studentId: number; name: string; className: string }) => void }) {
   const noteCount = job.noteLinks?.length ?? 0
   const [showTranscript, setShowTranscript] = useState(false)
@@ -318,7 +340,7 @@ function DoneJobCard({ job, isNew, onDismissNew, onDismiss, onOpenStudent }: { j
             )}
           </span>
           <span className="job-done-meta">
-            {noteCount === 0 ? 'No notes created' : `${noteCount} note${noteCount !== 1 ? 's' : ''} created`}
+            {noteCount === 0 ? noNotesMessage(job.noNotesReason) : `${noteCount} note${noteCount !== 1 ? 's' : ''} created`}
           </span>
         </div>
         <button className="job-dismiss-btn" onClick={onDismiss} title="Dismiss" data-testid="job-dismiss">

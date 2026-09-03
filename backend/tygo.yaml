@@ -35,8 +35,5 @@ packages:
       - JobListResponse
       # Extraction types
       - ExtractRequest
-      - ExtractResponse
-      - MatchedStudent
-      - StudentCandidate
       - ClassGroup
       - ClassStudent

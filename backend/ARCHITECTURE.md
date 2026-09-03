@@ -106,15 +106,19 @@ User uploads audio
         │    a failed write fails the job (retry skips transcription)
         │
         ├─ Step 2: Extract (status → "extracting")
-        │    Send transcript + student roster to LLM provider
-        │    → per-student observations (name, class, quoted_text, confidence)
-        │    Note: quoted_text contains verbatim passages from the transcript.
-        │    Stored in the notes table `summary` column (legacy name, no migration needed).
+        │    Read the roster (a failed read fails the job — nothing resolves without it)
+        │    Send numbered clauses + class display names to LLM provider; no
+        │    student name ever reaches the prompt
+        │    → class_name + spans {start, end, kind, spoken_labels, summary}
+        │    AssembleNotes resolves the labels in Go (see Span resolution below);
+        │    spans that do not tile the clauses fail the job, never repaired
         │
         ├─ Step 3: Create Notes (status → "creating_notes")
-        │    For each student with confidence ≥ 0.5:
-        │      Resolve name → student ID via FindByNameAndClass
+        │    For each assembled note:
+        │      Resolve canonical name → student ID via FindByNameAndClass
         │      Create note in SQLite via dbNoteCreator
+        │    Note text is the span summary, falling back to its verbatim clauses.
+        │    Stored in the notes table `summary` column (legacy name, no migration needed).
         │
         └─ Done (status → "done", mark voice note processed)
 ```
@@ -177,17 +181,35 @@ Tests override `serviceDeps` with stubs. All handler functions call through this
 | `deps` | `deps.go` | `prodDeps` | Top-level DI container |
 | `Roster` | `roster.go` | `dbRoster` | Read student data from DB |
 | `Transcriber` | `transcriber.go` | `providerTranscriber` | Audio→text via LLMProvider (Voxtral or Whisper) |
-| `Extractor` | `extract.go` | `llmExtractor` | Transcript→student extraction via LLMProvider |
+| `Extractor` | `extract.go` | `llmExtractor` | Transcript→segmentation (spans + class name) via LLMProvider |
 | `NoteCreator` | `notes.go` | `dbNoteCreator` | Create notes in SQLite |
 | `ReportGenerator` | `report_generator.go` | `llmReportGenerator` | LLM-based report card generation (HTML output) |
 | `JobQueue[VoiceNoteJob]` | `job_queue.go` | `MemQueue[VoiceNoteJob]` | Generic in-memory async job queue with worker pool |
 
-### Span resolution (#99, pure modules — not yet wired)
+### Span resolution (#99)
 
 The extraction model never sees a student name: shown the roster it re-cuts the transcript to fit
 the slots it has committed to. Go resolves instead. Three pure, table-tested modules carry the
-deterministic half; `voice_note_process.go` and eval-cli will both call `AssembleNotes`, so the eval
-grades production code.
+deterministic half. `voice_note_process.go` calls `AssembleNotes`; eval-cli will too once #108
+lands, so the eval grades production code rather than a copy. Until then the extraction eval is
+stale and `make eval` scores nothing meaningful on it: eval-cli now emits the segmentation prompt
+and numbered clauses, while `evals/promptfooconfig.extract.yaml` still pins the retired
+`students[]` response schema.
+
+The prompt (`prompts_version.go`) carries the class display names and nothing else. The user
+message is `BuildExtractionUserPrompt` — the clauses numbered 1..N — and span indices point into
+that same split, so nothing else may ever number a transcript. `class_name` is a schema enum of the
+roster's names plus `""`, which is how the model declines: it cannot invent a class, and a recording
+covering two classes is expected to come back declined rather than pinned to one.
+
+The decline is unconditional: a transcript with no spoken class header comes back `""` however many
+classes are on the roster, and no note is created. Teachers state the class when they record, so
+this costs nothing they would otherwise get — and a live test whose fixture omits the header is
+testing the decline, not the thing it names.
+
+Consequence, accepted: teachers see fewer notes. A name Whisper mangles gets none until #80 ships,
+and a recording covering two classes produces none at all. The transcript is persisted either way,
+and unattributed spans keep the right text with the right boundaries.
 
 | Function | File | Rule |
 |----------|------|------|
@@ -318,7 +340,7 @@ The `clerkAuthMiddleware` enforces that every `/api/` request carries an active 
 | `transcriber.go` | `Transcriber` interface + `providerTranscriber` (delegates to LLMProvider) |
 | `voice_note_drive_import.go` | POST /voice-notes/drive-import — download from Drive → disk + voice_notes table + dispatch job |
 | `google_token.go` | GET /google-token — return user's Google OAuth access token |
-| `extract.go` | `Extractor` interface + `llmExtractor` for transcript analysis |
+| `extract.go` | `Extractor` interface + `llmExtractor`; builds the segmentation prompt and its response schema |
 | `clauses.go` | `SplitClauses` — transcript → clauses the extraction model indexes spans into (#99) |
 | `match.go` | `MatchStudent` — spoken label → canonical student within one class: exact name/alias, else Levenshtein with stop-list, threshold and margin (#99) |
 | `spans.go` | `Span`/`SegmentResponse` types, tiling validation, `AssembleNotes` — spans + class → per-student notes, unattributed spans, label misses (#99) |
@@ -405,10 +427,33 @@ Production LLM quality signals live in `artifact_feedback` and the eval harness
 
 `InitLogger()` (`logger.go`) must be called after `InitSentry()`. When `SENTRY_DSN` is set it builds a `slog.NewMultiHandler` combining the stdout handler with a `sentryslog` handler (`github.com/getsentry/sentry-go/slog`). All `log.Info/Warn/Error` call sites are unchanged. Default `sentryslog` behaviour: `Debug`/`Info`/`Warn` → Sentry structured log entry only; `Error`/`Fatal` → structured log entry **and** a Sentry event (Issue).
 
-In `voice_note_process.go`, the two `process voice note: mention dropped` records and the
+In `voice_note_process.go`, the `process voice note: mention dropped` records and the
 `process voice note completed` record carry `model` (`extractor.Model()`) and `prompt_hash`
 (`ExtractionPromptHash`, `prompts_version.go`) — the same values stamped on the note row
 (task #96).
+
+A mention is one spoken label on one `child` span, so `mentions_total` on the completion record is
+the denominator its `dropped_no_roster_match` is read against. Read it as an upper bound: the
+model was observed padding a span's labels with the pronouns it also used for the same child
+(`["Maxence", "him", "He"]`), and each padded pronoun is a mention that drops. The prompt now
+forbids it, and it has not recurred, but the counters do not de-duplicate — a pronoun the teacher
+used for a child who was never named is a real miss, and the two cases are indistinguishable here. `dropped_low_confidence` and
+`mentions_below_0_7` are gone with the confidence field: the model no longer scores its own
+matches, because it no longer makes them. `unattributed_spans` counts spans rather than labels — a
+`group` span that fanned out to nobody was never a mention. `class_pinned` separates the two ways
+a job can finish with no notes: `false` means the model declined the class, so every label dropped
+at once; `true` with `mentions_total` at 0 means nobody was named. A class the model named that is
+not on the roster logs its length, not its value: everywhere else `class_name` is a string this
+code put in the schema enum, but that path exists precisely because the enum was not applied, and a
+model writing freely into a class field can write a child's name. A rejected tiling logs
+`"step":"reject span tiling"` and fails the job.
+
+The teacher gets the same distinction, outside telemetry: `VoiceNoteJob.NoNotesReason`
+(`voice_note_job.go`) is `nobody_named`, `class_unclear` or `no_name_matched` on a done job that
+created no note, and `JobStatus.tsx` renders one line per reason rather than one line for all
+three. Two of the three are actionable, so a single "No notes created" sent the teacher nowhere.
+The constants are generated into `api-types.gen.ts` and imported by the component, so renaming one
+in Go breaks the build rather than silently falling through to the generic line.
 
 **No student names in log attributes or error strings** — see
 [ADR 0003](../docs/adr/0003-no-child-pii-in-telemetry.md). Log `student_id`, or the job key on the
@@ -535,7 +580,7 @@ make bin/eval-cli
 
 | Config task | Reads from `vars` | Builds |
 |---|---|---|
-| `build-extract-prompt` | `transcript`, `classes` | `BuildExtractionPrompt` → messages array (system + user) |
+| `build-extract-prompt` | `transcript`, `classes` | `BuildExtractionPrompt` + `BuildExtractionUserPrompt` → messages array (system + user) |
 | `build-report-prompt` | `student_name`, `class`, `notes`, `report_instructions`, `instructions` | `BuildReportPrompt` → messages array (user only) |
 
 Model selection and the actual LLM call belong to promptfoo, not eval-cli.
