@@ -190,3 +190,33 @@ tests:
         config:
           expected: file://fixtures/extraction/group_observation/expected.json
           metric: precision_recall
+
+  # A full-name roster spoken by first name (#111). Since #108 the other
+  # fixtures carry first-name rosters, so this is the only row that fails
+  # when a spoken `Emma` stops reaching `Emma Torres`.
+  - description: "extraction: a spoken first name resolves against a full-name roster"
+    vars:
+      task: build-extract-prompt
+      transcript: "file://fixtures/extraction/full_name_roster/transcript.txt"
+      classes: "file://fixtures/extraction/full_name_roster/classes.json"
+    assert:
+      - type: javascript
+        value: file://scoring/extraction.js
+        config:
+          expected: file://fixtures/extraction/full_name_roster/expected.json
+          metric: precision_recall
+
+  # Numbered twins (#111): `Arthur 1` and `Arthur 2` on the roster. The
+  # number is the only thing telling them apart, so it must reach the
+  # matcher as a discriminator.
+  - description: "extraction: numbered twins resolve by their number"
+    vars:
+      task: build-extract-prompt
+      transcript: "file://fixtures/extraction/numbered_roster/transcript.txt"
+      classes: "file://fixtures/extraction/numbered_roster/classes.json"
+    assert:
+      - type: javascript
+        value: file://scoring/extraction.js
+        config:
+          expected: file://fixtures/extraction/numbered_roster/expected.json
+          metric: precision_recall

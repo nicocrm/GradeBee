@@ -248,10 +248,35 @@ Resolution order, measured in research rounds 5 and 9:
  1. Exact match on a folded name or alias wins outright: no threshold, no
     margin. An alias is the teacher's override and must never lose to a
     heuristic. Two students sharing the string is a real tie → nobody.
- 2. Otherwise normalised Levenshtein over every name and alias, a
+ 2. Otherwise exact match on a whitespace-separated part of a name
+    (#111): a teacher says `Emma`, and against `Emma Torres` whole that
+    scores 0.40, so the child got no note at all. Parts come after the
+    typed strings so an alias never ties with a first name derived from
+    another child's name; two children sharing a first name is still a
+    tie. Aliases are not split — the teacher typed them as spoken. The
+    stop-list applies from here on: the teacher typed rule 1's strings,
+    the matcher derived these, and `He` is a part of `Wei He`.
+ 3. Otherwise normalised Levenshtein over every name, part and alias, a
     student's score being the best of their strings. Three gates, all
     required: the label is not a pronoun; score >= 0.50; margin >= 0.15
-    over the best score of a *different* student.
+    over the best score of a *different* student. Parts under three
+    runes — `de`, an initial — sit this round out: any three-letter label
+    one edit away scores 0.67 against them.
+
+A number gates the fuzzy score (#111). Voxtral writes a spoken number as
+a digit, so `Arthur 1` on the roster is exact as spoken. A child whose
+name carries a number scores 0 against a label carrying a different
+one: with `Arthur 1` and `Arthur 2` in one class, `Artur 2` scores 0.86
+against both stems and would tie on the margin; gated, it meets
+`Arthur 2` alone. A bare `Arthur` carries no number, meets both, and
+ties. A child whose name carries no number is never gated.
+
+A label naming several children at once (`Zachariah and Anaya`, note
+618) is split on `and` and punctuation by splitLabel before any of this,
+and each part resolves on its own; the span then belongs to every child
+named.
+The prompt asks for one label per child, and the model fuses them
+anyway in a steady share of runs (research round 11).
 
 Breaking a tie by roster order would reproduce the root cause inside Go.
 */

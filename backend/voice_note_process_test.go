@@ -691,10 +691,11 @@ func TestProcessJob_CompletionRecordCountsMentions(t *testing.T) {
 	// Bram rather than counting as unattributed.
 	seg.Spans[len(seg.Spans)-1].Kind = SpanGroup
 	seg.Spans[len(seg.Spans)-1].SpokenLabels = nil
-	// Yara moves onto Xander's span, so one span carries two labels that both
-	// miss. That is what separates the label counter from the span counter: four
-	// misses across three unattributed spans.
-	seg.Spans[4].SpokenLabels = []string{"Xander", "Yara"}
+	// Yara moves onto Xander's span as one fused label naming both, which
+	// AssembleNotes splits into two mentions that both miss. That is what
+	// separates the mention counter from the span counter: four misses across
+	// three unattributed spans, and the fused label counts twice on each side.
+	seg.Spans[4].SpokenLabels = []string{"Xander and Yara"}
 
 	d := &mockDepsAll{
 		transcriber:   &stubTranscriber{result: transcript},
@@ -710,9 +711,9 @@ func TestProcessJob_CompletionRecordCountsMentions(t *testing.T) {
 	require.NoError(t, processVoiceNote(ctx, d, queue, voiceNoteKey("u1", uploadID)))
 
 	done := logRecord(t, logs.String(), "process voice note completed")
-	assert.Contains(t, done, `"mentions_total":6`, "denominator should count every label on a child span")
+	assert.Contains(t, done, `"mentions_total":6`, "denominator should count every child named on a child span")
 	assert.Contains(t, done, `"note_count":2`, "only labels that resolved become notes")
-	assert.Contains(t, done, `"dropped_no_roster_match":4`, "one drop record per label that resolved to nobody")
+	assert.Contains(t, done, `"dropped_no_roster_match":4`, "one drop record per child named that resolved to nobody")
 	// The group span fanned out to Alice and Bram, so it is attributed, not
 	// unattributed. unattributed_spans counts spans, never labels: it is the
 	// counter that would otherwise have no home once a span carries several.

@@ -125,19 +125,27 @@ func AssembleNotes(transcript string, classes []ClassGroup, resp SegmentResponse
 		if sp.Kind != SpanChild {
 			continue
 		}
-		for _, label := range sp.SpokenLabels {
-			name, ok := "", false
-			if pinned {
-				name, ok = MatchStudent(label, students)
-			}
-			if !ok {
-				out.Misses = append(out.Misses, LabelMiss{Label: label, Start: sp.Start, End: sp.End})
+		for _, spoken := range sp.SpokenLabels {
+			labels := splitLabel(spoken)
+			if len(labels) == 0 {
+				// Nothing but joiners: names nobody, logged as itself.
+				out.Misses = append(out.Misses, LabelMiss{Label: spoken, Start: sp.Start, End: sp.End})
 				continue
 			}
-			resolved[i] = appendUnique(resolved[i], name)
-			if !seen[name] {
-				seen[name] = true
-				present = append(present, name)
+			for _, label := range labels {
+				name, ok := "", false
+				if pinned {
+					name, ok = MatchStudent(label, students)
+				}
+				if !ok {
+					out.Misses = append(out.Misses, LabelMiss{Label: label, Start: sp.Start, End: sp.End})
+					continue
+				}
+				resolved[i] = appendUnique(resolved[i], name)
+				if !seen[name] {
+					seen[name] = true
+					present = append(present, name)
+				}
 			}
 		}
 	}
