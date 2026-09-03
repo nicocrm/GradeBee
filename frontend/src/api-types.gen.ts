@@ -562,6 +562,12 @@ export interface VoiceNote {
   filePath: string;
   processedAt?: string;
   purgedAt?: string;
+  /**
+   * Transcript is written by the processor once transcription succeeds, before
+   * extraction, so it exists whether or not any note is created. It lives as long
+   * as the row: the retention cleanup deletes both together.
+   */
+  transcript?: string;
   createdAt: string;
 }
 

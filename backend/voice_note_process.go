@@ -48,13 +48,13 @@ func processVoiceNote(ctx context.Context, d deps, q JobQueue[VoiceNoteJob], key
 	userID := job.UserID
 	uploadID := job.UploadID
 
-	// failWith marks the job failed and returns the error, writing to two audiences.
+	// failJob marks the job failed and returns the error, writing to two audiences.
 	//
 	// step is telemetry: it is logged here, and the returned error is logged again by
 	// the queue worker, so both reach Sentry and neither may carry a student name
-	// (docs/adr/0003). detail is what the teacher reads — JobStatus renders job.Error
-	// — so it names the student they are entitled to see.
-	failWith := func(step, detail string, err error) error {
+	// (docs/adr/0003). message is what the teacher reads verbatim — JobStatus
+	// renders job.Error.
+	failJob := func(step, message string, err error) error {
 		if errors.Is(err, errNoSpeechDetected) {
 			log.Warn("process voice note failed", "step", step, "key", key, "error", err)
 		} else {
@@ -62,12 +62,24 @@ func processVoiceNote(ctx context.Context, d deps, q JobQueue[VoiceNoteJob], key
 		}
 		now := time.Now()
 		job.Status = JobStatusFailed
-		job.Error = fmt.Sprintf("%s: %s", detail, err.Error())
+		job.Error = message
 		job.FailedAt = &now
 		if updateErr := q.UpdateJob(ctx, *job); updateErr != nil {
 			log.Error("process voice note: failed to update job status to failed", "error", updateErr)
 		}
 		return fmt.Errorf("process voice note: %s: %w", step, err)
+	}
+	// failWith composes the teacher's message from detail plus the raw error. detail
+	// may name the student they are entitled to see; step must not.
+	failWith := func(step, detail string, err error) error {
+		return failJob(step, fmt.Sprintf("%s: %s", detail, err.Error()), err)
+	}
+
+	// failTooOld is for a retry that outlived the retention cleanup: the audio file
+	// or the voice_notes row is gone, and no wording of the raw error helps the
+	// teacher. Same telemetry step as the raw failure would have carried.
+	failTooOld := func(step string, err error) error {
+		return failJob(step, "this upload is too old to retry", err)
 	}
 
 	// Helper to mark job as failed and return the error, where the same wording
@@ -80,9 +92,9 @@ func processVoiceNote(ctx context.Context, d deps, q JobQueue[VoiceNoteJob], key
 	roster := d.GetRoster(ctx, userID)
 	var transcript string
 	if job.Transcript != "" {
-		// Text input — skip transcription entirely.
+		// Text input, or a retry after transcription — skip transcription entirely.
 		transcript = job.Transcript
-		log.Info("process voice note: skipping transcription (text input)", "key", key)
+		log.Info("process voice note: skipping transcription, job already carries the text", "key", key)
 	} else {
 		job.Status = JobStatusTranscribing
 		if err := q.UpdateJob(ctx, *job); err != nil {
@@ -91,6 +103,11 @@ func processVoiceNote(ctx context.Context, d deps, q JobQueue[VoiceNoteJob], key
 
 		audioFile, err := os.Open(job.FilePath)
 		if err != nil {
+			if os.IsNotExist(err) {
+				// The retention cleanup removed the file: a job that failed before
+				// transcription and was retried after the window.
+				return failTooOld("open audio file", err)
+			}
 			return fail("open audio file", err)
 		}
 		defer audioFile.Close()
@@ -119,6 +136,9 @@ func processVoiceNote(ctx context.Context, d deps, q JobQueue[VoiceNoteJob], key
 
 		// Delete the audio file immediately after successful transcription —
 		// the raw recording is no longer needed; the transcript is sufficient.
+		// This comes before the transcript is persisted, on purpose: the privacy
+		// page promises the recording is gone right after transcription, so no
+		// failure below may leave it on disk.
 		if job.FilePath != "" {
 			if removeErr := os.Remove(job.FilePath); removeErr != nil && !os.IsNotExist(removeErr) {
 				log.Warn("process voice note: could not delete audio after transcription",
@@ -130,6 +150,19 @@ func processVoiceNote(ctx context.Context, d deps, q JobQueue[VoiceNoteJob], key
 				}
 			}
 		}
+	}
+
+	// Persist the transcript on the voice_notes row before extraction, so it exists
+	// whether or not any note is created — the only other copy is notes.transcript,
+	// written per created note. A failed write fails the job: the job struct keeps
+	// the transcript, so a retry skips transcription and lands here again. The
+	// error carries no transcript (docs/adr/0003).
+	if err := d.GetVoiceNoteRepo().SetTranscript(ctx, uploadID, transcript); err != nil {
+		if errors.Is(err, ErrNotFound) {
+			// The retention cleanup removed the row: a retry that outlived the window.
+			return failTooOld("persist transcript", err)
+		}
+		return fail("persist transcript", err)
 	}
 
 	// --- Step 2: Extract ---
