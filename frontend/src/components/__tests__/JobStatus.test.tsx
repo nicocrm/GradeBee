@@ -513,6 +513,79 @@ describe('JobStatus', () => {
       expect(screen.getAllByRole('button', { name: /Eleonore/ })).toHaveLength(1)
     })
 
+    // Lévy already has a note from this recording, so the card sends its id
+    // and the row lands on that note (#135). The response names a note the
+    // card holds: the count stays, and Lévy is one link, not two.
+    it('appends to the note the card already holds for the picked child', async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+      mockFetchJobs.mockResolvedValue({ active: [], failed: [], done: [card] })
+      mockListStudents.mockResolvedValue({ students: [
+        { id: 21, classId: 2, name: 'Lévy', createdAt: '', aliases: [] },
+        { id: 22, classId: 2, name: 'Eleonore', createdAt: '', aliases: [] },
+      ] })
+      mockAssignPassages.mockResolvedValue({ noteId: 50, studentId: 21, name: 'Lévy', className: 'Tuesday', appended: true })
+
+      const { default: JobStatus } = await import('../JobStatus')
+      render(<JobStatus />)
+
+      await waitFor(() => {
+        expect(screen.getByRole('option', { name: 'Lévy' })).toBeInTheDocument()
+      })
+      await user.click(screen.getByTestId('passage-review-check'))
+      await user.selectOptions(screen.getByTestId('passage-review-student'), '21')
+
+      await waitFor(() => {
+        expect(screen.getByTestId('passage-review-filed')).toHaveTextContent('Assigned to Lévy')
+      })
+      expect(mockAssignPassages).toHaveBeenCalledWith(12, {
+        classId: 2,
+        studentId: 21,
+        passages: [{ kind: 'unknown', summary: 'She was helping the younger ones with their blocks.' }],
+        appendToNoteId: 50,
+      }, expect.anything())
+      expect(screen.getByText('1 note created')).toBeInTheDocument()
+      expect(screen.getAllByRole('button', { name: /Lévy/ })).toHaveLength(1)
+    })
+
+    // Two confirms to Eleonore in one tab: the first creates, and the link it
+    // made is what the second sends back, so the second row joins that note.
+    it('sends the note an earlier assign made when the same child is picked again', async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+      mockFetchJobs.mockResolvedValue({ active: [], failed: [], done: [{
+        ...card,
+        passages: [
+          { kind: 'unknown', summary: 'She was helping the younger ones with their blocks.' },
+          { kind: 'unknown', summary: "Polly wasn't speaking much today." },
+        ],
+      }] })
+      mockAssignPassages
+        .mockResolvedValueOnce({ noteId: 60, studentId: 22, name: 'Eleonore', className: 'Tuesday', appended: false })
+        .mockResolvedValueOnce({ noteId: 60, studentId: 22, name: 'Eleonore', className: 'Tuesday', appended: true })
+
+      const { default: JobStatus } = await import('../JobStatus')
+      render(<JobStatus />)
+
+      await waitFor(() => {
+        expect(screen.getByRole('option', { name: 'Eleonore' })).toBeInTheDocument()
+      })
+      await user.click(screen.getAllByTestId('passage-review-check')[0])
+      await user.selectOptions(screen.getByTestId('passage-review-student'), '22')
+      await waitFor(() => {
+        expect(screen.getByText('2 notes created')).toBeInTheDocument()
+      })
+
+      await user.click(screen.getAllByTestId('passage-review-check')[1])
+      await user.selectOptions(screen.getByTestId('passage-review-student'), '22')
+      await waitFor(() => {
+        expect(screen.getAllByTestId('passage-review-filed')).toHaveLength(2)
+      })
+
+      expect(mockAssignPassages.mock.calls[0][1]).not.toHaveProperty('appendToNoteId')
+      expect(mockAssignPassages.mock.calls[1][1]).toMatchObject({ studentId: 22, appendToNoteId: 60 })
+      expect(screen.getByText('2 notes created')).toBeInTheDocument()
+      expect(screen.getAllByRole('button', { name: /Eleonore/ })).toHaveLength(1)
+    })
+
     // A card from before the field existed has no roster to offer.
     it('keeps the rows read-only when the job carries no class id', async () => {
       mockFetchJobs.mockResolvedValue({ active: [], failed: [], done: [{ ...card, classId: undefined }] })

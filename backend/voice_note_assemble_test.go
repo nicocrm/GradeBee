@@ -29,6 +29,7 @@ type assembleWorld struct {
 	classRepo   *ClassRepo
 	studentRepo *StudentRepo
 	noteRepo    *NoteRepo
+	feedback    *ArtifactFeedbackRepo
 	voiceNotes  *VoiceNoteRepo
 	queue       *stubVoiceNoteQueue
 	extractor   *stubExtractor
@@ -116,6 +117,7 @@ func newAssembleWorld(t *testing.T) *assembleWorld {
 		classRepo:   &ClassRepo{db: db},
 		studentRepo: &StudentRepo{db: db},
 		noteRepo:    &NoteRepo{db: db},
+		feedback:    &ArtifactFeedbackRepo{db: db},
 		voiceNotes:  &VoiceNoteRepo{db: db},
 		queue:       newStubVoiceNoteQueue(),
 		extractor:   &stubExtractor{passagesFn: rosterPass2()},
@@ -147,6 +149,7 @@ func newAssembleWorld(t *testing.T) *assembleWorld {
 		classRepo:      w.classRepo,
 		studentRepo:    w.studentRepo,
 		noteRepo:       w.noteRepo,
+		feedbackRepo:   w.feedback,
 		voiceNoteRepo:  w.voiceNotes,
 		voiceNoteQueue: w.queue,
 		roster:         roster,

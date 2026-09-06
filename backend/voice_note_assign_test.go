@@ -77,6 +77,35 @@ func (g *gatedNoteCreator) CreateNote(ctx context.Context, req CreateNoteRequest
 	return g.inner.CreateNote(ctx, req)
 }
 
+// pipelineNoteFor is the note the pipeline made for a child on this recording,
+// holding the child's passage and the class-wide remark, on the queued job as
+// a link. It is what an append lands on. Dated by assign's rule, the row's
+// day, so the duplicate guard's day scope sees it. The pipeline dates by job
+// dispatch instead; the two split across a UTC midnight, and a replay then
+// misses. That gap is #139's (trace id), not pinned here.
+func (w *assembleWorld) pipelineNoteFor(t *testing.T, studentID int64, name string) Note {
+	t.Helper()
+	ctx := context.Background()
+	row, err := w.voiceNotes.GetByID(ctx, w.uploadID)
+	require.NoError(t, err)
+	day, err := uploadDay(row.CreatedAt)
+	require.NoError(t, err)
+	res, err := w.deps.noteCreator.CreateNote(ctx, CreateNoteRequest{
+		StudentID: studentID, StudentName: name,
+		QuotedText: name + " finished the puzzle alone\n\neveryone worked hard",
+		Transcript: assembleTranscript, Date: day, ModelVersion: "pipeline-model",
+	})
+	require.NoError(t, err)
+	require.NoError(t, w.queue.Publish(ctx, VoiceNoteJob{
+		UserID: "u1", UploadID: w.uploadID, FileName: "monday.m4a", Status: JobStatusDone,
+		ClassName: w.tuesday, ClassID: w.tuesdayID,
+		NoteLinks: []NoteLink{{Name: name, NoteID: res.NoteID, StudentID: studentID, ClassName: w.tuesday}},
+	}))
+	note, err := w.noteRepo.GetByID(ctx, res.NoteID)
+	require.NoError(t, err)
+	return note
+}
+
 // The case this endpoint exists for. Note 694's shape: a block the recording
 // only ever said "she" about, which the teacher knows was Alice. Ticked, filed,
 // and a note exists — dated from the recording, holding the passage plus the
@@ -117,6 +146,96 @@ func TestAssignPassages_FilesARowToAChildAsANewNote(t *testing.T) {
 
 	assert.Empty(t, w.notesFor(t, w.bob))
 	assert.Empty(t, w.extractor.calls(), "no model call: the text is the card's")
+}
+
+// Lévy's case (#135): the pipeline made a note for the child, and a row the
+// recording only said "she" about was Lévy too. Ticked and filed to Lévy, the
+// row joins that note after a blank line. One note, not two; the group text
+// is not written twice; the note stays the pipeline's — source, model, and
+// the absence of a feedback row all say so; and the job is left alone, since
+// the link is already on it.
+func TestAssignPassages_AppendsToTheChildsExistingNote(t *testing.T) {
+	w := newAssembleWorld(t)
+	before := w.pipelineNoteFor(t, w.alice, "Alice")
+
+	body := w.toAlice(helping, everyone)
+	body.AppendToNoteID = before.ID
+	rec, logs := w.assign(t, "u1", w.uploadID, body)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+
+	var resp AssignPassagesResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.True(t, resp.Appended)
+	assert.Equal(t, before.ID, resp.NoteID, "the response names the note the card already holds")
+	assert.Equal(t, "Alice", resp.Name)
+
+	notes := w.notesFor(t, w.alice)
+	require.Len(t, notes, 1)
+	after := notes[0]
+	assert.Equal(t, before.Summary+"\n\nhelped the little ones", after.Summary,
+		"the row after a blank line; the class-wide remark is already in the note and is not repeated")
+	assert.Equal(t, NoteSourceAuto, after.Source, "an append keeps the note's source")
+	assert.Equal(t, before.ModelVersion, after.ModelVersion, "an append does not restamp the model")
+	assert.Equal(t, before.Date, after.Date)
+
+	fb, err := w.feedback.ListByArtifact(context.Background(), "note", before.ID)
+	require.NoError(t, err)
+	assert.Empty(t, fb, "filing is not correcting: no implicit thumbs-down")
+
+	job := w.job(t)
+	assert.Len(t, job.NoteLinks, 1, "the link was already on the job; an append writes nothing to it")
+
+	assert.Contains(t, logs, `"appended":true`)
+	assert.Contains(t, logs, `"passage_count":1`, "what the note gained, not what the card sent")
+	assert.Contains(t, logs, `"kind_counts":{"group":1,"unknown":1}`)
+}
+
+// Two confirms to the same child in one tab: the first makes the note, the
+// card holds its link, and the second sends that id, so the second row lands
+// on the first note.
+func TestAssignPassages_ASecondAssignToTheSameChildAppends(t *testing.T) {
+	w := newAssembleWorld(t)
+
+	rec, _ := w.assign(t, "u1", w.uploadID, w.toAlice(helping, everyone))
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	var first AssignPassagesResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &first))
+	assert.False(t, first.Appended)
+
+	body := w.toAlice(quiet, everyone)
+	body.AppendToNoteID = first.NoteID
+	rec, _ = w.assign(t, "u1", w.uploadID, body)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	var second AssignPassagesResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &second))
+	assert.True(t, second.Appended)
+	assert.Equal(t, first.NoteID, second.NoteID)
+
+	notes := w.notesFor(t, w.alice)
+	require.Len(t, notes, 1)
+	assert.Equal(t, "helped the little ones\n\neveryone worked hard\n\ndid not say much", notes[0].Summary)
+	assert.Equal(t, NoteSourceAssigned, notes[0].Source)
+}
+
+// The note named must be the picked child's. Another child's note, or an id
+// that is nobody's, is a 404 and nothing is written: not to that note, and
+// no new note for the child either.
+func TestAssignPassages_RefusesANoteThatIsNotTheChilds(t *testing.T) {
+	w := newAssembleWorld(t)
+	bobs := w.pipelineNoteFor(t, w.bob, "Bob")
+
+	for name, noteID := range map[string]int64{"another child's note": bobs.ID, "a note that does not exist": 9999} {
+		t.Run(name, func(t *testing.T) {
+			body := w.toAlice(helping)
+			body.AppendToNoteID = noteID
+			rec, _ := w.assign(t, "u1", w.uploadID, body)
+			assert.Equal(t, http.StatusNotFound, rec.Code, rec.Body.String())
+		})
+	}
+	assert.Empty(t, w.notesFor(t, w.alice))
+	after, err := w.noteRepo.GetByID(context.Background(), bobs.ID)
+	require.NoError(t, err)
+	assert.Equal(t, bobs.Summary, after.Summary)
 }
 
 // A split pronoun run: two blocks about the same child, ticked together, make
@@ -199,6 +318,16 @@ func TestAssignPassages_RefusesABadBody(t *testing.T) {
 		{"no student", AssignPassagesRequest{ClassID: w.tuesdayID, Passages: []AssignPassage{helping}}, http.StatusBadRequest},
 		{"no passages", w.toAlice(), http.StatusBadRequest},
 		{"only group passages", w.toAlice(everyone), http.StatusBadRequest},
+		{"only group passages, as an append", func() AssignPassagesRequest {
+			b := w.toAlice(everyone)
+			b.AppendToNoteID = 1
+			return b
+		}(), http.StatusBadRequest},
+		{"a negative note id", func() AssignPassagesRequest {
+			b := w.toAlice(helping)
+			b.AppendToNoteID = -1
+			return b
+		}(), http.StatusBadRequest},
 		{"a none passage", w.toAlice(AssignPassage{Kind: PassageNone, Summary: "Monday morning"}), http.StatusBadRequest},
 		{"an unknown kind", w.toAlice(AssignPassage{Kind: "header", Summary: "Monday morning"}), http.StatusBadRequest},
 		{"an empty summary", w.toAlice(AssignPassage{Kind: PassageUnknown, Summary: "  "}), http.StatusBadRequest},
@@ -352,6 +481,36 @@ func TestAssignPassages_ReplayMakesNoSecondNote(t *testing.T) {
 	assert.Contains(t, logs, `"duplicate":true`)
 	assert.NotContains(t, logs, "Alice", "no student name")
 	assert.NotContains(t, logs, "little ones", "no note text")
+}
+
+// A replay of an append: the response was lost after the row joined the
+// pipeline's note, and the card retried with the same body, note id and all.
+// The guard finds the grown note and answers as the lost response would
+// have: that note, `appended: true`, and the row is not written twice.
+func TestAssignPassages_ReplayOfAnAppendSaysAppended(t *testing.T) {
+	w := newAssembleWorld(t)
+	before := w.pipelineNoteFor(t, w.alice, "Alice")
+	body := w.toAlice(helping, everyone)
+	body.AppendToNoteID = before.ID
+
+	rec, _ := w.assign(t, "u1", w.uploadID, body)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	var first AssignPassagesResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &first))
+	require.True(t, first.Appended)
+
+	rec, logs := w.assign(t, "u1", w.uploadID, body)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	var replay AssignPassagesResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &replay))
+	assert.Equal(t, first, replay, "the same link, appended, as the lost response said")
+
+	notes := w.notesFor(t, w.alice)
+	require.Len(t, notes, 1)
+	assert.Equal(t, before.Summary+"\n\nhelped the little ones", notes[0].Summary, "the row once, not twice")
+	assert.Contains(t, logs, `"duplicate":true`)
+	assert.Contains(t, logs, `"appended":true`)
+	assert.Contains(t, logs, `"passage_count":1`, "the lost call's count: group text is not counted on an append")
 }
 
 // The guard is by text. Once the teacher has rewritten the note, the words

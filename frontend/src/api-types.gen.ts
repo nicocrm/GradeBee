@@ -868,6 +868,8 @@ voice_note_assign.go implements POST /api/voice-notes/{uploadId}/assign: the
 teacher files passages the recording could not place — a pronoun block, a
 name nobody on the roster answers to — to a child they pick on the done
 card, and a note exists for that child, dated from the recording (#134).
+When the card already holds a note for that child from this recording, the
+rows land on it instead (#135).
 
 The passages come from the card, not from the job. The job is in memory and
 gone on restart, and pass 2 is non-deterministic, so an index into a job's
@@ -894,6 +896,15 @@ export interface AssignPassagesRequest {
   classId: number /* int64 */;
   studentId: number /* int64 */;
   passages: AssignPassage[];
+  /**
+   * AppendToNoteID is the note this recording already made for StudentID,
+   * when the card holds one: the rows are appended to it and no second note
+   * is made. The server checks only that the note exists and belongs to
+   * StudentID. Nothing more is needed: a forged id lets a teacher append
+   * their own text to their own note, which the edit endpoint already
+   * allows.
+   */
+  appendToNoteId?: number /* int64 */;
 }
 /**
  * AssignPassage is one passage as the card sends it back: what kind it was,
@@ -914,8 +925,9 @@ export interface AssignPassagesResponse {
   name: string;
   className: string;
   /**
-   * Appended is false on every response this shard can give: a create, or
-   * a replay answered with the note a create made. #135 adds the append path.
+   * Appended says the rows joined the note the card named in
+   * appendToNoteId; false means a note was created. A replay of an append
+   * answers with the grown note and says true too.
    */
   appended: boolean;
 }

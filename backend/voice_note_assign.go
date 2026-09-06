@@ -2,6 +2,8 @@
 // teacher files passages the recording could not place — a pronoun block, a
 // name nobody on the roster answers to — to a child they pick on the done
 // card, and a note exists for that child, dated from the recording (#134).
+// When the card already holds a note for that child from this recording, the
+// rows land on it instead (#135).
 //
 // The passages come from the card, not from the job. The job is in memory and
 // gone on restart, and pass 2 is non-deterministic, so an index into a job's
@@ -34,6 +36,13 @@ type AssignPassagesRequest struct {
 	ClassID   int64           `json:"classId"`
 	StudentID int64           `json:"studentId"`
 	Passages  []AssignPassage `json:"passages"`
+	// AppendToNoteID is the note this recording already made for StudentID,
+	// when the card holds one: the rows are appended to it and no second note
+	// is made. The server checks only that the note exists and belongs to
+	// StudentID. Nothing more is needed: a forged id lets a teacher append
+	// their own text to their own note, which the edit endpoint already
+	// allows.
+	AppendToNoteID int64 `json:"appendToNoteId,omitempty"`
 }
 
 // AssignPassage is one passage as the card sends it back: what kind it was,
@@ -51,12 +60,14 @@ type AssignPassagesResponse struct {
 	StudentID int64  `json:"studentId"`
 	Name      string `json:"name"`
 	ClassName string `json:"className"`
-	// Appended is false on every response this shard can give: a create, or
-	// a replay answered with the note a create made. #135 adds the append path.
+	// Appended says the rows joined the note the card named in
+	// appendToNoteId; false means a note was created. A replay of an append
+	// answers with the grown note and says true too.
 	Appended bool `json:"appended"`
 }
 
-// handleAssignPassages files ticked passages to one child as a new note.
+// handleAssignPassages files ticked passages to one child: a new note, or an
+// append to the note the card already holds for that child.
 //
 // Order matters, and it is the assemble handler's:
 //
@@ -67,13 +78,18 @@ type AssignPassagesResponse struct {
 //     repaired.
 //   - The lock is taken after the checks and held across the note write and
 //     the job update. A double-click gets 409 at once.
+//   - The note named for an append is read inside the lock, so its text is
+//     the text the append lands on: nothing else can move it between the
+//     read and the write. A note that is not the student's is a 404 before
+//     any write.
 //   - A replay makes no second note (#136). Inside the lock, before any
 //     write, the child's notes for the day are read; one holding the sent
 //     text is answered with 200 and its link. Covers what the lock cannot:
 //     a retry after a lost response, a second tab, a reload then a re-pick.
 //   - The job is read inside the lock: a mid-run or failed job is refused,
-//     and a done one gets the link appended, nothing more. No passage state,
-//     no class, no review state moves. Review
+//     and a done one gets the link appended on a create, nothing more. An
+//     append writes nothing to the job: the link is already there. No passage
+//     state, no class, no review state moves. Review
 //     lives on the card; the link is the filing result, and a reload rebuilds
 //     the card from the job, so the job has to carry it or the count is wrong,
 //     the class picker comes back, and a re-pick on a declined recording
@@ -107,6 +123,10 @@ func handleAssignPassages(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.ClassID <= 0 || req.StudentID <= 0 {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "classId and studentId are required"})
+		return
+	}
+	if req.AppendToNoteID < 0 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "appendToNoteId must be a note id"})
 		return
 	}
 
@@ -188,6 +208,25 @@ func handleAssignPassages(w http.ResponseWriter, r *http.Request) {
 	}
 	defer releaseUploadLock(key)
 
+	// The note an append lands on, read inside the lock so the text it holds
+	// is the text the write extends. Missing, or another child's, is a 404
+	// and nothing is written: the check is the whole of what the id buys, and
+	// the card can only have sent an id it holds a link for.
+	var appendTo *Note
+	if req.AppendToNoteID != 0 {
+		n, err := serviceDeps.GetNoteRepo().GetByID(r.Context(), req.AppendToNoteID)
+		switch {
+		case errors.Is(err, ErrNotFound), err == nil && n.StudentID != student.ID:
+			log.Warn("assign passages: note not the student's", "upload_id", uploadID, "user_id", userID, "student_id", student.ID, "note_id", req.AppendToNoteID)
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "note not found"})
+			return
+		case err != nil:
+			writeInternalError(w, r, err)
+			return
+		}
+		appendTo = &n
+	}
+
 	// The job, read once inside the lock. Two of assemble's refusals apply
 	// and one does not. A job mid-run would have the pipeline's closing write
 	// replace the link list seconds later, and a failed one's route is retry,
@@ -221,58 +260,84 @@ func handleAssignPassages(w http.ResponseWriter, r *http.Request) {
 	// links by noteId, so the reply is a create's shape. Misses after an edit
 	// (a second note is then fair) and after a restart (a re-pick makes new
 	// rows). Inside the lock, so a double-click cannot slip between check
-	// and write.
-	if existing, err := findAssignedNote(r.Context(), student.ID, noteDate, own, group); err != nil {
+	// and write. A replay of an append hits the note it grew, and the reply
+	// says appended, as the lost one did; a hit on some other note is
+	// reported as the create it was.
+	if hit, err := findAssignedNote(r.Context(), student.ID, noteDate, own, group); err != nil {
 		writeInternalError(w, r, err)
 		return
-	} else if existing != nil {
-		logPassageRecovered(log, true, kindCounts, len(own)+len(group), userID, uploadID, student.ID, extractor.Model())
+	} else if hit != nil {
+		appended := appendTo != nil && hit.ID == appendTo.ID
+		matched := len(own) + len(group)
+		if appended {
+			matched = len(own)
+		}
+		logPassageRecovered(log, appended, true, kindCounts, matched, userID, uploadID, student.ID, extractor.Model())
 		writeJSON(w, http.StatusOK, AssignPassagesResponse{
-			NoteID:    existing.ID,
+			NoteID:    hit.ID,
 			StudentID: student.ID,
 			Name:      student.Name,
 			ClassName: class.Name,
-			Appended:  false,
+			Appended:  appended,
 		})
 		return
 	}
 
-	// The extractor's model, as the pipeline and assemble stamp it: it
-	// produced the words, it only missed the assignment. The job carries no
-	// version, and the window for a mismatch is the card's lifetime.
-	result, err := serviceDeps.GetNoteCreator().CreateNote(r.Context(), CreateNoteRequest{
-		StudentID:    student.ID,
-		StudentName:  student.Name,
-		QuotedText:   joinPassageText(own, group),
-		Transcript:   transcript,
-		Date:         noteDate,
-		ModelVersion: extractor.Model(),
-		Source:       NoteSourceAssigned,
-	})
-	if err != nil {
-		writeInternalError(w, r, err)
-		return
-	}
-	link := NoteLink{Name: student.Name, NoteID: result.NoteID, StudentID: student.ID, ClassName: class.Name}
+	var link NoteLink
+	written := len(own) + len(group)
+	if appendTo != nil {
+		// The rows only, after a blank line, in the order sent. Group text is
+		// dropped: the pipeline note already holds it, and a second copy
+		// would say "everyone worked hard" twice. The source stays what it
+		// was, so a later edit of an auto note still fires the implicit
+		// thumbs-down: the model wrote most of it. No feedback record here;
+		// the teacher is filing, not correcting.
+		written = len(own)
+		text := appendTo.Summary + "\n\n" + joinPassageText(own, nil)
+		if err := serviceDeps.GetNoteRepo().Update(r.Context(), appendTo.ID, text); err != nil {
+			writeInternalError(w, r, err)
+			return
+		}
+		link = NoteLink{Name: student.Name, NoteID: appendTo.ID, StudentID: student.ID, ClassName: class.Name}
+	} else {
+		// The extractor's model, as the pipeline and assemble stamp it: it
+		// produced the words, it only missed the assignment. The job carries
+		// no version, and the window for a mismatch is the card's lifetime.
+		result, err := serviceDeps.GetNoteCreator().CreateNote(r.Context(), CreateNoteRequest{
+			StudentID:    student.ID,
+			StudentName:  student.Name,
+			QuotedText:   joinPassageText(own, group),
+			Transcript:   transcript,
+			Date:         noteDate,
+			ModelVersion: extractor.Model(),
+			Source:       NoteSourceAssigned,
+		})
+		if err != nil {
+			writeInternalError(w, r, err)
+			return
+		}
+		link = NoteLink{Name: student.Name, NoteID: result.NoteID, StudentID: student.ID, ClassName: class.Name}
 
-	// The link goes on the queued job, as assemble writes its links at the end
-	// of its handler. Nothing else on the job moves.
-	if job != nil {
-		job.NoteLinks = append(job.NoteLinks, link)
-		if err := queue.UpdateJob(r.Context(), *job); err != nil {
-			// The note exists; only the card's next poll is stale.
-			log.Warn("assign passages: could not update queued job", "upload_id", uploadID, "error", err)
+		// The link goes on the queued job, as assemble writes its links at
+		// the end of its handler. Nothing else on the job moves. An append
+		// skips this: the link is already there.
+		if job != nil {
+			job.NoteLinks = append(job.NoteLinks, link)
+			if err := queue.UpdateJob(r.Context(), *job); err != nil {
+				// The note exists; only the card's next poll is stale.
+				log.Warn("assign passages: could not update queued job", "upload_id", uploadID, "error", err)
+			}
 		}
 	}
 
-	logPassageRecovered(log, false, kindCounts, len(own)+len(group), userID, uploadID, student.ID, extractor.Model())
+	logPassageRecovered(log, appendTo != nil, false, kindCounts, written, userID, uploadID, student.ID, extractor.Model())
 
 	writeJSON(w, http.StatusOK, AssignPassagesResponse{
 		NoteID:    link.NoteID,
 		StudentID: link.StudentID,
 		Name:      link.Name,
 		ClassName: link.ClassName,
-		Appended:  false,
+		Appended:  appendTo != nil,
 	})
 }
 
@@ -314,14 +379,16 @@ func splitAssignPassages(passages []AssignPassage, transcript string) (own, grou
 	return own, group, kindCounts, nil
 }
 
-// logPassageRecovered writes the recovery record, hit or create. Same pinned
-// query string as the pipeline's and the class picker's, so Sentry sees every
-// route a passage reaches a child by. One writer, so no field lands on one
-// path only. No name, no text (docs/adr/0003).
-func logPassageRecovered(log *slog.Logger, duplicate bool, kindCounts map[PassageKind]int, passageCount int, userID string, uploadID, studentID int64, model string) {
+// logPassageRecovered writes the recovery record: create, append, or replay
+// hit. Same pinned query string as the pipeline's and the class picker's, so
+// Sentry sees every route a passage reaches a child by. One writer, so no
+// field lands on one path only. No name, no text (docs/adr/0003). kind_counts
+// is what the card sent; passage_count is what the note gained, or on a hit
+// what the lost call's did: group text is not counted on an append.
+func logPassageRecovered(log *slog.Logger, appended, duplicate bool, kindCounts map[PassageKind]int, passageCount int, userID string, uploadID, studentID int64, model string) {
 	log.Info("process voice note: passage recovered",
 		"route", "manual",
-		"appended", false,
+		"appended", appended,
 		"duplicate", duplicate,
 		"kind_counts", kindCounts,
 		"passage_count", passageCount,

@@ -4,7 +4,8 @@ import { test, expect, type Page } from '@playwright/test'
 /**
  * Filing a passage that reached nobody to a child, in a browser (#134): a done
  * card with a pinned class lists the rows, the teacher ticks one, picks a
- * child of that class, confirms, and the card repaints with the note.
+ * child of that class, confirms, and the card repaints with the note. A child
+ * the card already links to gets the row appended to that note (#135).
  *
  * `/assign` and `/classes/{id}/students` are mocked. The endpoint's own
  * contract — ownership, membership, validation, the lock, the job update — is
@@ -143,6 +144,41 @@ test.describe('Filing passages to a child', () => {
         { kind: 'unknown', summary: 'She was helping the younger ones with their blocks.' },
         { kind: 'group', summary: 'Everyone worked hard.' },
       ],
+    }])
+  })
+
+  // Lévy is already a link on the card, so picking Lévy sends that note's id
+  // and the card gains no second link.
+  test('a row filed to a child who has a note joins that note', async ({ page }) => {
+    await mockDoneJob(page, 2)
+    const bodies: unknown[] = []
+    await page.route('**/assign', async (route) => {
+      bodies.push(route.request().postDataJSON())
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ noteId: 50, studentId: 21, name: 'Lévy', className: 'Pam & Paul · Tue', appended: true }),
+      })
+    })
+
+    await page.goto('/')
+    const card = page.getByTestId('job-done')
+    await expect(card).toBeVisible({ timeout: 15000 })
+    const review = card.getByTestId('passage-review')
+    await review.getByTestId('passage-review-check').first().check()
+    await review.getByTestId('passage-review-student').selectOption({ label: 'Lévy' })
+
+    await expect(review.getByTestId('passage-review-filed')).toHaveText('Assigned to Lévy')
+    await expect(card).toContainText('1 note created')
+    await expect(card.getByRole('button', { name: /Lévy/ })).toHaveCount(1)
+    expect(bodies).toEqual([{
+      classId: 2,
+      studentId: 21,
+      passages: [
+        { kind: 'unknown', summary: 'She was helping the younger ones with their blocks.' },
+        { kind: 'group', summary: 'Everyone worked hard.' },
+      ],
+      appendToNoteId: 50,
     }])
   })
 

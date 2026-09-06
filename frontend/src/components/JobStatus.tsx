@@ -437,8 +437,14 @@ function DoneJobCard({ job, isNew, onDismissNew, onDismiss, onOpenStudent }: { j
     setAssembled(await assembleNotes(job.uploadId, className, getToken))
   }
 
+  // A child who already has a note from this recording gets the rows appended
+  // to it, not a second note. The card, not the review, knows the links: the
+  // pipeline's, the class picker's, one an earlier assign here made, or one
+  // the poll brought back after a reload. The response then names a note the
+  // card already holds and merges in as nothing new.
   async function assign(body: AssignPassagesRequest) {
-    const res = await assignPassages(job.uploadId, body, getToken)
+    const held = view.noteLinks?.find(l => l.studentId === body.studentId)
+    const res = await assignPassages(job.uploadId, held ? { ...body, appendToNoteId: held.noteId } : body, getToken)
     setAssignedLinks(prev => mergeLinks(prev, [{ name: res.name, noteId: res.noteId, studentId: res.studentId, className: res.className }]))
     return res
   }
