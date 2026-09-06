@@ -10,6 +10,8 @@ const mockDismissJobs = vi.fn()
 const mockListNotes = vi.fn()
 const mockAssembleNotes = vi.fn()
 const mockListClasses = vi.fn()
+const mockAssignPassages = vi.fn()
+const mockListStudents = vi.fn()
 
 vi.mock('../../api', () => ({
   fetchJobs: (...args: unknown[]) => mockFetchJobs(...args),
@@ -18,6 +20,8 @@ vi.mock('../../api', () => ({
   listNotes: (...args: unknown[]) => mockListNotes(...args),
   assembleNotes: (...args: unknown[]) => mockAssembleNotes(...args),
   listClasses: (...args: unknown[]) => mockListClasses(...args),
+  assignPassages: (...args: unknown[]) => mockAssignPassages(...args),
+  listStudents: (...args: unknown[]) => mockListStudents(...args),
 }))
 
 // One stable getToken, as Clerk hands out: a fresh function per render would
@@ -37,6 +41,7 @@ describe('JobStatus', () => {
     mockGetToken.mockResolvedValue('tok')
     mockListNotes.mockResolvedValue({ notes: [] })
     mockListClasses.mockResolvedValue({ classes: [{ id: 1, name: 'Monday' }, { id: 2, name: 'Tuesday' }] })
+    mockListStudents.mockResolvedValue({ students: [{ id: 22, classId: 2, name: 'Eleonore', createdAt: '', aliases: [] }] })
   })
 
   afterEach(() => {
@@ -260,13 +265,15 @@ describe('JobStatus', () => {
     // Picking the wrong one of two sibling classes is the mistake this path
     // exists to undo, so a pick that made no note must leave the picker up.
     //
-    // The server files nothing on this outcome and its response says so — no
-    // class, and the reason the card already had.
+    // The server files nothing on this outcome. Its response reports the pick
+    // (the class and the run's passages, so the rows can be assigned by hand
+    // against that roster) and keeps the reason the card already had.
     it('keeps the picker after a pick that resolved nobody', async () => {
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
       mockFetchJobs.mockResolvedValue({ active: [], failed: [], done: [noNoteCard] })
       mockAssembleNotes.mockResolvedValue({
-        className: '',
+        className: 'Monday',
+        classId: 1,
         noteLinks: [],
         passages: noNoteCard.passages ?? [],
         noNotesReason: NoNotesNoNameMatched,
@@ -441,6 +448,83 @@ describe('JobStatus', () => {
       })
       expect(screen.getByText('She was helping the younger ones with their blocks.')).toBeInTheDocument()
       expect(screen.queryByText("Polly wasn't speaking much today.")).not.toBeInTheDocument()
+    })
+  })
+
+  describe('filing a passage to a child', () => {
+    const card: UploadJob = {
+      userId: 'user_1',
+      uploadId: 12,
+      filePath: 'uploads/694.m4a',
+      mimeType: 'audio/m4a',
+      source: 'audio',
+      fileName: '694.m4a',
+      status: 'done' as const,
+      className: 'Tuesday',
+      classId: 2,
+      noteLinks: [{ name: 'Lévy', noteId: 50, studentId: 21, className: 'Tuesday' }],
+      passages: [
+        { kind: 'unknown', summary: 'She was helping the younger ones with their blocks.' },
+        { kind: 'child', spokenLabels: ['Lévy'], student: 'Lévy', summary: 'Lévy finished the puzzle alone.' },
+      ],
+      createdAt: '2026-03-26T08:00:00Z',
+    }
+
+    // The response is a note link, and it joins the card's links the way an
+    // assemble result does: the count moves, the child's name is a link.
+    it('merges the new note into the card, once', async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+      mockFetchJobs.mockResolvedValue({ active: [], failed: [], done: [card] })
+      mockAssignPassages.mockResolvedValue({ noteId: 60, studentId: 22, name: 'Eleonore', className: 'Tuesday', appended: false })
+
+      const { default: JobStatus } = await import('../JobStatus')
+      render(<JobStatus />)
+
+      await waitFor(() => {
+        expect(screen.getByRole('option', { name: 'Eleonore' })).toBeInTheDocument()
+      })
+      expect(mockListStudents).toHaveBeenCalledWith(2, expect.anything())
+      expect(screen.getByText('1 note created')).toBeInTheDocument()
+
+      await user.click(screen.getByTestId('passage-review-check'))
+      await user.selectOptions(screen.getByTestId('passage-review-student'), '22')
+
+      await waitFor(() => {
+        expect(screen.getByText('2 notes created')).toBeInTheDocument()
+      })
+      expect(mockAssignPassages).toHaveBeenCalledWith(12, {
+        classId: 2,
+        studentId: 22,
+        passages: [{ kind: 'unknown', summary: 'She was helping the younger ones with their blocks.' }],
+      }, expect.anything())
+      expect(screen.getByRole('button', { name: /Eleonore/ })).toBeInTheDocument()
+
+      // The poll brings back what assign wrote to the job. Keyed on note id,
+      // the link the card already holds replaces nothing and doubles nothing.
+      mockFetchJobs.mockResolvedValue({ active: [], failed: [], done: [{
+        ...card,
+        noteLinks: [...card.noteLinks!, { name: 'Eleonore', noteId: 60, studentId: 22, className: 'Tuesday' }],
+      }] })
+      await act(async () => { vi.advanceTimersByTime(60_000) })
+      await waitFor(() => {
+        expect(mockFetchJobs).toHaveBeenCalledTimes(2)
+      })
+      expect(screen.getByText('2 notes created')).toBeInTheDocument()
+      expect(screen.getAllByRole('button', { name: /Eleonore/ })).toHaveLength(1)
+    })
+
+    // A card from before the field existed has no roster to offer.
+    it('keeps the rows read-only when the job carries no class id', async () => {
+      mockFetchJobs.mockResolvedValue({ active: [], failed: [], done: [{ ...card, classId: undefined }] })
+
+      const { default: JobStatus } = await import('../JobStatus')
+      render(<JobStatus />)
+
+      await waitFor(() => {
+        expect(screen.getByTestId('passage-review-row')).toBeInTheDocument()
+      })
+      expect(screen.queryByTestId('passage-review-check')).not.toBeInTheDocument()
+      expect(mockListStudents).not.toHaveBeenCalled()
     })
   })
 

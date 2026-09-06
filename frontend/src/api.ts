@@ -12,6 +12,9 @@ import type {
   JobPassage,
   AssembleNotesRequest,
   AssembleNotesResponse,
+  AssignPassagesRequest,
+  AssignPassagesResponse,
+  NoteLink,
   AliasResponse,
   Level as LevelItem,
 } from './api-types.gen'
@@ -28,6 +31,9 @@ export type {
   JobPassage,
   AssembleNotesRequest,
   AssembleNotesResponse,
+  AssignPassagesRequest,
+  AssignPassagesResponse,
+  NoteLink,
   AliasResponse,
   LevelItem,
 }
@@ -702,6 +708,34 @@ export async function assembleNotes(
   const body = await readBody(resp)
   if (!resp.ok) throw new Error(body.error || 'Failed to create the notes')
   return body
+}
+
+/**
+ * File passages that reached nobody to one child of the class on the card, as
+ * a new note (#134). The body is generated from the Go struct; the rows and
+ * every group passage go as `{kind, summary}`.
+ *
+ * A 409 is the recording's in-process lock: another confirm on the same
+ * recording is mid-write, and the teacher's next move is to try again.
+ */
+export async function assignPassages(
+  uploadId: number,
+  body: AssignPassagesRequest,
+  getToken: () => Promise<string | null>
+): Promise<AssignPassagesResponse> {
+  const token = await getToken()
+  const resp = await fetch(`${apiUrl}/voice-notes/${uploadId}/assign`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+  const parsed = await readBody(resp)
+  if (resp.status === 409) throw new Error('Already filing this recording, try again.')
+  if (!resp.ok) throw new Error(parsed.error || 'Failed to file the passage')
+  return parsed
 }
 
 // --- Levels (admin) ---

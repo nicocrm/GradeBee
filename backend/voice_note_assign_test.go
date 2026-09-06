@@ -1,0 +1,323 @@
+package handler
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+// The rows a done card holds for note 694's shape: two blocks the recording
+// never named anybody in, and one class-wide remark. Every summary is shorter
+// than assembleTranscript, which is the only text check the endpoint makes.
+var (
+	helping  = AssignPassage{Kind: PassageUnknown, Summary: "helped the little ones"}
+	quiet    = AssignPassage{Kind: PassageUnknown, Summary: "did not say much"}
+	everyone = AssignPassage{Kind: PassageGroup, Summary: "everyone worked hard"}
+)
+
+// assign drives the assign route through the real router, as user, and
+// returns the recorder plus everything the handler logged.
+func (w *assembleWorld) assign(t *testing.T, user string, uploadID int64, body any) (rec *httptest.ResponseRecorder, logs string) {
+	t.Helper()
+	ctx, buf := captureLogs(context.Background())
+	rec = w.serveAssign(t, ctx, user, uploadID, body)
+	return rec, buf.String()
+}
+
+func (w *assembleWorld) serveAssign(t *testing.T, ctx context.Context, user string, uploadID int64, body any) *httptest.ResponseRecorder {
+	t.Helper()
+	var raw []byte
+	if s, ok := body.(string); ok {
+		raw = []byte(s)
+	} else {
+		var err error
+		raw, err = json.Marshal(body)
+		require.NoError(t, err)
+	}
+	req := httptest.NewRequest(http.MethodPost,
+		fmt.Sprintf("/api/voice-notes/%d/assign", uploadID), bytes.NewReader(raw))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	newAPIMux(fakeAuth(user, "test-group", "org:member")).ServeHTTP(rec, req.WithContext(ctx))
+	return rec
+}
+
+// toAlice is the body the card sends after ticking rows and picking Alice on
+// the Tuesday roster.
+func (w *assembleWorld) toAlice(passages ...AssignPassage) AssignPassagesRequest {
+	return AssignPassagesRequest{ClassID: w.tuesdayID, StudentID: w.alice, Passages: passages}
+}
+
+// gatedNoteCreator holds every CreateNote open until gate is closed. It is
+// how a test keeps the upload lock taken while a second request arrives.
+type gatedNoteCreator struct {
+	inner NoteCreator
+	gate  chan struct{}
+	// entered is closed once the first call is inside, so the test can
+	// send the second request only after the lock is held.
+	entered chan struct{}
+}
+
+func (g *gatedNoteCreator) CreateNote(ctx context.Context, req CreateNoteRequest) (*CreateNoteResponse, error) {
+	select {
+	case <-g.entered:
+	default:
+		close(g.entered)
+	}
+	<-g.gate
+	return g.inner.CreateNote(ctx, req)
+}
+
+// The case this endpoint exists for. Note 694's shape: a block the recording
+// only ever said "she" about, which the teacher knows was Alice. Ticked, filed,
+// and a note exists — dated from the recording, holding the passage plus the
+// class-wide remark, stamped with the extractor's model under a source of its
+// own.
+func TestAssignPassages_FilesARowToAChildAsANewNote(t *testing.T) {
+	w := newAssembleWorld(t)
+	w.misfiledJob(t)
+
+	rec, _ := w.assign(t, "u1", w.uploadID, w.toAlice(helping, everyone))
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+
+	var resp AssignPassagesResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.Equal(t, "Alice", resp.Name)
+	assert.Equal(t, w.alice, resp.StudentID)
+	assert.Equal(t, w.tuesday, resp.ClassName)
+	assert.False(t, resp.Appended)
+
+	notes := w.notesFor(t, w.alice)
+	require.Len(t, notes, 1)
+	assert.Equal(t, resp.NoteID, notes[0].ID)
+	assert.Equal(t, "helped the little ones\n\neveryone worked hard", notes[0].Summary,
+		"the passage, then the class-wide remark, a blank line between — assemblePassages' own join")
+	// Not model-written: the words came over the wire from the card, and the
+	// server never saw the model produce them. An edit to this note must not
+	// fire the implicit thumbs-down against extraction.
+	assert.Equal(t, NoteSourceAssigned, notes[0].Source)
+	assert.False(t, isModelWritten(notes[0].Source))
+	require.NotNil(t, notes[0].ModelVersion)
+	assert.Equal(t, w.extractor.Model(), *notes[0].ModelVersion, "the extractor produced the words; it only missed the who")
+	require.NotNil(t, notes[0].Transcript)
+	assert.Equal(t, assembleTranscript, *notes[0].Transcript)
+
+	row, err := w.voiceNotes.GetByID(context.Background(), w.uploadID)
+	require.NoError(t, err)
+	assert.Equal(t, row.CreatedAt[:len(time.DateOnly)], notes[0].Date, "dated from the recording, as assemble dates its notes")
+
+	assert.Empty(t, w.notesFor(t, w.bob))
+	assert.Empty(t, w.extractor.calls(), "no model call: the text is the card's")
+}
+
+// A split pronoun run: two blocks about the same child, ticked together, make
+// one note with a blank line between them, in the order sent.
+func TestAssignPassages_TwoRowsMakeOneNote(t *testing.T) {
+	w := newAssembleWorld(t)
+
+	rec, _ := w.assign(t, "u1", w.uploadID, w.toAlice(helping, quiet))
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+
+	notes := w.notesFor(t, w.alice)
+	require.Len(t, notes, 1)
+	assert.Equal(t, "helped the little ones\n\ndid not say much", notes[0].Summary)
+}
+
+// Group passages go last whatever order the card sent them in; the server
+// owns that rule, as it does for the pipeline's notes.
+func TestAssignPassages_GroupTextGoesLast(t *testing.T) {
+	w := newAssembleWorld(t)
+
+	rec, _ := w.assign(t, "u1", w.uploadID, w.toAlice(everyone, helping))
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	assert.Equal(t, "helped the little ones\n\neveryone worked hard", w.notesFor(t, w.alice)[0].Summary)
+}
+
+// Every forgery is a 404 and none of them writes: another teacher's recording,
+// a class the caller does not own, a child that does not exist, and a child of
+// the caller's own other class named against this class's id — the last one
+// is what proves the roster the card showed is the one the note is filed to.
+func TestAssignPassages_RefusesWhatTheCallerDoesNotOwn(t *testing.T) {
+	w := newAssembleWorld(t)
+	ctx := context.Background()
+	zephyrine, err := w.studentRepo.FindByNameAndClass(ctx, "Zephyrine", w.monday, "u1")
+	require.NoError(t, err)
+
+	for _, tc := range []struct {
+		name string
+		user string
+		body AssignPassagesRequest
+	}{
+		{"another teacher's recording", "u2", w.toAlice(helping)},
+		{"a class the caller does not own", "u1", AssignPassagesRequest{ClassID: 9999, StudentID: w.alice, Passages: []AssignPassage{helping}}},
+		{"a child that does not exist", "u1", AssignPassagesRequest{ClassID: w.tuesdayID, StudentID: 9999, Passages: []AssignPassage{helping}}},
+		{"a child of another class", "u1", AssignPassagesRequest{ClassID: w.tuesdayID, StudentID: zephyrine, Passages: []AssignPassage{helping}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rec, _ := w.assign(t, tc.user, w.uploadID, tc.body)
+			assert.Equal(t, http.StatusNotFound, rec.Code, rec.Body.String())
+		})
+	}
+	assert.Empty(t, w.notesFor(t, w.alice))
+	assert.Empty(t, w.notesFor(t, zephyrine))
+}
+
+// A row the retention cleanup emptied, or a job that failed before
+// transcription: there is nothing to file a note against, and nothing to
+// bound the text by.
+func TestAssignPassages_RefusesARowWithNoTranscript(t *testing.T) {
+	w := newAssembleWorld(t)
+	vn, err := w.voiceNotes.Create(context.Background(), "u1", "silent.m4a", "/nowhere/silent.m4a")
+	require.NoError(t, err)
+
+	rec, _ := w.assign(t, "u1", vn.ID, w.toAlice(helping))
+	assert.Equal(t, http.StatusNotFound, rec.Code)
+	assert.Empty(t, w.notesFor(t, w.alice))
+}
+
+// The body is refused, never repaired. Each row here is one rule.
+func TestAssignPassages_RefusesABadBody(t *testing.T) {
+	w := newAssembleWorld(t)
+	tooLong := AssignPassage{Kind: PassageUnknown, Summary: strings.Repeat("x", len(assembleTranscript)+1)}
+
+	for _, tc := range []struct {
+		name string
+		body any
+		code int
+	}{
+		{"not json", "{", http.StatusBadRequest},
+		{"no class", AssignPassagesRequest{StudentID: w.alice, Passages: []AssignPassage{helping}}, http.StatusBadRequest},
+		{"no student", AssignPassagesRequest{ClassID: w.tuesdayID, Passages: []AssignPassage{helping}}, http.StatusBadRequest},
+		{"no passages", w.toAlice(), http.StatusBadRequest},
+		{"only group passages", w.toAlice(everyone), http.StatusBadRequest},
+		{"a none passage", w.toAlice(AssignPassage{Kind: PassageNone, Summary: "Monday morning"}), http.StatusBadRequest},
+		{"an unknown kind", w.toAlice(AssignPassage{Kind: "header", Summary: "Monday morning"}), http.StatusBadRequest},
+		{"an empty summary", w.toAlice(AssignPassage{Kind: PassageUnknown, Summary: "  "}), http.StatusBadRequest},
+		{"a summary longer than the recording", w.toAlice(tooLong), http.StatusBadRequest},
+		{"an oversize body", `{"classId":1,"studentId":1,"passages":[{"kind":"unknown","summary":"` +
+			strings.Repeat("x", maxTextSize+2048) + `"}]}`, http.StatusRequestEntityTooLarge},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rec, _ := w.assign(t, "u1", w.uploadID, tc.body)
+			assert.Equal(t, tc.code, rec.Code, rec.Body.String())
+		})
+	}
+	assert.Empty(t, w.notesFor(t, w.alice))
+}
+
+// A double-click: two confirms land at once, and the child must get one note.
+// The second is told no at once, not queued behind the first.
+func TestAssignPassages_DoubleSubmitCreatesOneNote(t *testing.T) {
+	w := newAssembleWorld(t)
+	gate := &gatedNoteCreator{inner: w.deps.noteCreator, gate: make(chan struct{}), entered: make(chan struct{})}
+	w.deps.noteCreator = gate
+
+	body := w.toAlice(helping)
+	first := make(chan *httptest.ResponseRecorder, 1)
+	go func() { first <- w.serveAssign(t, context.Background(), "u1", w.uploadID, body) }()
+
+	// Wait until the first request is inside the write, holding the lock.
+	select {
+	case <-gate.entered:
+	case <-time.After(2 * time.Second):
+		t.Fatal("the first request never reached the note write")
+	}
+
+	second := w.serveAssign(t, context.Background(), "u1", w.uploadID, body)
+	assert.Equal(t, http.StatusConflict, second.Code, second.Body.String())
+	assert.Contains(t, second.Body.String(), "already being filed")
+
+	close(gate.gate)
+	require.Equal(t, http.StatusOK, (<-first).Code)
+	assert.Len(t, w.notesFor(t, w.alice), 1)
+}
+
+// The link goes on the queued job, so a reload rebuilds the card with the
+// right count and the class picker down — and a later pick is refused rather
+// than making a second note for a child who has one. Nothing else on the job
+// moves: the passages, the class and the reason are as they were.
+func TestAssignPassages_WritesTheLinkToTheQueuedJob(t *testing.T) {
+	w := newAssembleWorld(t)
+	w.declinedJob(t)
+
+	rec, _ := w.assign(t, "u1", w.uploadID, w.toAlice(helping))
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+
+	job := w.job(t)
+	require.Len(t, job.NoteLinks, 1)
+	assert.Equal(t, NoteLink{Name: "Alice", NoteID: w.notesFor(t, w.alice)[0].ID, StudentID: w.alice, ClassName: w.tuesday}, job.NoteLinks[0])
+	assert.Empty(t, job.ClassName, "the job's class is not the assign call's to set")
+	assert.Empty(t, job.Passages)
+	assert.Equal(t, NoNotesClassUnclear, job.NoNotesReason)
+
+	rec, _ = w.post(t, "u1", w.uploadID, AssembleNotesRequest{ClassName: w.tuesday})
+	assert.Equal(t, http.StatusConflict, rec.Code)
+	assert.Contains(t, rec.Body.String(), "already has notes")
+	assert.Len(t, w.notesFor(t, w.alice), 1)
+	assert.Empty(t, w.notesFor(t, w.bob))
+}
+
+// A job mid-run would have the pipeline's closing write replace the link list
+// seconds later, and a failed one's retry rebuilds the job the same way: the
+// note would outlive its link on the card. Neither is reachable from the card,
+// which offers these controls on a done card only; this is the API's own line.
+// "Already has notes" is deliberately not among these — see the create test,
+// where Lévy is filed and two rows are open.
+func TestAssignPassages_RefusesAJobThatIsNotDone(t *testing.T) {
+	for _, status := range []string{JobStatusQueued, JobStatusTranscribing, JobStatusExtracting, JobStatusCreatingNotes, JobStatusFailed} {
+		t.Run(status, func(t *testing.T) {
+			w := newAssembleWorld(t)
+			require.NoError(t, w.queue.Publish(context.Background(), VoiceNoteJob{
+				UserID: "u1", UploadID: w.uploadID, FileName: "monday.m4a", Status: status,
+			}))
+			rec, _ := w.assign(t, "u1", w.uploadID, w.toAlice(helping))
+			assert.Equal(t, http.StatusConflict, rec.Code, rec.Body.String())
+			assert.Empty(t, w.notesFor(t, w.alice))
+			assert.Empty(t, w.job(t).NoteLinks, "a refusal writes nothing to the job")
+		})
+	}
+}
+
+// A card still open in a tab after a restart has no job behind it. The note
+// is still made: the endpoint reads only the row and the request, and the job
+// write is skipped.
+func TestAssignPassages_WorksWithNoJobInTheQueue(t *testing.T) {
+	w := newAssembleWorld(t)
+
+	rec, _ := w.assign(t, "u1", w.uploadID, w.toAlice(helping))
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	assert.Len(t, w.notesFor(t, w.alice), 1)
+	_, err := w.queue.GetJob(context.Background(), voiceNoteKey("u1", w.uploadID))
+	assert.Error(t, err, "nothing was written to a queue that held nothing")
+}
+
+// The recovery record reaches Sentry, so it may carry no name and no text
+// (docs/adr/0003). It shares the pipeline's and the class picker's query
+// string, with a route of its own and the per-kind breakdown.
+func TestAssignPassages_RecoveryRecordOmitsNameAndText(t *testing.T) {
+	w := newAssembleWorld(t)
+
+	rec, logs := w.assign(t, "u1", w.uploadID, w.toAlice(helping, quiet, everyone))
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+
+	assert.Contains(t, logs, "process voice note: passage recovered")
+	assert.Contains(t, logs, `"route":"manual"`)
+	assert.Contains(t, logs, `"appended":false`)
+	assert.Contains(t, logs, `"passage_count":3`)
+	assert.Contains(t, logs, `"kind_counts":{"group":1,"unknown":2}`)
+	assert.Contains(t, logs, fmt.Sprintf(`"student_id":%d`, w.alice))
+	assert.Contains(t, logs, `"model":"stub-model"`)
+	assert.Contains(t, logs, promptHashAttr)
+	assert.NotContains(t, logs, "Alice", "no student name")
+	assert.NotContains(t, logs, "little ones", "no note text")
+	assert.NotContains(t, logs, "worked hard", "no note text")
+}

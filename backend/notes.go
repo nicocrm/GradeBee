@@ -21,12 +21,18 @@ const (
 	NoteSourceReviewed = "reviewed"
 	// NoteSourceManual: typed by the teacher.
 	NoteSourceManual = "manual"
+	// NoteSourceAssigned: the teacher filed a passage that reached nobody to a
+	// child from the done card. The text is the model's summary as the card
+	// sent it back, so the server never saw the model produce it.
+	NoteSourceAssigned = "assigned"
 )
 
 // isModelWritten says whether a note's text came from the model, which is what
 // the implicit edit/delete thumbs-down measures. A reviewed note qualifies: the
 // teacher named the child, the model wrote the sentence, and editing it away is
-// the same signal about the same text.
+// the same signal about the same text. An assigned note does not: its text
+// came over the wire from the card, so an edit to it says nothing the server
+// can pin on extraction.
 func isModelWritten(source string) bool {
 	return source == NoteSourceAuto || source == NoteSourceReviewed
 }

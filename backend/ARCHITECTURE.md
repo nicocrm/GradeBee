@@ -69,6 +69,7 @@ Cache headers:
 | POST | `/api/voice-notes/jobs/retry` | Yes | `handleJobRetry` | Retry failed jobs |
 | POST | `/api/voice-notes/jobs/dismiss` | Yes | `handleJobDismiss` | Dismiss completed/failed jobs |
 | POST | `/api/voice-notes/{uploadId}/assemble` | Yes | `handleAssembleNotes` | File a recording under a class the teacher picked and make its notes; runs extraction's second pass against that class (body: `{className}`) |
+| POST | `/api/voice-notes/{uploadId}/assign` | Yes | `handleAssignPassages` | File passages that reached nobody to one child of the class on the card, as a new `assigned` note (body: `{classId, studentId, passages: [{kind, summary}]}`); 404 on a forged recording, class or student, 409 while another write on the recording is in flight |
 | GET | `/api/levels` | Yes | `handleListLevels` | List the caller's Group's Levels |
 | POST | `/api/levels` | Yes (Admin) | `handleCreateLevel` | Create a Level (body: `{name}`) |
 | PUT | `/api/levels/{id}` | Yes (Admin) | `handleUpdateLevel` | Rename and/or set Report Instructions (body: `{name?, reportInstructions?}`) |
@@ -153,11 +154,21 @@ The order the handler runs in is load-bearing:
 - **One job read, inside the lock.** The race window is job-read to `UpdateJob` with no re-read between, so reading outside would leave the window the lock exists to close. A second pick on the same recording gets 409 immediately rather than waiting out the model call.
 - **Pass 2 before the first `CreateNote`**, under a 30s deadline of its own (not the handler's, which would cancel the note loop mid-write). A provider error returns with nothing written and the card keeps its picker.
 
-A pick writes the job only when it made notes. `assembleOutcome` decides what the teacher is told, and it is a pure function given no access to what pass 2 returned — deliberately, because a reason read off that run would sooner or later close a picker that should have stayed open. Its three outcomes: notes created, answer with them; no notes and a job to read, answer with the job unchanged, so a refresh does not contradict the card; no notes and a forgotten job, claim no class and name no cause, but keep the picker up. That last one matters more than it looks — the card keeps a forgotten job's done card and this response outlives the poll, so a wrong answer there is permanent in that tab.
+A pick writes the job only when it made notes. `assembleOutcome` decides what the teacher is told, and it splits fact from judgement: the class picked (`className`, `classId`) and the passages the run returned are reported in every outcome, so the card can list the rows and offer that class's roster for filing them by hand; the reason and `canPickClass` are the job's when it is queued, and absent-and-open when it is forgotten. It never derives a reason from the run — pass 2 against the wrong roster returns an off-roster name as an unlabelled unknown, indistinguishable from a recording that named nobody, so a reason read off it would sooner or later close a picker that should have stayed open. A no-note pick leaves the job unwritten; if the pick was the wrong sibling, the teacher reads the rows against the wrong roster and picks again. The forgotten-job case matters more than it looks — the card keeps a forgotten job's done card and this response outlives the poll, so a wrong answer there is permanent in that tab.
 
 That includes a pick whose passages carry no spoken name. It is tempting to end the picker there ("no class the teacher picks can make a name appear"), and wrong: pass 2 against the wrong roster is instructed to return a name fitting no listed child as `unknown` with an empty `spoken_labels`, which is indistinguishable here from a recording that named nobody. Ending on it would strand the wrong-sibling-class recording this endpoint exists for, and a declined recording has no earlier passages to fall back on. The pipeline may act on that reason because it has the pinned class; this handler may not. A recording that genuinely named nobody never reaches here anyway — the card offers the picker on `class_unclear` and `no_name_matched` only.
 
 Still open, both pre-existing: a failure part-way through the note loop leaves notes created with the job never updated, and after a restart there is no job to check at all, so the three refusals and the in-process lock both fall away. The fix for either is a passages table.
+
+`job.className` is the class in force — the one pass 1 pinned or the teacher picked — not the class notes were filed under. A pinned recording whose passages all reached nobody still names its class, with `classId` beside it, so the card can offer that roster; only a decline carries none. The card gates the class picker on `canPickClass` alone and never on the class.
+
+### Filing a passage by hand (`voice_note_assign.go`)
+
+A done card lists every passage that reached nobody (`PassageReview.tsx`). When the job carries a `classId`, the teacher ticks rows and picks one child of that class, and the pick is the confirm: `POST /api/voice-notes/{uploadId}/assign` with `{classId, studentId, passages: [{kind, summary}]}` makes one note for that child, dated from the recording (`uploadDay(row.CreatedAt)`, as assemble), stamped with the extractor's model, under `source = assigned`. One student per call, so a pick is one request and one note. The card sends the ticked rows in transcript order plus every `group` passage it holds; the server joins them with `joinPassageText`, the same helper `assemblePassages` uses, own text first and group text last.
+
+The passages come from the card, not the job: the job is in memory and gone on restart, and pass 2 is non-deterministic, so an index into a job's list could point at other text than the teacher ticked. That makes the note text client-supplied, which is why the source is `assigned` and not model-written (see the `notes` table) — the server never saw the model produce these words, so an edit to them must not fire the implicit thumbs-down against extraction. The text check is a length cap only (each summary no longer than the transcript); a substring rule would fail the first time the model rewrote a sentence.
+
+Order, before any write: recording ownership (bare 404 either way); class ownership; the student's membership of that class (404 otherwise — it proves the roster the card showed is the one the note is filed to); a transcript on the row (404); then validation of the body, refused never repaired (kinds `child|unknown|group` only, non-empty summaries, at least one non-group passage; oversize body 413). Then the per-upload lock, shared with assemble (`takeUploadLock`), held across the note write and the job update; a second pick mid-write gets 409. Inside the lock the queued job, if any, is read once: a job mid-run or failed is refused with 409 (the pipeline's closing write, or a retry, would replace the link list and orphan the note from the card), and a done job gets the new `NoteLink` appended and nothing else — no passage state, no class, no review state. Assemble's "already has notes" refusal is not copied: a card with one child filed and rows still open is the case this endpoint exists for. Review state lives on the card in the tab that saw it; a refresh ends it, by design. The link is written because it is the filing result: without it a reload rebuilds the card from the job with the wrong count, the class picker back, and a re-pick on a declined recording past the "already has notes" refusal. After a restart the job write is skipped and the card is gone on the next reload; nothing is lost.
 
 ### Voice Note Cleanup
 
@@ -256,7 +267,7 @@ SQLite with WAL mode (`db.go`). Migrations in `sql/` are embedded via `embed.FS`
 | `classes` | A **class** is a Level instance: a required `level_id` FK (`NOT NULL`, `ON DELETE RESTRICT`), a required `day` (`NOT NULL`, `CHECK` over the seven weekday names), plus an optional `time_slot`. `Class.Name` and `Class.LevelName` are not stored — both are derived in SQL by joining `levels` (`levels.name`, ` · ` + Day abbreviated to three letters, and ` · ` + `time_slot` when set), so renaming a Level immediately renames every Class using it. Uniqueness is `(user_id, level_id, day, time_slot)`. |
 | `students` | Students belonging to classes |
 | `student_aliases` | Nickname/variant aliases per student (per-class uniqueness, case-insensitive) |
-| `notes` | Observation notes per student. `source` is `auto` (written by the pipeline end to end), `reviewed` (the model wrote the text, the teacher supplied only the class — see the assemble endpoint) or `manual` (typed by the teacher). The column has no `CHECK`, so the `NoteSource*` constants in `notes.go` are the contract; `auto` and `reviewed` are both model-written and both fire the implicit thumbs-down on edit or delete. |
+| `notes` | Observation notes per student. `source` is `auto` (written by the pipeline end to end), `reviewed` (the model wrote the text, the teacher supplied only the class — see the assemble endpoint), `assigned` (the teacher filed a passage that reached nobody to a child from the done card; the text is the model's summary as the card sent it back — see the assign endpoint) or `manual` (typed by the teacher). The column has no `CHECK`, so the `NoteSource*` constants in `notes.go` are the contract; `auto` and `reviewed` are model-written and fire the implicit thumbs-down on edit or delete; `assigned` is teacher-attributed and does not, since the server never saw the model produce its text. |
 | `reports` | Generated HTML report cards |
 | `voice_notes` | Audio file tracking (file path, processed_at, purged_at) plus the `transcript`, written before the audio is deleted and kept for the row's lifetime |
 | `levels` | Group-owned curriculum tiers. `name` unique within `group_id`; `report_instructions` defaults to `''`. A Level with trimmed-empty `report_instructions` cannot generate or regenerate reports — `handleGenerateReports`/`handleRegenerateReport` refuse with `400` before any LLM call (see `report_prompt.go`/`reports_handler.go` below). Seeded with 8 hand-authored Levels against the production Clerk org ID. |
@@ -329,7 +340,7 @@ The `clerkAuthMiddleware` enforces that every `/api/` request carries an active 
 | `repo_level.go` | `LevelRepo` — CRUD for levels, every method scoped by `group_id` |
 | `levels.go` | GET/POST/PUT/DELETE /levels handlers — write endpoints gated on `isAdmin(r)` |
 | `repo_errors.go` | `ErrNotFound`, `ErrDuplicate`, `isDuplicateErr`; `ErrDuplicateAlias` (carries `ConflictStudentName` for alias 409 responses) |
-| `students.go` | GET /students, class/student CRUD handlers, `classGroup`/`student` types |
+| `students.go` | GET /students, class/student CRUD handlers, `ClassGroup` (with the class row id, for the card's student picker) / `ClassStudent` types, `ownedClass` |
 | `aliases.go` | GET/POST/DELETE /students/{id}/aliases — alias CRUD handlers |
 | `roster.go` | `Roster` interface + `dbRoster` — DB-backed roster reads |
 | `voice_note_upload.go` | POST /voice-notes/upload — multipart audio → disk + voice_notes table + dispatch job |
@@ -347,10 +358,11 @@ The `clerkAuthMiddleware` enforces that every `/api/` request carries an active 
 | `job_queue_mem.go` | `MemQueue[T]` — generic in-memory `JobQueue` implementation with worker pool |
 | `voice_note_job.go` | `VoiceNoteJob` type, job status constants, `NoteLink`, `JobPassage`, the `NoNotes*` reasons |
 | `voice_note_process.go` | `processVoiceNote` pipeline (transcribe→extract→notes) |
-| `voice_note_passages.go` | `assemblePassages`: extraction's passages → one note per child, and the card's passage list. Pure |
+| `voice_note_passages.go` | `assemblePassages`: extraction's passages → one note per child, and the card's passage list; `joinPassageText`, the join both it and the assign endpoint use. Pure |
 | `voice_note_cleanup.go` | Background goroutine to delete voice note rows, transcripts and any leftover audio after retention |
 | `voice_note_jobs.go` | GET /voice-notes/jobs, POST /voice-notes/jobs/retry, POST /voice-notes/jobs/dismiss — voice note job list, retry, dismiss handlers |
-| `voice_note_assemble.go` | POST /voice-notes/{uploadId}/assemble — run extraction's second pass against a class the teacher picked, and file its notes |
+| `voice_note_assemble.go` | POST /voice-notes/{uploadId}/assemble — run extraction's second pass against a class the teacher picked, and file its notes. Owns the per-upload lock the assign endpoint shares |
+| `voice_note_assign.go` | POST /voice-notes/{uploadId}/assign — file passages that reached nobody to one child as a new `assigned` note |
 | `match.go` | `MatchStudent` — resolves one spoken label to a student in one class (exact, name part, then gated fuzzy). No live caller since #127: the model resolves names in pass 2, and the class picker runs that pass. Kept, with its corpus, for the passage-level student picker |
 | `tygo.yaml` | tygo config for Go→TypeScript type generation |
 
@@ -441,7 +453,9 @@ separate a prompt regression (every block `unknown`) from a quiet recording.
 The class picker is the second place pass 2 runs, and the one where it works against a
 class a human chose, so `assemble notes` carries the same breakdown. Its per-note record
 keeps the pinned query string `process voice note: passage recovered` with
-`route=class_picker`.
+`route=class_picker`. The assign endpoint emits the same record with `route=manual`,
+`appended`, `passage_count` and `kind_counts` (the per-kind breakdown of what the card
+sent), so the readout sees every route a passage can reach a child by. No name, no text.
 
 **No student names in log attributes or error strings** — see
 [ADR 0003](../docs/adr/0003-no-child-pii-in-telemetry.md). Log `student_id`, or the job key on the

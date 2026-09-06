@@ -278,6 +278,12 @@ export const NoteSourceReviewed = "reviewed";
  */
 export const NoteSourceManual = "manual";
 /**
+ * NoteSourceAssigned: the teacher filed a passage that reached nobody to a
+ * child from the done card. The text is the model's summary as the card
+ * sent it back, so the server never saw the model produce it.
+ */
+export const NoteSourceAssigned = "assigned";
+/**
  * NoteCreator creates notes in the database.
  */
 export type NoteCreator = any;
@@ -759,9 +765,15 @@ export interface ListStudentsResponse {
   students: Student[];
 }
 /**
- * Internal types used by the extractor and roster (no IDs needed).
+ * ClassGroup is one class as the extractor and the roster see it.
  */
 export interface ClassGroup {
+  /**
+   * ID is the classes row, so the done card can name the roster it offers.
+   * The prompt builders read Name only, so it never reaches the model and
+   * never moves ExtractionPromptHash; fixtures and sentinelClasses omit it.
+   */
+  id?: number /* int64 */;
   name: string;
   students: ClassStudent[];
 }
@@ -829,7 +841,13 @@ export interface AssembleNotesRequest {
  * refresh does not contradict it.
  */
 export interface AssembleNotesResponse {
+  /**
+   * ClassName and ClassID are the class the pick ran against, whether or
+   * not it made a note: the card offers that class's roster for filing the
+   * passages by hand. See assembleOutcome.
+   */
   className: string;
+  classId?: number /* int64 */;
   noteLinks: NoteLink[];
   passages: JobPassage[];
   /**
@@ -841,6 +859,65 @@ export interface AssembleNotesResponse {
    * CanPickClass gates the card's class picker, exactly as it does on the job.
    */
   canPickClass?: boolean;
+}
+
+//////////
+// source: voice_note_assign.go
+/*
+voice_note_assign.go implements POST /api/voice-notes/{uploadId}/assign: the
+teacher files passages the recording could not place — a pronoun block, a
+name nobody on the roster answers to — to a child they pick on the done
+card, and a note exists for that child, dated from the recording (#134).
+
+The passages come from the card, not from the job. The job is in memory and
+gone on restart, and pass 2 is non-deterministic, so an index into a job's
+passage list could point at other text than the teacher ticked. That makes
+the text client-supplied: the server holds no copy to check it against, and
+the note is filed under NoteSourceAssigned rather than a model-written
+source for exactly that reason.
+*/
+
+/**
+ * AssignPassagesRequest is the body of the assign call: the class in force on
+ * the card, the child to file to, and the passages the teacher ticked.
+ * One student per call. The card confirms per child, so a confirm is one
+ * request and one note: atomic by construction, with no transaction across
+ * notes to get wrong.
+ */
+export interface AssignPassagesRequest {
+  /**
+   * ClassID is the class whose roster the card offered. The server checks
+   * that the caller owns it and that StudentID is on it, which proves the
+   * picker showed the right roster and forbids filing to a child of another
+   * class.
+   */
+  classId: number /* int64 */;
+  studentId: number /* int64 */;
+  passages: AssignPassage[];
+}
+/**
+ * AssignPassage is one passage as the card sends it back: what kind it was,
+ * and the words. Nothing else — spoken labels and the student are the
+ * server's business, and the server does not read them here.
+ */
+export interface AssignPassage {
+  kind: PassageKind;
+  summary: string;
+}
+/**
+ * AssignPassagesResponse is the note link the call made, in the shape the card
+ * already merges into its note links, plus whether it was an append.
+ */
+export interface AssignPassagesResponse {
+  noteId: number /* int64 */;
+  studentId: number /* int64 */;
+  name: string;
+  className: string;
+  /**
+   * Appended is false on every response this shard can give: a note was
+   * created. #135 adds the append path.
+   */
+  appended: boolean;
 }
 
 //////////
@@ -991,16 +1068,28 @@ export interface VoiceNoteJob {
   createdAt: string;
   noteLinks?: NoteLink[];
   /**
-   * ClassName is the class the notes were filed under; "" when none was. It
-   * and Passages are set at completion and absent on jobs done before they
-   * existed.
+   * ClassName is the class in force for this recording: the one pass 1
+   * pinned, or the one the teacher picked. "" on a decline. It is not "the
+   * class the notes were filed under" — a pinned recording whose passages
+   * all reached nobody still names its class, so the card can offer that
+   * roster for filing them by hand. It, ClassID and Passages are set at
+   * completion and absent on jobs done before they existed.
    */
   className?: string;
+  /**
+   * ClassID is ClassName's row, for the card's student picker. 0 when there
+   * is no class.
+   */
+  classId?: number /* int64 */;
   passages?: JobPassage[];
   /**
-   * NoNotesReason is set only on a done job that created no note, to one of
-   * the NoNotes* constants. Empty whenever a note was created. It says WHY,
-   * and nothing else: it is not the card's instruction about what to offer.
+   * NoNotesReason is set only on a done job whose pipeline run created no
+   * note, to one of the NoNotes* constants. Empty whenever that run created
+   * one. It says WHY, and nothing else: it is not the card's instruction
+   * about what to offer. A note the teacher files by hand afterwards
+   * (voice_note_assign.go) appends its link and leaves this as it was: the
+   * card reads the link count first, and the reason still names what the
+   * pipeline found.
    */
   noNotesReason?: string;
   /**

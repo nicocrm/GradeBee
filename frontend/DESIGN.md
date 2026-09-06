@@ -166,6 +166,17 @@ are parchment on the card with a `--comb` left rule, body font at the card's met
 block indents to the card text like the class picker, sits below the note links, and renders
 nothing when every passage was filed.
 
+When the job carries a class, each row gets a checkbox (`.passage-review-pick`, honey
+accent) and one native `<select>` of that class's children sits under the list
+(`.passage-review-student`, chalk with a `--comb` border, same size as the class picker's
+buttons). The pick is the confirm: there is no button. The select is disabled until a row is
+ticked, its prompt says what a pick will do ("Tick a row, then pick a child", "Assign this
+row to…", "Assign 3 rows to…"), and it is dead for the round trip ("Assigning…"), then back
+on its prompt. A wrong pick is undone from the row (#138). An assigned row turns muted with a
+`--honey` rule and a small "Assigned to Name" line (`.passage-review-filed`); its checkbox stays, disabled. Errors go on a
+`.passage-review-error` line under the controls, in `--error-red`. Without a class the rows
+stay read-only and no control renders.
+
 ### Error Patterns
 
 Three variants for communicating errors to users:

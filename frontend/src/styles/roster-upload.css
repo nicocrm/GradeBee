@@ -861,3 +861,54 @@
   border-left: 3px solid var(--comb);
   border-radius: 0 6px 6px 0;
 }
+
+.passage-review-row-filed {
+  color: var(--ink-muted);
+  border-left-color: var(--honey);
+}
+
+.passage-review-pick {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.passage-review-pick input[type="checkbox"] {
+  accent-color: var(--honey);
+  margin: 0.15rem 0 0;
+  flex-shrink: 0;
+}
+
+.passage-review-filed {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.75rem;
+  color: var(--ink-muted);
+}
+
+/* One child per pick: the picker sits on a row under the list */
+.passage-review-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+}
+
+.passage-review-student {
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  color: var(--ink);
+  background: var(--chalk);
+  border: 1.5px solid var(--comb);
+  border-radius: 6px;
+  padding: 0.25rem 0.5rem;
+}
+
+.passage-review-error {
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  color: var(--error-red);
+  margin: 0.35rem 0 0;
+}

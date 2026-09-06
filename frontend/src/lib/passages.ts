@@ -9,5 +9,9 @@ import { PassageChild, PassageUnknown } from '../api-types.gen'
  * assembly and never reaches the wire.
  */
 export function unattributed(passages: JobPassage[]): JobPassage[] {
-  return passages.filter(p => (p.kind === PassageUnknown || p.kind === PassageChild) && !p.student)
+  return passages.filter(isUnattributed)
+}
+
+export function isUnattributed(p: JobPassage): boolean {
+  return (p.kind === PassageUnknown || p.kind === PassageChild) && !p.student
 }
