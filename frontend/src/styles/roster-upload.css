@@ -828,3 +828,36 @@
   padding: 0.25rem 0.6rem;
   min-height: auto;
 }
+
+/* Passages that reached nobody, listed on the done card */
+.passage-review {
+  margin-top: 0.5rem;
+  padding-left: calc(18px + 0.65rem);
+}
+
+.passage-review-prompt {
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  color: var(--ink-muted);
+  margin: 0 0 0.35rem;
+}
+
+.passage-review-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.passage-review-row {
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  color: var(--ink);
+  line-height: 1.4;
+  padding: 0.3rem 0.6rem;
+  background: var(--parchment);
+  border-left: 3px solid var(--comb);
+  border-radius: 0 6px 6px 0;
+}

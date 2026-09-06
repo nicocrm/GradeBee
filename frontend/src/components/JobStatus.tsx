@@ -5,6 +5,7 @@ import { fetchJobs, retryFailedJobs, dismissJobs, assembleNotes } from '../api'
 import type { UploadJob, JobListResponse, AssembleNotesResponse } from '../api'
 import { NoNotesClassUnclear, NoNotesNoNameMatched, NoNotesNobodyNamed } from '../api-types.gen'
 import ClassPicker from './ClassPicker'
+import PassageReview from './PassageReview'
 import StudentDetail from './StudentDetail'
 import TranscriptReview from './TranscriptReview'
 
@@ -453,6 +454,7 @@ function DoneJobCard({ job, isNew, onDismissNew, onDismiss, onOpenStudent }: { j
           ))}
         </div>
       )}
+      <PassageReview passages={view.passages ?? []} />
       {job.transcript && (
         <>
           <button

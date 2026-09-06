@@ -160,6 +160,12 @@ A card that made no note offers the class picker (`.class-picker*`, defined in
 teacher owns. Every class is listed, not a shortlist — the extraction has already chosen wrong
 once on this recording.
 
+A done card lists every passage that reached nobody (`.passage-review*`, `roster-upload.css`,
+`PassageReview.tsx`): a muted prompt line, then one row per passage showing its summary. Rows
+are parchment on the card with a `--comb` left rule, body font at the card's meta size. The
+block indents to the card text like the class picker, sits below the note links, and renders
+nothing when every passage was filed.
+
 ### Error Patterns
 
 Three variants for communicating errors to users:

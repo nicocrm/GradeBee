@@ -355,6 +355,95 @@ describe('JobStatus', () => {
     })
   })
 
+  // What the recording said that no note holds (#133). Note 694's shape: the
+  // header is `none`, two blocks name nobody, Lévy resolves. The card lists
+  // the two and nothing else — read-only here; filing them is #134.
+  describe('passages that reached nobody', () => {
+    const doneCard: UploadJob = {
+      userId: 'user_1',
+      uploadId: 12,
+      filePath: 'uploads/694.m4a',
+      mimeType: 'audio/m4a',
+      source: 'audio',
+      fileName: '694.m4a',
+      status: 'done' as const,
+      className: 'Tuesday',
+      noteLinks: [{ name: 'Lévy', noteId: 50, studentId: 21, className: 'Tuesday' }],
+      passages: [
+        { kind: 'unknown', summary: 'She was helping the younger ones with their blocks.' },
+        { kind: 'unknown', summary: "Polly wasn't speaking much today." },
+        { kind: 'child', spokenLabels: ['Lévy'], student: 'Lévy', summary: 'Lévy finished the puzzle alone.' },
+      ],
+      createdAt: '2026-03-26T08:00:00Z',
+    }
+
+    it('lists each unattributed passage on the done card', async () => {
+      mockFetchJobs.mockResolvedValue({ active: [], failed: [], done: [doneCard] })
+
+      const { default: JobStatus } = await import('../JobStatus')
+      render(<JobStatus />)
+
+      await waitFor(() => {
+        expect(screen.getByTestId('passage-review')).toBeInTheDocument()
+      })
+      const rows = screen.getAllByTestId('passage-review-row')
+      expect(rows.map(r => r.textContent)).toEqual([
+        'She was helping the younger ones with their blocks.',
+        "Polly wasn't speaking much today.",
+      ])
+      expect(screen.queryByText('Lévy finished the puzzle alone.')).not.toBeInTheDocument()
+      // The note link is still the only place Lévy appears.
+      expect(screen.getByText('Lévy')).toBeInTheDocument()
+    })
+
+    // A card where every passage reached a child, and a card from before the
+    // field existed, both look exactly as they did.
+    it.each([
+      ['every passage reached a child', { ...doneCard, passages: [{ kind: 'child', student: 'Lévy', summary: 'Lévy finished the puzzle alone.' }] }],
+      ['the job carries no passages', { ...doneCard, passages: undefined }],
+    ])('shows nothing new when %s', async (_name, card) => {
+      mockFetchJobs.mockResolvedValue({ active: [], failed: [], done: [card] })
+
+      const { default: JobStatus } = await import('../JobStatus')
+      render(<JobStatus />)
+
+      await waitFor(() => {
+        expect(screen.getByTestId('job-done')).toBeInTheDocument()
+      })
+      expect(screen.queryByTestId('passage-review')).not.toBeInTheDocument()
+    })
+
+    // The rows follow the card's view of the job, so a class pick that re-ran
+    // pass 2 replaces them with what that run left unfiled.
+    it('replaces the rows after a class pick', async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+      const noNote: UploadJob = { ...doneCard, noteLinks: [], noNotesReason: NoNotesNoNameMatched, canPickClass: true }
+      mockFetchJobs.mockResolvedValue({ active: [], failed: [], done: [noNote] })
+      mockAssembleNotes.mockResolvedValue({
+        className: 'Tuesday',
+        noteLinks: [{ name: 'Polly', noteId: 51, studentId: 22, className: 'Tuesday' }],
+        passages: [
+          { kind: 'unknown', summary: 'She was helping the younger ones with their blocks.' },
+          { kind: 'child', spokenLabels: ['Polly'], student: 'Polly', summary: "Polly wasn't speaking much today." },
+        ],
+      } satisfies AssembleNotesResponse)
+
+      const { default: JobStatus } = await import('../JobStatus')
+      render(<JobStatus />)
+
+      await waitFor(() => {
+        expect(screen.getAllByTestId('passage-review-row')).toHaveLength(2)
+      })
+      await user.click(screen.getByText('Tuesday'))
+
+      await waitFor(() => {
+        expect(screen.getAllByTestId('passage-review-row')).toHaveLength(1)
+      })
+      expect(screen.getByText('She was helping the younger ones with their blocks.')).toBeInTheDocument()
+      expect(screen.queryByText("Polly wasn't speaking much today.")).not.toBeInTheDocument()
+    })
+  })
+
   it('shows "new" badge for newly completed jobs', async () => {
     // First poll: no done jobs
     mockFetchJobs
