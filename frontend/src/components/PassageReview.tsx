@@ -67,15 +67,15 @@ export default function PassageReview({ passages, classId, onAssign, onUndo }: P
   // together), and a child of the old class sent with the new class id is a
   // 404 the teacher cannot read.
   const [roster, setRoster] = useState<{ classId: number; students: StudentItem[] } | null>(null)
-  // The child an assignment is in flight to, so the select shows who while
-  // it runs, and goes back to the prompt when it is done.
-  const [assigning, setAssigning] = useState('')
+  // The child an assignment is in flight to, so the prompt names them while
+  // it runs and the chip they picked stays lit.
+  const [assigning, setAssigning] = useState<number | null>(null)
   const [undoing, setUndoing] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const canFile = classId !== undefined && onAssign !== undefined
   const students = roster !== null && roster.classId === classId ? roster.students : null
-  const busy = assigning !== '' || undoing !== null
+  const busy = assigning !== null || undoing !== null
 
   useEffect(() => {
     if (classId === undefined) return
@@ -111,13 +111,13 @@ export default function PassageReview({ passages, classId, onAssign, onUndo }: P
     })
   }
 
-  async function assignTo(studentId: string) {
-    if (!canFile || chosen.length === 0 || studentId === '') return
+  async function assignTo(studentId: number) {
+    if (!canFile || chosen.length === 0 || busy) return
     // The ticked rows in transcript order, then every group passage on the
     // card. The server orders group text last whatever order it arrives in.
     const body: AssignPassagesRequest = {
       classId,
-      studentId: Number(studentId),
+      studentId,
       passages: [
         ...chosen.map(r => ({ kind: r.p.kind, summary: r.p.summary })),
         ...passages.filter(p => p.kind === PassageGroup).map(p => ({ kind: p.kind, summary: p.summary })),
@@ -135,7 +135,7 @@ export default function PassageReview({ passages, classId, onAssign, onUndo }: P
       // The rows stay ticked: the teacher's next move is to pick again.
       setError(err instanceof Error ? err.message : 'Could not assign the passage')
     } finally {
-      setAssigning('')
+      setAssigning(null)
     }
   }
 
@@ -158,10 +158,41 @@ export default function PassageReview({ passages, classId, onAssign, onUndo }: P
     }
   }
 
+  // Children this recording already wrote to: the ones a passage reached, and
+  // the ones this tab filed. They stay pickable — a row that lost its name is
+  // often about a child already named, and the pick appends to that note —
+  // but they sit below the children nobody has written to yet, which is where
+  // a lost row usually belongs.
+  const filedIds = new Set([...filed.values()].map(f => f.studentId))
+  const noteNames = new Set(passages.map(p => p.student).filter(n => n))
+  const hasNote = (s: StudentItem) => filedIds.has(s.id) || noteNames.has(s.name)
+  const fresh = (students ?? []).filter(s => !hasNote(s))
+  const noted = (students ?? []).filter(hasNote)
+
+  const going = assigning === null ? undefined : students?.find(s => s.id === assigning)
   const prompt = students === null ? 'Loading the class…'
-    : chosen.length === 0 ? 'Tick a row, then pick a child'
-      : chosen.length === 1 ? 'Assign this row to…'
-        : `Assign ${chosen.length} rows to…`
+    // The class picker offers every class the teacher owns, so a class with
+    // no children on its roster is one pick away.
+    : students.length === 0 ? 'This class has no children yet.'
+      : going ? `Assigning to ${going.name}…`
+        : chosen.length === 0 ? 'Tick a row, then pick a child'
+          : chosen.length === 1 ? 'Assign this row to…'
+            : `Assign ${chosen.length} rows to…`
+
+  function chip(s: StudentItem) {
+    return (
+      <button
+        key={s.id}
+        type="button"
+        className={`btn-secondary passage-review-student${assigning === s.id ? ' passage-review-student-going' : ''}`}
+        onClick={() => assignTo(s.id)}
+        disabled={busy || chosen.length === 0}
+        data-testid="passage-review-student"
+      >
+        {s.name}
+      </button>
+    )
+  }
 
   return (
     <div className="passage-review" data-testid="passage-review">
@@ -208,19 +239,20 @@ export default function PassageReview({ passages, classId, onAssign, onUndo }: P
       </ul>
       {canFile && open.length > 0 && (
         <div className="passage-review-controls">
-          <select
-            className="passage-review-student"
-            value={assigning}
-            onChange={e => assignTo(e.target.value)}
-            disabled={busy || students === null || chosen.length === 0}
-            aria-label="Assign the ticked rows to"
-            data-testid="passage-review-student"
-          >
-            <option value="">{assigning !== '' ? 'Assigning…' : prompt}</option>
-            {students?.map(s => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
-          </select>
+          <p className="passage-review-prompt" data-testid="passage-review-prompt">{prompt}</p>
+          {fresh.length > 0 && (
+            <div className="passage-review-students" role="group" aria-label="Assign the ticked rows to">
+              {fresh.map(chip)}
+            </div>
+          )}
+          {noted.length > 0 && (
+            <div className="passage-review-noted" data-testid="passage-review-noted">
+              <p className="passage-review-noted-label">Already has a note</p>
+              <div className="passage-review-students" role="group" aria-label="Assign the ticked rows to a child who already has a note">
+                {noted.map(chip)}
+              </div>
+            </div>
+          )}
         </div>
       )}
       {error && <p className="passage-review-error" data-testid="passage-review-error">{error}</p>}

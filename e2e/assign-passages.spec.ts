@@ -118,17 +118,17 @@ test.describe('Filing passages to a child', () => {
     await expect(review.getByTestId('passage-review-row')).toHaveCount(2)
     await expect(review.getByTestId('passage-review-check')).toHaveCount(2)
 
-    // The pick is the confirm, so the picker is dead until a row is ticked.
-    const picker = review.getByTestId('passage-review-student')
-    await expect(picker).toBeDisabled()
+    // The pick is the confirm, so every chip is dead until a row is ticked.
+    const eleonore = review.getByRole('button', { name: 'Eleonore', exact: true })
+    await expect(eleonore).toBeDisabled()
 
     await review.getByTestId('passage-review-check').first().check()
-    await expect(picker).toBeEnabled()
-    await picker.selectOption({ label: 'Eleonore' })
+    await expect(eleonore).toBeEnabled()
+    await eleonore.click()
 
     // Dead for the round trip: a second pick must not file the row twice.
-    await expect(picker).toBeDisabled()
-    await expect(picker).toContainText('Assigning…')
+    await expect(eleonore).toBeDisabled()
+    await expect(review.getByTestId('passage-review-prompt')).toHaveText('Assigning to Eleonore…')
 
     release()
 
@@ -136,7 +136,7 @@ test.describe('Filing passages to a child', () => {
     await expect(review.getByTestId('passage-review-filed')).toHaveText(/Assigned to Eleonore/)
     await expect(review.getByTestId('passage-review-check').first()).toBeDisabled()
     await expect(review.getByTestId('passage-review-check').nth(1)).toBeEnabled()
-    await expect(card.getByRole('button', { name: 'Eleonore', exact: true })).toBeVisible()
+    await expect(card.getByTestId('job-note-link').filter({ hasText: 'Eleonore' })).toBeVisible()
 
     // The ticked row, then the class-wide remark; the other row stays where
     // it is, and the job's own passages are not sent back.
@@ -169,11 +169,11 @@ test.describe('Filing passages to a child', () => {
     await expect(card).toBeVisible({ timeout: 15000 })
     const review = card.getByTestId('passage-review')
     await review.getByTestId('passage-review-check').first().check()
-    await review.getByTestId('passage-review-student').selectOption({ label: 'Lévy' })
+    await review.getByRole('button', { name: 'Lévy', exact: true }).click()
 
     await expect(review.getByTestId('passage-review-filed')).toHaveText('Assigned to Lévy')
     await expect(card).toContainText('1 note created')
-    await expect(card.getByRole('button', { name: 'Lévy', exact: true })).toHaveCount(1)
+    await expect(card.getByTestId('job-note-link').filter({ hasText: 'Lévy' })).toHaveCount(1)
     expect(bodies).toEqual([{
       classId: 2,
       studentId: 21,
@@ -209,7 +209,7 @@ test.describe('Filing passages to a child', () => {
     await expect(card).toBeVisible({ timeout: 15000 })
     const review = card.getByTestId('passage-review')
     await review.getByTestId('passage-review-check').first().check()
-    await review.getByTestId('passage-review-student').selectOption({ label: 'Eleonore' })
+    await review.getByRole('button', { name: 'Eleonore', exact: true }).click()
     await expect(card).toContainText('2 notes created')
     await expect(review.getByTestId('passage-review-filed')).toHaveText(/Assigned to Eleonore/)
 
@@ -219,7 +219,7 @@ test.describe('Filing passages to a child', () => {
     await expect(review.getByTestId('passage-review-filed')).toHaveCount(0)
     await expect(review.getByTestId('passage-review-check').first()).toBeEnabled()
     await expect(review.getByTestId('passage-review-check').first()).not.toBeChecked()
-    await expect(card.getByRole('button', { name: 'Eleonore', exact: true })).toHaveCount(0)
+    await expect(card.getByTestId('job-note-link').filter({ hasText: 'Eleonore' })).toHaveCount(0)
     expect(undos).toEqual(['DELETE'])
   })
 

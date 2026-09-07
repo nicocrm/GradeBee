@@ -112,16 +112,16 @@ describe('PassageReview filing', () => {
     render(<PassageReview passages={withGroup} classId={3} onAssign={onAssign} />)
 
     await waitFor(() => {
-      expect(screen.getByRole('option', { name: 'Eleonore' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Eleonore' })).toBeInTheDocument()
     })
     expect(mockListStudents).toHaveBeenCalledWith(3, expect.anything())
 
-    const picker = screen.getByTestId('passage-review-student')
-    expect(picker).toBeDisabled()
+    const eleonore = screen.getByRole('button', { name: 'Eleonore' })
+    expect(eleonore).toBeDisabled()
 
     await user.click(screen.getAllByTestId('passage-review-check')[0])
-    expect(picker).toBeEnabled()
-    await user.selectOptions(picker, '22')
+    expect(eleonore).toBeEnabled()
+    await user.click(eleonore)
 
     expect(onAssign).toHaveBeenCalledWith({
       classId: 3,
@@ -148,12 +148,12 @@ describe('PassageReview filing', () => {
     const user = userEvent.setup()
     const onAssign = vi.fn().mockResolvedValue(filed)
     render(<PassageReview passages={note694} classId={3} onAssign={onAssign} />)
-    await waitFor(() => expect(screen.getByRole('option', { name: 'Eleonore' })).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Eleonore' })).toBeInTheDocument())
 
     const checks = screen.getAllByTestId('passage-review-check')
     await user.click(checks[1])
     await user.click(checks[0])
-    await user.selectOptions(screen.getByTestId('passage-review-student'), '22')
+    await user.click(screen.getByRole('button', { name: 'Eleonore' }))
 
     expect(onAssign.mock.calls[0][0].passages.map((p: { summary: string }) => p.summary)).toEqual([
       'She was helping the younger ones with their blocks.',
@@ -169,10 +169,10 @@ describe('PassageReview filing', () => {
     const user = userEvent.setup()
     const onAssign = vi.fn().mockRejectedValue(new Error('Already filing this recording, try again.'))
     render(<PassageReview passages={note694} classId={3} onAssign={onAssign} />)
-    await waitFor(() => expect(screen.getByRole('option', { name: 'Eleonore' })).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Eleonore' })).toBeInTheDocument())
 
     await user.click(screen.getAllByTestId('passage-review-check')[0])
-    await user.selectOptions(screen.getByTestId('passage-review-student'), '22')
+    await user.click(screen.getByRole('button', { name: 'Eleonore' }))
 
     await waitFor(() => {
       expect(screen.getByTestId('passage-review-error')).toHaveTextContent('Already filing this recording, try again.')
@@ -181,8 +181,8 @@ describe('PassageReview filing', () => {
     expect(screen.getAllByTestId('passage-review-check')[0]).toBeChecked()
     expect(screen.getAllByTestId('passage-review-check')[0]).toBeEnabled()
     // The picker is back on its prompt, ready for the next pick.
-    expect(screen.getByTestId('passage-review-student')).toBeEnabled()
-    expect(screen.getByTestId('passage-review-student')).toHaveValue('')
+    expect(screen.getByRole('button', { name: 'Eleonore' })).toBeEnabled()
+    expect(screen.getByTestId('passage-review-prompt')).toHaveTextContent('Assign this row to…')
   })
 
   // The honest mistake (#138): the wrong child picked, undone from the row.
@@ -196,13 +196,13 @@ describe('PassageReview filing', () => {
     let release: () => void = () => {}
     const onUndo = vi.fn().mockImplementation(() => new Promise<void>(resolve => { release = resolve }))
     render(<PassageReview passages={note694} classId={3} onAssign={onAssign} onUndo={onUndo} />)
-    await waitFor(() => expect(screen.getByRole('option', { name: 'Eleonore' })).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Eleonore' })).toBeInTheDocument())
 
     await user.click(screen.getAllByTestId('passage-review-check')[0])
-    await user.selectOptions(screen.getByTestId('passage-review-student'), '22')
+    await user.click(screen.getByRole('button', { name: 'Eleonore' }))
     await waitFor(() => expect(screen.getAllByTestId('passage-review-filed')).toHaveLength(1))
     await user.click(screen.getAllByTestId('passage-review-check')[1])
-    await user.selectOptions(screen.getByTestId('passage-review-student'), '22')
+    await user.click(screen.getByRole('button', { name: 'Eleonore' }))
     await waitFor(() => expect(screen.getAllByTestId('passage-review-filed')).toHaveLength(2))
     expect(screen.getAllByTestId('passage-review-undo')).toHaveLength(2)
 
@@ -222,7 +222,7 @@ describe('PassageReview filing', () => {
       expect(check).toBeEnabled()
       expect(check).not.toBeChecked()
     }
-    expect(screen.getByTestId('passage-review-student')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Eleonore' })).toBeInTheDocument()
   })
 
   // A row that joined a note the card already held — the pipeline's — is not
@@ -232,10 +232,10 @@ describe('PassageReview filing', () => {
     const user = userEvent.setup()
     const onAssign = vi.fn().mockResolvedValue({ noteId: 50, studentId: 21, name: 'Lévy', className: 'Tuesday', appended: true })
     render(<PassageReview passages={note694} classId={3} onAssign={onAssign} onUndo={vi.fn()} />)
-    await waitFor(() => expect(screen.getByRole('option', { name: 'Lévy' })).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Lévy' })).toBeInTheDocument())
 
     await user.click(screen.getAllByTestId('passage-review-check')[0])
-    await user.selectOptions(screen.getByTestId('passage-review-student'), '21')
+    await user.click(screen.getByRole('button', { name: 'Lévy' }))
     await waitFor(() => expect(screen.getByTestId('passage-review-filed')).toHaveTextContent('Assigned to Lévy'))
     expect(screen.queryByTestId('passage-review-undo')).not.toBeInTheDocument()
   })
@@ -243,9 +243,9 @@ describe('PassageReview filing', () => {
   it('shows no undo without an undo callback', async () => {
     const user = userEvent.setup()
     render(<PassageReview passages={note694} classId={3} onAssign={vi.fn().mockResolvedValue(filed)} />)
-    await waitFor(() => expect(screen.getByRole('option', { name: 'Eleonore' })).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Eleonore' })).toBeInTheDocument())
     await user.click(screen.getAllByTestId('passage-review-check')[0])
-    await user.selectOptions(screen.getByTestId('passage-review-student'), '22')
+    await user.click(screen.getByRole('button', { name: 'Eleonore' }))
     await waitFor(() => expect(screen.getByTestId('passage-review-filed')).toBeInTheDocument())
     expect(screen.queryByTestId('passage-review-undo')).not.toBeInTheDocument()
   })
@@ -255,9 +255,9 @@ describe('PassageReview filing', () => {
     const user = userEvent.setup()
     const onUndo = vi.fn().mockRejectedValue(new Error('Already filing this recording, try again.'))
     render(<PassageReview passages={note694} classId={3} onAssign={vi.fn().mockResolvedValue(filed)} onUndo={onUndo} />)
-    await waitFor(() => expect(screen.getByRole('option', { name: 'Eleonore' })).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Eleonore' })).toBeInTheDocument())
     await user.click(screen.getAllByTestId('passage-review-check')[0])
-    await user.selectOptions(screen.getByTestId('passage-review-student'), '22')
+    await user.click(screen.getByRole('button', { name: 'Eleonore' }))
     await waitFor(() => expect(screen.getByTestId('passage-review-undo')).toBeInTheDocument())
 
     await user.click(screen.getByTestId('passage-review-undo'))
@@ -267,6 +267,107 @@ describe('PassageReview filing', () => {
     expect(screen.getByTestId('passage-review-filed')).toHaveTextContent('Assigned to Eleonore')
     expect(screen.getByTestId('passage-review-undo')).toBeEnabled()
     expect(screen.getAllByTestId('passage-review-check')[0]).toBeDisabled()
+  })
+
+  // The point of the split (#131): a row that lost its name usually belongs to
+  // a child nobody has written about yet, so those come first. Lévy resolved
+  // on this recording, so she is demoted — not dropped, because assigning to
+  // her appends to the note she already has.
+  it('puts the children who already have a note below the rest', async () => {
+    render(<PassageReview passages={note694} classId={3} onAssign={vi.fn()} />)
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Lévy' })).toBeInTheDocument())
+
+    const noted = screen.getByTestId('passage-review-noted')
+    expect(noted).toHaveTextContent('Already has a note')
+    expect(noted).toContainElement(screen.getByRole('button', { name: 'Lévy' }))
+    expect(noted).not.toContainElement(screen.getByRole('button', { name: 'Eleonore' }))
+  })
+
+  // The common case: a recording that reached nobody. Every child is fresh,
+  // so the band never appears and the roster reads as one list.
+  it('shows no band when nobody has a note yet', async () => {
+    const reachedNobody = note694.filter(p => !p.student)
+    render(<PassageReview passages={reachedNobody} classId={3} onAssign={vi.fn()} />)
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Lévy' })).toBeInTheDocument())
+    expect(screen.queryByTestId('passage-review-noted')).not.toBeInTheDocument()
+    expect(screen.queryByText('Already has a note')).not.toBeInTheDocument()
+  })
+
+  // A child this tab filed to has a note now, and moves down for the next
+  // pick — the teacher's remaining rows are most likely someone else's.
+  it('demotes a child once this tab has filed to them', async () => {
+    const user = userEvent.setup()
+    render(<PassageReview passages={note694} classId={3} onAssign={vi.fn().mockResolvedValue(filed)} />)
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Eleonore' })).toBeInTheDocument())
+
+    await user.click(screen.getAllByTestId('passage-review-check')[0])
+    await user.click(screen.getByRole('button', { name: 'Eleonore' }))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('passage-review-noted'))
+        .toContainElement(screen.getByRole('button', { name: 'Eleonore' }))
+    })
+  })
+
+  // Undo is only offered where this tab made the note, so an undone child had
+  // no note before this tab and has none after: back up with the rest.
+  it('brings a child back up when the assignment is undone', async () => {
+    const user = userEvent.setup()
+    render(
+      <PassageReview
+        passages={note694}
+        classId={3}
+        onAssign={vi.fn().mockResolvedValue(filed)}
+        onUndo={vi.fn().mockResolvedValue(undefined)}
+      />,
+    )
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Eleonore' })).toBeInTheDocument())
+    await user.click(screen.getAllByTestId('passage-review-check')[0])
+    await user.click(screen.getByRole('button', { name: 'Eleonore' }))
+    await waitFor(() => expect(screen.getByTestId('passage-review-undo')).toBeInTheDocument())
+
+    await user.click(screen.getByTestId('passage-review-undo'))
+    await waitFor(() => {
+      expect(screen.getByTestId('passage-review-noted'))
+        .not.toContainElement(screen.getByRole('button', { name: 'Eleonore' }))
+    })
+  })
+
+  // Every chip is dead until a row is ticked, and the prompt says what to do.
+  it('holds the roster on screen, unpickable, until a row is ticked', async () => {
+    const user = userEvent.setup()
+    render(<PassageReview passages={note694} classId={3} onAssign={vi.fn()} />)
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Eleonore' })).toBeInTheDocument())
+
+    for (const chipEl of screen.getAllByTestId('passage-review-student')) {
+      expect(chipEl).toBeDisabled()
+    }
+    expect(screen.getByTestId('passage-review-prompt')).toHaveTextContent('Tick a row, then pick a child')
+
+    await user.click(screen.getAllByTestId('passage-review-check')[0])
+    for (const chipEl of screen.getAllByTestId('passage-review-student')) {
+      expect(chipEl).toBeEnabled()
+    }
+  })
+
+  // The prompt names who the pick went to while the call runs, and the chip
+  // stays lit so the teacher can see which one they hit.
+  it('names the child on the prompt while the assignment runs', async () => {
+    const user = userEvent.setup()
+    let release: (v: AssignPassagesResponse) => void = () => {}
+    const onAssign = vi.fn().mockImplementation(() => new Promise<AssignPassagesResponse>(res => { release = res }))
+    render(<PassageReview passages={note694} classId={3} onAssign={onAssign} />)
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Eleonore' })).toBeInTheDocument())
+
+    await user.click(screen.getAllByTestId('passage-review-check')[0])
+    await user.click(screen.getByRole('button', { name: 'Eleonore' }))
+
+    expect(screen.getByTestId('passage-review-prompt')).toHaveTextContent('Assigning to Eleonore…')
+    expect(screen.getByRole('button', { name: 'Eleonore' })).toHaveClass('passage-review-student-going')
+    expect(screen.getByRole('button', { name: 'Lévy' })).toBeDisabled()
+
+    release(filed)
+    await waitFor(() => expect(screen.getByTestId('passage-review-filed')).toBeInTheDocument())
   })
 
   // A pinned card that named nobody shows the class picker and these controls
@@ -280,16 +381,18 @@ describe('PassageReview filing', () => {
         : [{ id: 31, classId: 4, name: 'Ombeline', createdAt: '', aliases: [] }],
     }))
     const { rerender } = render(<PassageReview passages={note694} classId={3} onAssign={vi.fn()} />)
-    await waitFor(() => expect(screen.getByRole('option', { name: 'Eleonore' })).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Eleonore' })).toBeInTheDocument())
     await user.click(screen.getAllByTestId('passage-review-check')[0])
-    expect(screen.getByTestId('passage-review-student')).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Eleonore' })).toBeEnabled()
 
     rerender(<PassageReview passages={note694} classId={4} onAssign={vi.fn()} />)
-    expect(screen.queryByRole('option', { name: 'Eleonore' })).not.toBeInTheDocument()
-    // Nothing to pick from until the new roster lands, tick or no tick.
-    expect(screen.getByTestId('passage-review-student')).toBeDisabled()
-    await waitFor(() => expect(screen.getByRole('option', { name: 'Ombeline' })).toBeInTheDocument())
-    expect(screen.getByTestId('passage-review-student')).toBeEnabled()
+    expect(screen.queryByRole('button', { name: 'Eleonore' })).not.toBeInTheDocument()
+    // Nobody to pick until the new roster lands, tick or no tick: the prompt
+    // holds the line on its own.
+    expect(screen.queryByTestId('passage-review-student')).not.toBeInTheDocument()
+    expect(screen.getByTestId('passage-review-prompt')).toHaveTextContent('Loading the class…')
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Ombeline' })).toBeInTheDocument())
+    expect(screen.getByRole('button', { name: 'Ombeline' })).toBeEnabled()
     expect(mockListStudents).toHaveBeenLastCalledWith(4, expect.anything())
   })
 
@@ -299,7 +402,7 @@ describe('PassageReview filing', () => {
   it('starts over when the rows change, and keeps its ticks when they do not', async () => {
     const user = userEvent.setup()
     const { rerender } = render(<PassageReview passages={note694} classId={3} onAssign={vi.fn()} />)
-    await waitFor(() => expect(screen.getByRole('option', { name: 'Eleonore' })).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Eleonore' })).toBeInTheDocument())
     await user.click(screen.getAllByTestId('passage-review-check')[0])
 
     rerender(<PassageReview passages={[...note694]} classId={3} onAssign={vi.fn()} />)

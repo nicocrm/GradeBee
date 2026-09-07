@@ -905,23 +905,84 @@
   cursor: default;
 }
 
-/* One child per pick: the picker sits on a row under the list */
+/* One child per pick: the roster sits under the list as chips, so who is
+   left to write about reads without opening anything */
 .passage-review-controls {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.35rem;
   margin-top: 0.5rem;
 }
 
+.passage-review-students {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
 .passage-review-student {
-  font-family: var(--font-body);
   font-size: 0.82rem;
-  color: var(--ink);
+  font-weight: 500;
+  padding: 0.25rem 0.6rem;
+  min-height: auto;
+}
+
+/* A whole roster sits here, and reading who is left is the point: dim it
+   only enough to read as inert, and drop the "not-allowed" cursor. */
+.passage-review-student:disabled {
+  opacity: 0.75;
+  cursor: default;
+}
+
+.passage-review-student:disabled:hover {
   background: var(--chalk);
-  border: 1.5px solid var(--comb);
-  border-radius: 6px;
-  padding: 0.25rem 0.5rem;
+  border-color: var(--comb);
+  transform: none;
+  box-shadow: none;
+}
+
+.passage-review-student:focus-visible {
+  outline: 2px solid var(--honey);
+  outline-offset: 2px;
+}
+
+/* Children this recording already wrote to. Still pickable — the pick
+   appends to their note — so they are demoted, not hidden. The rule divides
+   the two bands, so it only shows where there is a band above to divide. */
+.passage-review-students + .passage-review-noted {
+  margin-top: 0.5rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid var(--comb);
+}
+
+.passage-review-noted-label {
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  color: var(--ink-muted);
+  margin: 0 0 0.3rem;
+}
+
+.passage-review-noted .passage-review-student {
+  background: none;
+  border-style: dashed;
+  color: var(--ink-muted);
+}
+
+.passage-review-noted .passage-review-student:hover:not(:disabled) {
+  background: var(--honey-light);
+  border-style: solid;
+  color: var(--ink);
+}
+
+.passage-review-noted .passage-review-student:disabled:hover {
+  background: none;
+  border-color: var(--comb);
+}
+
+/* The child a pick is in flight to */
+.passage-review-student.passage-review-student-going,
+.passage-review-noted .passage-review-student.passage-review-student-going {
+  background: var(--honey-light);
+  border: 1.5px solid var(--honey);
+  color: var(--ink);
+  opacity: 1;
 }
 
 .passage-review-error {

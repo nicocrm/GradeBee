@@ -454,6 +454,15 @@ describe('JobStatus', () => {
   })
 
   describe('filing a passage to a child', () => {
+    // A child's name is on the card twice once they have a note: the picker
+    // chip and the note link. Every query here says which one it means.
+    function chipFor(name: string): HTMLElement {
+      const chip = screen.getAllByTestId('passage-review-student').find(b => b.textContent === name)
+      if (chip === undefined) throw new Error(`no picker chip for ${name}`)
+      return chip
+    }
+    const noteLinks = () => screen.queryAllByTestId('job-note-link').map(b => b.textContent?.trim())
+
     const card: UploadJob = {
       userId: 'user_1',
       uploadId: 12,
@@ -482,14 +491,12 @@ describe('JobStatus', () => {
       const { default: JobStatus } = await import('../JobStatus')
       render(<JobStatus />)
 
-      await waitFor(() => {
-        expect(screen.getByRole('option', { name: 'Eleonore' })).toBeInTheDocument()
-      })
+      await waitFor(() => chipFor('Eleonore'))
       expect(mockListStudents).toHaveBeenCalledWith(2, expect.anything())
       expect(screen.getByText('1 note created')).toBeInTheDocument()
 
       await user.click(screen.getByTestId('passage-review-check'))
-      await user.selectOptions(screen.getByTestId('passage-review-student'), '22')
+      await user.click(chipFor('Eleonore'))
 
       await waitFor(() => {
         expect(screen.getByText('2 notes created')).toBeInTheDocument()
@@ -512,7 +519,7 @@ describe('JobStatus', () => {
         expect(mockFetchJobs).toHaveBeenCalledTimes(2)
       })
       expect(screen.getByText('2 notes created')).toBeInTheDocument()
-      expect(screen.getAllByRole('button', { name: 'Eleonore' })).toHaveLength(1)
+      expect(noteLinks().filter(n => n === 'Eleonore')).toHaveLength(1)
     })
 
     // Lévy already has a note from this recording, so the card sends its id
@@ -530,11 +537,9 @@ describe('JobStatus', () => {
       const { default: JobStatus } = await import('../JobStatus')
       render(<JobStatus />)
 
-      await waitFor(() => {
-        expect(screen.getByRole('option', { name: 'Lévy' })).toBeInTheDocument()
-      })
+      await waitFor(() => chipFor('Lévy'))
       await user.click(screen.getByTestId('passage-review-check'))
-      await user.selectOptions(screen.getByTestId('passage-review-student'), '21')
+      await user.click(chipFor('Lévy'))
 
       await waitFor(() => {
         expect(screen.getByTestId('passage-review-filed')).toHaveTextContent('Assigned to Lévy')
@@ -567,17 +572,15 @@ describe('JobStatus', () => {
       const { default: JobStatus } = await import('../JobStatus')
       render(<JobStatus />)
 
-      await waitFor(() => {
-        expect(screen.getByRole('option', { name: 'Eleonore' })).toBeInTheDocument()
-      })
+      await waitFor(() => chipFor('Eleonore'))
       await user.click(screen.getAllByTestId('passage-review-check')[0])
-      await user.selectOptions(screen.getByTestId('passage-review-student'), '22')
+      await user.click(chipFor('Eleonore'))
       await waitFor(() => {
         expect(screen.getByText('2 notes created')).toBeInTheDocument()
       })
 
       await user.click(screen.getAllByTestId('passage-review-check')[1])
-      await user.selectOptions(screen.getByTestId('passage-review-student'), '22')
+      await user.click(chipFor('Eleonore'))
       await waitFor(() => {
         expect(screen.getAllByTestId('passage-review-filed')).toHaveLength(2)
       })
@@ -585,7 +588,7 @@ describe('JobStatus', () => {
       expect(mockAssignPassages.mock.calls[0][1]).not.toHaveProperty('appendToNoteId')
       expect(mockAssignPassages.mock.calls[1][1]).toMatchObject({ studentId: 22, appendToNoteId: 60 })
       expect(screen.getByText('2 notes created')).toBeInTheDocument()
-      expect(screen.getAllByRole('button', { name: 'Eleonore' })).toHaveLength(1)
+      expect(noteLinks().filter(n => n === 'Eleonore')).toHaveLength(1)
     })
 
     // The honest mistake, taken back (#138): the note the server deleted
@@ -605,11 +608,9 @@ describe('JobStatus', () => {
       const { default: JobStatus } = await import('../JobStatus')
       render(<JobStatus />)
 
-      await waitFor(() => {
-        expect(screen.getByRole('option', { name: 'Eleonore' })).toBeInTheDocument()
-      })
+      await waitFor(() => chipFor('Eleonore'))
       await user.click(screen.getByTestId('passage-review-check'))
-      await user.selectOptions(screen.getByTestId('passage-review-student'), '22')
+      await user.click(chipFor('Eleonore'))
       await waitFor(() => {
         expect(screen.getByText('2 notes created')).toBeInTheDocument()
       })
@@ -619,17 +620,17 @@ describe('JobStatus', () => {
         expect(screen.getByText('1 note created')).toBeInTheDocument()
       })
       expect(mockUndoAssignment).toHaveBeenCalledWith(12, 22, expect.anything())
-      expect(screen.queryByRole('button', { name: 'Eleonore' })).not.toBeInTheDocument()
+      expect(noteLinks()).not.toContain('Eleonore')
       expect(screen.queryByTestId('passage-review-filed')).not.toBeInTheDocument()
       expect(screen.getByTestId('passage-review-check')).toBeEnabled()
 
       await user.click(screen.getByTestId('passage-review-check'))
-      await user.selectOptions(screen.getByTestId('passage-review-student'), '22')
+      await user.click(chipFor('Eleonore'))
       await waitFor(() => {
         expect(screen.getByText('2 notes created')).toBeInTheDocument()
       })
       expect(mockAssignPassages.mock.calls[1][1]).not.toHaveProperty('appendToNoteId')
-      expect(screen.getByRole('button', { name: 'Eleonore' })).toBeInTheDocument()
+      expect(noteLinks()).toContain('Eleonore')
     })
 
     // A card from before the field existed has no roster to offer.

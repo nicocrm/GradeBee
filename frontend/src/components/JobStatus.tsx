@@ -509,7 +509,7 @@ function DoneJobCard({ job, isNew, onDismissNew, onDismiss, onOpenStudent }: { j
       {view.noteLinks && view.noteLinks.length > 0 && (
         <div className="job-note-links">
           {view.noteLinks.map((link, i) => (
-            <button key={i} className="job-note-link" onClick={() => onOpenStudent({ studentId: link.studentId, name: link.name, className: link.className })}>
+            <button key={i} className="job-note-link" data-testid="job-note-link" onClick={() => onOpenStudent({ studentId: link.studentId, name: link.name, className: link.className })}>
               <DocIcon /> {link.name}
             </button>
           ))}
