@@ -914,8 +914,8 @@ export interface AssignPassagesResponse {
   name: string;
   className: string;
   /**
-   * Appended is false on every response this shard can give: a note was
-   * created. #135 adds the append path.
+   * Appended is false on every response this shard can give: a create, or
+   * a replay answered with the note a create made. #135 adds the append path.
    */
   appended: boolean;
 }

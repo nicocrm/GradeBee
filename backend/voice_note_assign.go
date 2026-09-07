@@ -12,8 +12,10 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strings"
 )
@@ -49,8 +51,8 @@ type AssignPassagesResponse struct {
 	StudentID int64  `json:"studentId"`
 	Name      string `json:"name"`
 	ClassName string `json:"className"`
-	// Appended is false on every response this shard can give: a note was
-	// created. #135 adds the append path.
+	// Appended is false on every response this shard can give: a create, or
+	// a replay answered with the note a create made. #135 adds the append path.
 	Appended bool `json:"appended"`
 }
 
@@ -65,6 +67,10 @@ type AssignPassagesResponse struct {
 //     repaired.
 //   - The lock is taken after the checks and held across the note write and
 //     the job update. A double-click gets 409 at once.
+//   - A replay makes no second note (#136). Inside the lock, before any
+//     write, the child's notes for the day are read; one holding the sent
+//     text is answered with 200 and its link. Covers what the lock cannot:
+//     a retry after a lost response, a second tab, a reload then a re-pick.
 //   - The job is read inside the lock: a mid-run or failed job is refused,
 //     and a done one gets the link appended, nothing more. No passage state,
 //     no class, no review state moves. Review
@@ -209,6 +215,28 @@ func handleAssignPassages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Duplicate guard, by text: the server holds no passage list to index
+	// into. A replay resends the strings the note was built from, stored
+	// verbatim, so a note holding them is that call's note. The card merges
+	// links by noteId, so the reply is a create's shape. Misses after an edit
+	// (a second note is then fair) and after a restart (a re-pick makes new
+	// rows). Inside the lock, so a double-click cannot slip between check
+	// and write.
+	if existing, err := findAssignedNote(r.Context(), student.ID, noteDate, own, group); err != nil {
+		writeInternalError(w, r, err)
+		return
+	} else if existing != nil {
+		logPassageRecovered(log, true, kindCounts, len(own)+len(group), userID, uploadID, student.ID, extractor.Model())
+		writeJSON(w, http.StatusOK, AssignPassagesResponse{
+			NoteID:    existing.ID,
+			StudentID: student.ID,
+			Name:      student.Name,
+			ClassName: class.Name,
+			Appended:  false,
+		})
+		return
+	}
+
 	// The extractor's model, as the pipeline and assemble stamp it: it
 	// produced the words, it only missed the assignment. The job carries no
 	// version, and the window for a mismatch is the card's lifetime.
@@ -237,16 +265,7 @@ func handleAssignPassages(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Same pinned query string as the pipeline's and the class picker's
-	// recovery records, so the Sentry readout sees every route a passage can
-	// reach a child by. No name, no text (docs/adr/0003).
-	log.Info("process voice note: passage recovered",
-		"route", "manual",
-		"appended", false,
-		"kind_counts", kindCounts,
-		"passage_count", len(own)+len(group),
-		"user_id", userID, "upload_id", uploadID, "student_id", student.ID,
-		"model", extractor.Model(), "prompt_hash", ExtractionPromptHash)
+	logPassageRecovered(log, false, kindCounts, len(own)+len(group), userID, uploadID, student.ID, extractor.Model())
 
 	writeJSON(w, http.StatusOK, AssignPassagesResponse{
 		NoteID:    link.NoteID,
@@ -293,4 +312,61 @@ func splitAssignPassages(passages []AssignPassage, transcript string) (own, grou
 		return nil, nil, nil, errors.New("at least one child or unknown passage is required")
 	}
 	return own, group, kindCounts, nil
+}
+
+// logPassageRecovered writes the recovery record, hit or create. Same pinned
+// query string as the pipeline's and the class picker's, so Sentry sees every
+// route a passage reaches a child by. One writer, so no field lands on one
+// path only. No name, no text (docs/adr/0003).
+func logPassageRecovered(log *slog.Logger, duplicate bool, kindCounts map[PassageKind]int, passageCount int, userID string, uploadID, studentID int64, model string) {
+	log.Info("process voice note: passage recovered",
+		"route", "manual",
+		"appended", false,
+		"duplicate", duplicate,
+		"kind_counts", kindCounts,
+		"passage_count", passageCount,
+		"user_id", userID, "upload_id", uploadID, "student_id", studentID,
+		"model", model, "prompt_hash", ExtractionPromptHash)
+}
+
+// findAssignedNote returns the note an earlier call with these passages made,
+// or nil. Scope: the child's notes for the recording's day.
+//
+// A hit holds the own passages as one block, joined as written, and each
+// group passage anywhere. The block, not the words one by one: the pipeline's
+// note for the same child already carries the group text and comes from the
+// same transcript, so a scattered match could answer a fresh filing with the
+// wrong note. Group passages stay loose because an append (#135) adds own
+// text only. A single own passage is its own block, so the one-row case keeps
+// that collision; nothing tighter survives the append.
+//
+// Containment, not equality: a note grown by an append still holds the block.
+// A rewritten one does not, and a fresh note is then right. When several hold
+// it (file A, then A and B, then replay A), the earliest is that call's.
+func findAssignedNote(ctx context.Context, studentID int64, day string, own, group []string) (*Note, error) {
+	notes, err := serviceDeps.GetNoteRepo().ListForStudents(ctx, []int64{studentID}, day, day)
+	if err != nil {
+		return nil, err
+	}
+	block := joinPassageText(own, nil)
+	var hit *Note
+	for i := range notes {
+		n := &notes[i]
+		if !strings.Contains(n.Summary, block) || !holdsEvery(n.Summary, group) {
+			continue
+		}
+		if hit == nil || n.ID < hit.ID {
+			hit = n
+		}
+	}
+	return hit, nil
+}
+
+func holdsEvery(text string, passages []string) bool {
+	for _, p := range passages {
+		if !strings.Contains(text, p) {
+			return false
+		}
+	}
+	return true
 }

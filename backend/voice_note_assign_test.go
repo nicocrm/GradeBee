@@ -312,6 +312,7 @@ func TestAssignPassages_RecoveryRecordOmitsNameAndText(t *testing.T) {
 	assert.Contains(t, logs, "process voice note: passage recovered")
 	assert.Contains(t, logs, `"route":"manual"`)
 	assert.Contains(t, logs, `"appended":false`)
+	assert.Contains(t, logs, `"duplicate":false`)
 	assert.Contains(t, logs, `"passage_count":3`)
 	assert.Contains(t, logs, `"kind_counts":{"group":1,"unknown":2}`)
 	assert.Contains(t, logs, fmt.Sprintf(`"student_id":%d`, w.alice))
@@ -320,4 +321,112 @@ func TestAssignPassages_RecoveryRecordOmitsNameAndText(t *testing.T) {
 	assert.NotContains(t, logs, "Alice", "no student name")
 	assert.NotContains(t, logs, "little ones", "no note text")
 	assert.NotContains(t, logs, "worked hard", "no note text")
+}
+
+// A replay of a finished call: the response was lost and the card retried,
+// or a second tab confirmed the same rows. The child gets one note. The
+// second call answers with the first call's link, writes nothing, and says
+// so in the log; the job holds one link, not two.
+func TestAssignPassages_ReplayMakesNoSecondNote(t *testing.T) {
+	w := newAssembleWorld(t)
+	w.misfiledJob(t)
+	body := w.toAlice(helping, everyone)
+
+	rec, _ := w.assign(t, "u1", w.uploadID, body)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	var first AssignPassagesResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &first))
+
+	rec, logs := w.assign(t, "u1", w.uploadID, body)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	var second AssignPassagesResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &second))
+	assert.Equal(t, first, second, "the same link, in the shape the card already holds")
+
+	notes := w.notesFor(t, w.alice)
+	require.Len(t, notes, 1)
+	assert.Equal(t, first.NoteID, notes[0].ID)
+	assert.Len(t, w.job(t).NoteLinks, 1, "a hit writes nothing to the job")
+
+	assert.Contains(t, logs, "process voice note: passage recovered")
+	assert.Contains(t, logs, `"duplicate":true`)
+	assert.NotContains(t, logs, "Alice", "no student name")
+	assert.NotContains(t, logs, "little ones", "no note text")
+}
+
+// The guard is by text. Once the teacher has rewritten the note, the words
+// the card sent are no longer in it, and a second note is fair: the server
+// cannot tell a replay from a fresh filing of the same rows, and it must not
+// swallow the teacher's edit by answering with the rewritten note.
+func TestAssignPassages_ReplayAfterAnEditMakesASecondNote(t *testing.T) {
+	w := newAssembleWorld(t)
+	body := w.toAlice(helping)
+
+	rec, _ := w.assign(t, "u1", w.uploadID, body)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	first := w.notesFor(t, w.alice)[0]
+	require.NoError(t, w.noteRepo.Update(context.Background(), first.ID, "helped the older ones"))
+
+	rec, logs := w.assign(t, "u1", w.uploadID, body)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	assert.Contains(t, logs, `"duplicate":false`)
+	assert.Len(t, w.notesFor(t, w.alice), 2)
+}
+
+// Partial overlap is not a replay. A row already filed plus one more is a
+// new filing, and the note is made as normal: the guard asks for every sent
+// passage, not any.
+func TestAssignPassages_OneExtraRowIsNotAReplay(t *testing.T) {
+	w := newAssembleWorld(t)
+
+	rec, _ := w.assign(t, "u1", w.uploadID, w.toAlice(helping))
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+
+	rec, logs := w.assign(t, "u1", w.uploadID, w.toAlice(helping, quiet))
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	assert.Contains(t, logs, `"duplicate":false`)
+	notes := w.notesFor(t, w.alice)
+	require.Len(t, notes, 2)
+}
+
+// The guard matches the block this call would write, not the words one by
+// one. A note that holds every sent string scattered — the pipeline's own
+// note for the same child, drawn from the same transcript and carrying the
+// group text already — is not this call's note, and the filing goes ahead.
+func TestAssignPassages_ScatteredWordsAreNotAReplay(t *testing.T) {
+	w := newAssembleWorld(t)
+	row, err := w.voiceNotes.GetByID(context.Background(), w.uploadID)
+	require.NoError(t, err)
+	day, err := uploadDay(row.CreatedAt)
+	require.NoError(t, err)
+	require.NoError(t, w.noteRepo.Create(context.Background(), &Note{
+		StudentID: w.alice, Date: day, Source: NoteSourceAuto,
+		Summary: "helped the little ones\n\nsang loudly\n\ndid not say much\n\neveryone worked hard",
+	}))
+
+	rec, logs := w.assign(t, "u1", w.uploadID, w.toAlice(helping, quiet, everyone))
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	assert.Contains(t, logs, `"duplicate":false`)
+	assert.Len(t, w.notesFor(t, w.alice), 2)
+}
+
+// Two notes hold the block (A filed, then A and B, then A replayed). The
+// replay answers with the first, the one that call made.
+func TestAssignPassages_ReplayPicksTheEarliestMatch(t *testing.T) {
+	w := newAssembleWorld(t)
+
+	rec, _ := w.assign(t, "u1", w.uploadID, w.toAlice(helping))
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	var first AssignPassagesResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &first))
+	rec, _ = w.assign(t, "u1", w.uploadID, w.toAlice(helping, quiet))
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+
+	rec, logs := w.assign(t, "u1", w.uploadID, w.toAlice(helping))
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	var replay AssignPassagesResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &replay))
+	assert.Contains(t, logs, `"duplicate":true`)
+	assert.Equal(t, first.NoteID, replay.NoteID)
+	assert.Len(t, w.notesFor(t, w.alice), 2)
 }
