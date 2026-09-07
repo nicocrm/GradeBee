@@ -1,7 +1,7 @@
 import { useAuth } from '@clerk/react'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
-import { fetchJobs, retryFailedJobs, dismissJobs, assembleNotes, assignPassages } from '../api'
+import { fetchJobs, retryFailedJobs, dismissJobs, assembleNotes, assignPassages, undoAssignment } from '../api'
 import type { UploadJob, JobListResponse, AssembleNotesResponse, AssignPassagesRequest, NoteLink, JobPassage } from '../api'
 import { NoNotesClassUnclear, NoNotesNoNameMatched, NoNotesNobodyNamed } from '../api-types.gen'
 import ClassPicker from './ClassPicker'
@@ -407,12 +407,19 @@ function DoneJobCard({ job, isNew, onDismissNew, onDismiss, onOpenStudent }: { j
   // Component state only: review lives in the tab that saw the card, and a
   // refresh ends it, by design.
   const [assignedLinks, setAssignedLinks] = useState<NoteLink[]>([])
+  // Notes an undo on this card deleted. The server drops them from the job,
+  // but the poll that shows it may be a minute off, and an assembled result
+  // is never polled again, so the card hides them itself. An id leaves the
+  // set the moment a later call hands it back: the notes table has no
+  // AUTOINCREMENT, so the next note made after a delete can take the id the
+  // deleted one had, and that note is real.
+  const [undoneNoteIds, setUndoneNoteIds] = useState<Set<number>>(new Set())
   const { getToken } = useAuth()
 
   const base: UploadJob = assembled
     ? { ...job, className: assembled.className, classId: assembled.classId, noteLinks: assembled.noteLinks, passages: assembled.passages, noNotesReason: assembled.noNotesReason, canPickClass: assembled.canPickClass }
     : job
-  const view: UploadJob = { ...base, noteLinks: mergeLinks(base.noteLinks ?? [], assignedLinks) }
+  const view: UploadJob = { ...base, noteLinks: mergeLinks(base.noteLinks ?? [], assignedLinks).filter(l => !undoneNoteIds.has(l.noteId)) }
   const noteCount = view.noteLinks?.length ?? 0
 
   // The server decides this, and the card obeys. Not a list of the reasons this
@@ -435,6 +442,8 @@ function DoneJobCard({ job, isNew, onDismissNew, onDismiss, onOpenStudent }: { j
 
   async function pickClass(className: string) {
     setAssembled(await assembleNotes(job.uploadId, className, getToken))
+    // The response is fresh from the server, after every undo it saw.
+    setUndoneNoteIds(new Set())
   }
 
   // A child who already has a note from this recording gets the rows appended
@@ -446,7 +455,23 @@ function DoneJobCard({ job, isNew, onDismissNew, onDismiss, onOpenStudent }: { j
     const held = view.noteLinks?.find(l => l.studentId === body.studentId)
     const res = await assignPassages(job.uploadId, held ? { ...body, appendToNoteId: held.noteId } : body, getToken)
     setAssignedLinks(prev => mergeLinks(prev, [{ name: res.name, noteId: res.noteId, studentId: res.studentId, className: res.className }]))
+    setUndoneNoteIds(prev => {
+      if (!prev.has(res.noteId)) return prev
+      const next = new Set(prev)
+      next.delete(res.noteId)
+      return next
+    })
     return res
+  }
+
+  // Take back what this card filed to one child (#138). The server names the
+  // notes it deleted; their links leave the card at once, so the count is
+  // right and the child is no longer a link, and a later pick of the same
+  // child makes a new note rather than appending to one that is gone.
+  async function undo(studentId: number) {
+    const res = await undoAssignment(job.uploadId, studentId, getToken)
+    setUndoneNoteIds(prev => new Set([...prev, ...res.noteIds]))
+    setAssignedLinks(prev => prev.filter(l => !res.noteIds.includes(l.noteId)))
   }
 
   return (
@@ -490,7 +515,7 @@ function DoneJobCard({ job, isNew, onDismissNew, onDismiss, onOpenStudent }: { j
           ))}
         </div>
       )}
-      <PassageReview passages={view.passages ?? NO_PASSAGES} classId={view.classId} onAssign={assign} />
+      <PassageReview passages={view.passages ?? NO_PASSAGES} classId={view.classId} onAssign={assign} onUndo={undo} />
       {job.transcript && (
         <>
           <button

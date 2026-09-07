@@ -11,6 +11,7 @@ const mockListNotes = vi.fn()
 const mockAssembleNotes = vi.fn()
 const mockListClasses = vi.fn()
 const mockAssignPassages = vi.fn()
+const mockUndoAssignment = vi.fn()
 const mockListStudents = vi.fn()
 
 vi.mock('../../api', () => ({
@@ -21,6 +22,7 @@ vi.mock('../../api', () => ({
   assembleNotes: (...args: unknown[]) => mockAssembleNotes(...args),
   listClasses: (...args: unknown[]) => mockListClasses(...args),
   assignPassages: (...args: unknown[]) => mockAssignPassages(...args),
+  undoAssignment: (...args: unknown[]) => mockUndoAssignment(...args),
   listStudents: (...args: unknown[]) => mockListStudents(...args),
 }))
 
@@ -497,7 +499,7 @@ describe('JobStatus', () => {
         studentId: 22,
         passages: [{ kind: 'unknown', summary: 'She was helping the younger ones with their blocks.' }],
       }, expect.anything())
-      expect(screen.getByRole('button', { name: /Eleonore/ })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Eleonore' })).toBeInTheDocument()
 
       // The poll brings back what assign wrote to the job. Keyed on note id,
       // the link the card already holds replaces nothing and doubles nothing.
@@ -510,7 +512,7 @@ describe('JobStatus', () => {
         expect(mockFetchJobs).toHaveBeenCalledTimes(2)
       })
       expect(screen.getByText('2 notes created')).toBeInTheDocument()
-      expect(screen.getAllByRole('button', { name: /Eleonore/ })).toHaveLength(1)
+      expect(screen.getAllByRole('button', { name: 'Eleonore' })).toHaveLength(1)
     })
 
     // Lévy already has a note from this recording, so the card sends its id
@@ -544,7 +546,7 @@ describe('JobStatus', () => {
         appendToNoteId: 50,
       }, expect.anything())
       expect(screen.getByText('1 note created')).toBeInTheDocument()
-      expect(screen.getAllByRole('button', { name: /Lévy/ })).toHaveLength(1)
+      expect(screen.getAllByRole('button', { name: 'Lévy' })).toHaveLength(1)
     })
 
     // Two confirms to Eleonore in one tab: the first creates, and the link it
@@ -583,7 +585,51 @@ describe('JobStatus', () => {
       expect(mockAssignPassages.mock.calls[0][1]).not.toHaveProperty('appendToNoteId')
       expect(mockAssignPassages.mock.calls[1][1]).toMatchObject({ studentId: 22, appendToNoteId: 60 })
       expect(screen.getByText('2 notes created')).toBeInTheDocument()
-      expect(screen.getAllByRole('button', { name: /Eleonore/ })).toHaveLength(1)
+      expect(screen.getAllByRole('button', { name: 'Eleonore' })).toHaveLength(1)
+    })
+
+    // The honest mistake, taken back (#138): the note the server deleted
+    // leaves the card at once — count down, name gone — and the row is open
+    // again. Picking the same child then creates, not appends: the card no
+    // longer holds a link for them to send back. The new note comes back
+    // under the deleted one's id, as SQLite hands out after a delete of the
+    // newest row, and the card must show it all the same.
+    it('drops the note an undo deleted, and the next pick of that child creates', async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+      mockFetchJobs.mockResolvedValue({ active: [], failed: [], done: [card] })
+      mockAssignPassages
+        .mockResolvedValueOnce({ noteId: 60, studentId: 22, name: 'Eleonore', className: 'Tuesday', appended: false })
+        .mockResolvedValueOnce({ noteId: 60, studentId: 22, name: 'Eleonore', className: 'Tuesday', appended: false })
+      mockUndoAssignment.mockResolvedValue({ noteIds: [60] })
+
+      const { default: JobStatus } = await import('../JobStatus')
+      render(<JobStatus />)
+
+      await waitFor(() => {
+        expect(screen.getByRole('option', { name: 'Eleonore' })).toBeInTheDocument()
+      })
+      await user.click(screen.getByTestId('passage-review-check'))
+      await user.selectOptions(screen.getByTestId('passage-review-student'), '22')
+      await waitFor(() => {
+        expect(screen.getByText('2 notes created')).toBeInTheDocument()
+      })
+
+      await user.click(screen.getByTestId('passage-review-undo'))
+      await waitFor(() => {
+        expect(screen.getByText('1 note created')).toBeInTheDocument()
+      })
+      expect(mockUndoAssignment).toHaveBeenCalledWith(12, 22, expect.anything())
+      expect(screen.queryByRole('button', { name: 'Eleonore' })).not.toBeInTheDocument()
+      expect(screen.queryByTestId('passage-review-filed')).not.toBeInTheDocument()
+      expect(screen.getByTestId('passage-review-check')).toBeEnabled()
+
+      await user.click(screen.getByTestId('passage-review-check'))
+      await user.selectOptions(screen.getByTestId('passage-review-student'), '22')
+      await waitFor(() => {
+        expect(screen.getByText('2 notes created')).toBeInTheDocument()
+      })
+      expect(mockAssignPassages.mock.calls[1][1]).not.toHaveProperty('appendToNoteId')
+      expect(screen.getByRole('button', { name: 'Eleonore' })).toBeInTheDocument()
     })
 
     // A card from before the field existed has no roster to offer.

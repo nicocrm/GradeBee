@@ -1185,6 +1185,30 @@ which reaches nobody.
 
 
 //////////
+// source: voice_note_unassign.go
+/*
+voice_note_unassign.go implements DELETE /api/voice-notes/{uploadId}/assign/{studentId}:
+the teacher takes back what assign filed to one child from the done card
+(#138). The note goes, its link leaves the queued job, and the row is open
+again for the child it should have gone to.
+
+The note is found, not named. The card sends the child, and the server looks
+up that child's assigned notes from this recording by trace id
+(notes.trace_id, #139). A note id from the card would work for the create
+case and mislead on the rest: after an append the card holds the note the
+rows joined, which may be the pipeline's, and that one is not the server's
+to delete.
+*/
+
+/**
+ * UndoAssignmentResponse names the notes the call deleted, so the card can
+ * drop their links without waiting for the poll.
+ */
+export interface UndoAssignmentResponse {
+  noteIds: number /* int64 */[];
+}
+
+//////////
 // source: voice_note_upload.go
 /*
 voice_note_upload.go handles POST /voice-notes/upload — receives an audio file via multipart/form-data, saves it to local disk, and dispatches an async processing job.

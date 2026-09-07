@@ -16,6 +16,17 @@ interface PassageReviewProps {
   classId?: number
   /** Files the body and resolves to the note link made. Rejects to show its message. */
   onAssign?: (body: AssignPassagesRequest) => Promise<AssignPassagesResponse>
+  /**
+   * Takes back everything this card assigned to one child (#138). Resolves
+   * once the note is gone; rejects to show its message.
+   */
+  onUndo?: (studentId: number) => Promise<void>
+}
+
+/** Who a filed row went to, and the key the undo is by. */
+interface Filing {
+  studentId: number
+  name: string
 }
 
 /**
@@ -25,6 +36,13 @@ interface PassageReviewProps {
  * child. No separate button: a wrong pick is undone from the row (#138), so
  * the extra click bought nothing. Group passages on the card ride along on
  * every assignment, as they join every note the pipeline makes.
+ *
+ * Undo is of the assignment, not the row. Every row filed to a child in this
+ * tab sits on one note — the first pick made it, the rest joined it — and the
+ * server deletes that note, so undoing any of them reopens them all. It shows
+ * only where this tab made the note: a row that joined a note the card
+ * already held (the pipeline's, or one from before a reload) is not the
+ * server's to take back, and the teacher edits that note instead.
  *
  * Takes a passage array and a callback. It knows nothing about jobs, so a
  * later inbox can feed it rows from a table instead of the card.
@@ -36,10 +54,13 @@ interface PassageReviewProps {
  * survives it; a pick's new rows match nothing, so the review starts over.
  * Nothing is stored anywhere but here: a refresh ends the review, by design.
  */
-export default function PassageReview({ passages, classId, onAssign }: PassageReviewProps) {
+export default function PassageReview({ passages, classId, onAssign, onUndo }: PassageReviewProps) {
   const { getToken } = useAuth()
   const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [filed, setFiled] = useState<Map<string, string>>(new Map())
+  const [filed, setFiled] = useState<Map<string, Filing>>(new Map())
+  // Children whose note this tab created, by a pick that said appended:false.
+  // Only their assignments are undoable; see the component comment.
+  const [created, setCreated] = useState<Set<number>>(new Set())
   // The roster remembers which class it belongs to, and counts only while
   // that is the class on the card. A class pick replaces the class (a pinned
   // card that named nobody shows the class picker and these controls
@@ -49,11 +70,12 @@ export default function PassageReview({ passages, classId, onAssign }: PassageRe
   // The child an assignment is in flight to, so the select shows who while
   // it runs, and goes back to the prompt when it is done.
   const [assigning, setAssigning] = useState('')
+  const [undoing, setUndoing] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const canFile = classId !== undefined && onAssign !== undefined
   const students = roster !== null && roster.classId === classId ? roster.students : null
-  const busy = assigning !== ''
+  const busy = assigning !== '' || undoing !== null
 
   useEffect(() => {
     if (classId === undefined) return
@@ -105,13 +127,34 @@ export default function PassageReview({ passages, classId, onAssign }: PassageRe
     setError(null)
     try {
       const link = await onAssign(body)
-      setFiled(prev => new Map([...prev, ...chosen.map(r => [r.key, link.name] as const)]))
+      const filing: Filing = { studentId: link.studentId, name: link.name }
+      setFiled(prev => new Map([...prev, ...chosen.map(r => [r.key, filing] as const)]))
+      if (!link.appended) setCreated(prev => new Set(prev).add(link.studentId))
       setSelected(new Set())
     } catch (err) {
       // The rows stay ticked: the teacher's next move is to pick again.
       setError(err instanceof Error ? err.message : 'Could not assign the passage')
     } finally {
       setAssigning('')
+    }
+  }
+
+  async function undo(studentId: number) {
+    if (onUndo === undefined || busy) return
+    setUndoing(studentId)
+    setError(null)
+    try {
+      await onUndo(studentId)
+      setFiled(prev => new Map([...prev].filter(([, f]) => f.studentId !== studentId)))
+      setCreated(prev => {
+        const next = new Set(prev)
+        next.delete(studentId)
+        return next
+      })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not undo the assignment')
+    } finally {
+      setUndoing(null)
     }
   }
 
@@ -142,7 +185,23 @@ export default function PassageReview({ passages, classId, onAssign }: PassageRe
               ) : (
                 <span className="passage-review-text">{p.summary}</span>
               )}
-              {to && <span className="passage-review-filed" data-testid="passage-review-filed">Assigned to {to}</span>}
+              {to && (
+                <span className="passage-review-filed" data-testid="passage-review-filed">
+                  Assigned to {to.name}
+                  {onUndo !== undefined && created.has(to.studentId) && (
+                    <button
+                      type="button"
+                      className="passage-review-undo"
+                      onClick={() => undo(to.studentId)}
+                      disabled={busy}
+                      aria-label={`Undo the assignment to ${to.name}`}
+                      data-testid="passage-review-undo"
+                    >
+                      {undoing === to.studentId ? 'Undoing…' : 'Undo'}
+                    </button>
+                  )}
+                </span>
+              )}
             </li>
           )
         })}
@@ -157,7 +216,7 @@ export default function PassageReview({ passages, classId, onAssign }: PassageRe
             aria-label="Assign the ticked rows to"
             data-testid="passage-review-student"
           >
-            <option value="">{busy ? 'Assigning…' : prompt}</option>
+            <option value="">{assigning !== '' ? 'Assigning…' : prompt}</option>
             {students?.map(s => (
               <option key={s.id} value={s.id}>{s.name}</option>
             ))}

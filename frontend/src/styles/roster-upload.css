@@ -887,6 +887,24 @@
   color: var(--ink-muted);
 }
 
+/* The way back from a wrong pick: a text link beside the assigned line */
+.passage-review-undo {
+  margin-left: 0.5rem;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: var(--honey-dark);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.passage-review-undo:disabled {
+  color: var(--ink-muted);
+  text-decoration: none;
+  cursor: default;
+}
+
 /* One child per pick: the picker sits on a row under the list */
 .passage-review-controls {
   display: flex;

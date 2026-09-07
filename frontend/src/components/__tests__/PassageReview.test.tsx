@@ -184,6 +184,90 @@ describe('PassageReview filing', () => {
     expect(screen.getByTestId('passage-review-student')).toHaveValue('')
   })
 
+  // The honest mistake (#138): the wrong child picked, undone from the row.
+  // Both rows went to Eleonore — a create, then an append onto that note — so
+  // they sit on one note and come back together, open and unticked.
+  it('undoes an assignment from the row, reopening every row filed to that child', async () => {
+    const user = userEvent.setup()
+    const onAssign = vi.fn()
+      .mockResolvedValueOnce(filed)
+      .mockResolvedValueOnce({ ...filed, appended: true })
+    let release: () => void = () => {}
+    const onUndo = vi.fn().mockImplementation(() => new Promise<void>(resolve => { release = resolve }))
+    render(<PassageReview passages={note694} classId={3} onAssign={onAssign} onUndo={onUndo} />)
+    await waitFor(() => expect(screen.getByRole('option', { name: 'Eleonore' })).toBeInTheDocument())
+
+    await user.click(screen.getAllByTestId('passage-review-check')[0])
+    await user.selectOptions(screen.getByTestId('passage-review-student'), '22')
+    await waitFor(() => expect(screen.getAllByTestId('passage-review-filed')).toHaveLength(1))
+    await user.click(screen.getAllByTestId('passage-review-check')[1])
+    await user.selectOptions(screen.getByTestId('passage-review-student'), '22')
+    await waitFor(() => expect(screen.getAllByTestId('passage-review-filed')).toHaveLength(2))
+    expect(screen.getAllByTestId('passage-review-undo')).toHaveLength(2)
+
+    await user.click(screen.getAllByTestId('passage-review-undo')[1])
+    expect(onUndo).toHaveBeenCalledWith(22)
+    // Dead for the round trip, and it says so; the picker is dead too, but
+    // must not claim to be assigning.
+    expect(screen.getAllByTestId('passage-review-undo')[0]).toBeDisabled()
+    expect(screen.getAllByTestId('passage-review-undo')[1]).toHaveTextContent('Undoing…')
+    expect(screen.getAllByRole('button', { name: 'Undo the assignment to Eleonore' })).toHaveLength(2)
+
+    release()
+    await waitFor(() => expect(screen.queryByTestId('passage-review-filed')).not.toBeInTheDocument())
+    const checks = screen.getAllByTestId('passage-review-check')
+    expect(checks).toHaveLength(2)
+    for (const check of checks) {
+      expect(check).toBeEnabled()
+      expect(check).not.toBeChecked()
+    }
+    expect(screen.getByTestId('passage-review-student')).toBeInTheDocument()
+  })
+
+  // A row that joined a note the card already held — the pipeline's — is not
+  // this tab's to take back: the server would say 404. No control, and the
+  // teacher edits that note instead.
+  it('offers no undo on a row appended to a note this tab did not make', async () => {
+    const user = userEvent.setup()
+    const onAssign = vi.fn().mockResolvedValue({ noteId: 50, studentId: 21, name: 'Lévy', className: 'Tuesday', appended: true })
+    render(<PassageReview passages={note694} classId={3} onAssign={onAssign} onUndo={vi.fn()} />)
+    await waitFor(() => expect(screen.getByRole('option', { name: 'Lévy' })).toBeInTheDocument())
+
+    await user.click(screen.getAllByTestId('passage-review-check')[0])
+    await user.selectOptions(screen.getByTestId('passage-review-student'), '21')
+    await waitFor(() => expect(screen.getByTestId('passage-review-filed')).toHaveTextContent('Assigned to Lévy'))
+    expect(screen.queryByTestId('passage-review-undo')).not.toBeInTheDocument()
+  })
+
+  it('shows no undo without an undo callback', async () => {
+    const user = userEvent.setup()
+    render(<PassageReview passages={note694} classId={3} onAssign={vi.fn().mockResolvedValue(filed)} />)
+    await waitFor(() => expect(screen.getByRole('option', { name: 'Eleonore' })).toBeInTheDocument())
+    await user.click(screen.getAllByTestId('passage-review-check')[0])
+    await user.selectOptions(screen.getByTestId('passage-review-student'), '22')
+    await waitFor(() => expect(screen.getByTestId('passage-review-filed')).toBeInTheDocument())
+    expect(screen.queryByTestId('passage-review-undo')).not.toBeInTheDocument()
+  })
+
+  // A failed undo leaves the row assigned and says why.
+  it('keeps the row assigned and shows the error when the undo fails', async () => {
+    const user = userEvent.setup()
+    const onUndo = vi.fn().mockRejectedValue(new Error('Already filing this recording, try again.'))
+    render(<PassageReview passages={note694} classId={3} onAssign={vi.fn().mockResolvedValue(filed)} onUndo={onUndo} />)
+    await waitFor(() => expect(screen.getByRole('option', { name: 'Eleonore' })).toBeInTheDocument())
+    await user.click(screen.getAllByTestId('passage-review-check')[0])
+    await user.selectOptions(screen.getByTestId('passage-review-student'), '22')
+    await waitFor(() => expect(screen.getByTestId('passage-review-undo')).toBeInTheDocument())
+
+    await user.click(screen.getByTestId('passage-review-undo'))
+    await waitFor(() => {
+      expect(screen.getByTestId('passage-review-error')).toHaveTextContent('Already filing this recording, try again.')
+    })
+    expect(screen.getByTestId('passage-review-filed')).toHaveTextContent('Assigned to Eleonore')
+    expect(screen.getByTestId('passage-review-undo')).toBeEnabled()
+    expect(screen.getAllByTestId('passage-review-check')[0]).toBeDisabled()
+  })
+
   // A pinned card that named nobody shows the class picker and these controls
   // together. Picking another class must swap the roster: a child of the old
   // class sent with the new class id is a 404.

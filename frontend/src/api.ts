@@ -14,6 +14,7 @@ import type {
   AssembleNotesResponse,
   AssignPassagesRequest,
   AssignPassagesResponse,
+  UndoAssignmentResponse,
   NoteLink,
   AliasResponse,
   Level as LevelItem,
@@ -33,6 +34,7 @@ export type {
   AssembleNotesResponse,
   AssignPassagesRequest,
   AssignPassagesResponse,
+  UndoAssignmentResponse,
   NoteLink,
   AliasResponse,
   LevelItem,
@@ -735,6 +737,28 @@ export async function assignPassages(
   const parsed = await readBody(resp)
   if (resp.status === 409) throw new Error('Already filing this recording, try again.')
   if (!resp.ok) throw new Error(parsed.error || 'Failed to file the passage')
+  return parsed
+}
+
+/**
+ * Take back what assign filed to one child from this recording (#138): the
+ * server finds that child's `assigned` notes by the recording's trace id,
+ * deletes them and drops their links from the job. Rows appended to a note
+ * the pipeline made are not an assignment and come back 404.
+ */
+export async function undoAssignment(
+  uploadId: number,
+  studentId: number,
+  getToken: () => Promise<string | null>
+): Promise<UndoAssignmentResponse> {
+  const token = await getToken()
+  const resp = await fetch(`${apiUrl}/voice-notes/${uploadId}/assign/${studentId}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  const parsed = await readBody(resp)
+  if (resp.status === 409) throw new Error('Already filing this recording, try again.')
+  if (!resp.ok) throw new Error(parsed.error || 'Failed to undo the assignment')
   return parsed
 }
 

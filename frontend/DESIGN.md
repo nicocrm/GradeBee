@@ -172,10 +172,14 @@ accent) and one native `<select>` of that class's children sits under the list
 buttons). The pick is the confirm: there is no button. The select is disabled until a row is
 ticked, its prompt says what a pick will do ("Tick a row, then pick a child", "Assign this
 row to…", "Assign 3 rows to…"), and it is dead for the round trip ("Assigning…"), then back
-on its prompt. A wrong pick is undone from the row (#138). An assigned row turns muted with a
-`--honey` rule and a small "Assigned to Name" line (`.passage-review-filed`); its checkbox stays, disabled. Errors go on a
-`.passage-review-error` line under the controls, in `--error-red`. Without a class the rows
-stay read-only and no control renders.
+on its prompt. An assigned row turns muted with a `--honey` rule and a small "Assigned to
+Name" line (`.passage-review-filed`); its checkbox stays, disabled. Beside that line, where
+this tab made the child's note, an "Undo" text link (`.passage-review-undo`, `--honey-dark`,
+underlined, muted while a call is in flight and reading "Undoing…" on the row it came from)
+takes the assignment back (#138): every row filed to that child reopens, unticked, and the
+card drops the note. A row that joined a note the card already held offers no undo; the
+teacher edits that note instead. Errors go on a `.passage-review-error` line under the
+controls, in `--error-red`. Without a class the rows stay read-only and no control renders.
 
 ### Error Patterns
 

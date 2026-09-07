@@ -86,6 +86,7 @@ var apiRoutes = []apiRoute{
 	{"POST", "/api/voice-notes/{uploadId}/assemble", handleAssembleNotes},
 	// File passages that reached nobody to a child the teacher picked.
 	{"POST", "/api/voice-notes/{uploadId}/assign", handleAssignPassages},
+	{"DELETE", "/api/voice-notes/{uploadId}/assign/{studentId}", handleUndoAssignment},
 }
 
 // key is the "METHOD /pattern" string ServeMux is given for the route.

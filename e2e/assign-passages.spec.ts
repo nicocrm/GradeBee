@@ -7,6 +7,9 @@ import { test, expect, type Page } from '@playwright/test'
  * child of that class, confirms, and the card repaints with the note. A child
  * the card already links to gets the row appended to that note (#135).
  *
+ * A wrong pick is undone from the row (#138): the note goes, the count and
+ * the child's link with it, and the row is open again.
+ *
  * `/assign` and `/classes/{id}/students` are mocked. The endpoint's own
  * contract — ownership, membership, validation, the lock, the job update — is
  * pinned by the Go handler tests against the real router; what only a browser
@@ -130,10 +133,10 @@ test.describe('Filing passages to a child', () => {
     release()
 
     await expect(card).toContainText('2 notes created')
-    await expect(review.getByTestId('passage-review-filed')).toHaveText('Assigned to Eleonore')
+    await expect(review.getByTestId('passage-review-filed')).toHaveText(/Assigned to Eleonore/)
     await expect(review.getByTestId('passage-review-check').first()).toBeDisabled()
     await expect(review.getByTestId('passage-review-check').nth(1)).toBeEnabled()
-    await expect(card.getByRole('button', { name: /Eleonore/ })).toBeVisible()
+    await expect(card.getByRole('button', { name: 'Eleonore', exact: true })).toBeVisible()
 
     // The ticked row, then the class-wide remark; the other row stays where
     // it is, and the job's own passages are not sent back.
@@ -170,7 +173,7 @@ test.describe('Filing passages to a child', () => {
 
     await expect(review.getByTestId('passage-review-filed')).toHaveText('Assigned to Lévy')
     await expect(card).toContainText('1 note created')
-    await expect(card.getByRole('button', { name: /Lévy/ })).toHaveCount(1)
+    await expect(card.getByRole('button', { name: 'Lévy', exact: true })).toHaveCount(1)
     expect(bodies).toEqual([{
       classId: 2,
       studentId: 21,
@@ -180,6 +183,44 @@ test.describe('Filing passages to a child', () => {
       ],
       appendToNoteId: 50,
     }])
+  })
+
+  test('an assignment is undone from the row', async ({ page }) => {
+    await mockDoneJob(page, 2)
+    await page.route('**/assign', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ noteId: 60, studentId: 22, name: 'Eleonore', className: 'Pam & Paul · Tue', appended: false }),
+      })
+    })
+    const undos: string[] = []
+    await page.route('**/assign/22', async (route) => {
+      undos.push(route.request().method())
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ noteIds: [60] }),
+      })
+    })
+
+    await page.goto('/')
+    const card = page.getByTestId('job-done')
+    await expect(card).toBeVisible({ timeout: 15000 })
+    const review = card.getByTestId('passage-review')
+    await review.getByTestId('passage-review-check').first().check()
+    await review.getByTestId('passage-review-student').selectOption({ label: 'Eleonore' })
+    await expect(card).toContainText('2 notes created')
+    await expect(review.getByTestId('passage-review-filed')).toHaveText(/Assigned to Eleonore/)
+
+    await review.getByTestId('passage-review-undo').click()
+
+    await expect(card).toContainText('1 note created')
+    await expect(review.getByTestId('passage-review-filed')).toHaveCount(0)
+    await expect(review.getByTestId('passage-review-check').first()).toBeEnabled()
+    await expect(review.getByTestId('passage-review-check').first()).not.toBeChecked()
+    await expect(card.getByRole('button', { name: 'Eleonore', exact: true })).toHaveCount(0)
+    expect(undos).toEqual(['DELETE'])
   })
 
   test('a card with no class id lists the rows read-only', async ({ page }) => {
