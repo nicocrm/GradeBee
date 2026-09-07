@@ -53,6 +53,10 @@ type CreateNoteRequest struct {
 	// Source is a NoteSource* value; empty means NoteSourceAuto, so a caller
 	// that does not care cannot write "" into the column.
 	Source string
+	// TraceID is the recording's key (voice_notes.trace_id). The pipeline,
+	// assemble and assign set it; empty writes NULL, which is what a manual
+	// note has.
+	TraceID string
 }
 
 // CreateNoteResponse contains the created note info.
@@ -87,6 +91,9 @@ func (c *dbNoteCreator) CreateNote(ctx context.Context, req CreateNoteRequest) (
 	}
 	if req.Transcript != "" {
 		n.Transcript = &req.Transcript
+	}
+	if req.TraceID != "" {
+		n.TraceID = &req.TraceID
 	}
 	if err := c.noteRepo.Create(ctx, n); err != nil {
 		return nil, err

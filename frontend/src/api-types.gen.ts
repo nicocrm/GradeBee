@@ -302,6 +302,12 @@ export interface CreateNoteRequest {
    * that does not care cannot write "" into the column.
    */
   Source: string;
+  /**
+   * TraceID is the recording's key (voice_notes.trace_id). The pipeline,
+   * assemble and assign set it; empty writes NULL, which is what a manual
+   * note has.
+   */
+  TraceID: string;
 }
 /**
  * CreateNoteResponse contains the created note info.
@@ -511,6 +517,14 @@ export interface Note {
   source: string;
   modelVersion?: string;
   promptHash?: string;
+  /**
+   * TraceID names the recording this note was made from
+   * (voice_notes.trace_id), whether the pipeline, the class picker or the
+   * assign endpoint made it. Nil on a manual note, and on every note made
+   * before the column existed. It outlives the recording row, which
+   * retention deletes; the note keeps the key.
+   */
+  traceId?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -601,6 +615,17 @@ export interface VoiceNote {
    * as the row: the retention cleanup deletes both together.
    */
   transcript?: string;
+  /**
+   * TraceID is the recording's key, a UUID minted at upload. Every note the
+   * pipeline, assemble or assign makes from this recording carries a copy
+   * (notes.trace_id), so a note can name its recording after the job is
+   * gone and after this row is deleted by retention. Not the row id: the
+   * table has no AUTOINCREMENT, so SQLite reuses the top id once the newest
+   * row is deleted, and an old note could then claim a new recording.
+   * The column is nullable and the reads COALESCE it to "", so a row that
+   * somehow has none cannot fail a whole ListStale batch.
+   */
+  traceId: string;
   createdAt: string;
 }
 
@@ -899,10 +924,12 @@ export interface AssignPassagesRequest {
   /**
    * AppendToNoteID is the note this recording already made for StudentID,
    * when the card holds one: the rows are appended to it and no second note
-   * is made. The server checks only that the note exists and belongs to
-   * StudentID. Nothing more is needed: a forged id lets a teacher append
-   * their own text to their own note, which the edit endpoint already
-   * allows.
+   * is made. The server checks that the note exists, belongs to StudentID
+   * and was made from this recording (notes.trace_id). Not for ownership:
+   * a forged id lets a teacher append their own text to their own note,
+   * which the edit endpoint already allows. For the replay guard: it sees
+   * this recording's notes only, so an append onto any other note could
+   * not be found on a retry, and the rows would be written twice.
    */
   appendToNoteId?: number /* int64 */;
 }
@@ -1071,6 +1098,12 @@ export interface JobPassage {
 export interface VoiceNoteJob {
   userId: string;
   uploadId: number /* int64 */;
+  /**
+   * TraceID is the recording's key, copied from voice_notes.trace_id at
+   * dispatch and stamped on every note the pipeline makes. The row, not the
+   * job, is its home: the job is in memory and a retry rebuilds it.
+   */
+  traceId?: string;
   filePath: string;
   fileName: string;
   mimeType: string;

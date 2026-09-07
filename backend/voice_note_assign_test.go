@@ -79,10 +79,9 @@ func (g *gatedNoteCreator) CreateNote(ctx context.Context, req CreateNoteRequest
 
 // pipelineNoteFor is the note the pipeline made for a child on this recording,
 // holding the child's passage and the class-wide remark, on the queued job as
-// a link. It is what an append lands on. Dated by assign's rule, the row's
-// day, so the duplicate guard's day scope sees it. The pipeline dates by job
-// dispatch instead; the two split across a UTC midnight, and a replay then
-// misses. That gap is #139's (trace id), not pinned here.
+// a link. It is what an append lands on. It carries the row's trace id, as
+// the pipeline stamps it, which is what the duplicate guard keys on; the
+// date is the row's day, though the guard no longer reads it.
 func (w *assembleWorld) pipelineNoteFor(t *testing.T, studentID int64, name string) Note {
 	t.Helper()
 	ctx := context.Background()
@@ -94,6 +93,7 @@ func (w *assembleWorld) pipelineNoteFor(t *testing.T, studentID int64, name stri
 		StudentID: studentID, StudentName: name,
 		QuotedText: name + " finished the puzzle alone\n\neveryone worked hard",
 		Transcript: assembleTranscript, Date: day, ModelVersion: "pipeline-model",
+		TraceID: row.TraceID,
 	})
 	require.NoError(t, err)
 	require.NoError(t, w.queue.Publish(ctx, VoiceNoteJob{
@@ -143,6 +143,8 @@ func TestAssignPassages_FilesARowToAChildAsANewNote(t *testing.T) {
 	row, err := w.voiceNotes.GetByID(context.Background(), w.uploadID)
 	require.NoError(t, err)
 	assert.Equal(t, row.CreatedAt[:len(time.DateOnly)], notes[0].Date, "dated from the recording, as assemble dates its notes")
+	require.NotNil(t, notes[0].TraceID)
+	assert.Equal(t, row.TraceID, *notes[0].TraceID, "the note names its recording")
 
 	assert.Empty(t, w.notesFor(t, w.bob))
 	assert.Empty(t, w.extractor.calls(), "no model call: the text is the card's")
@@ -219,12 +221,26 @@ func TestAssignPassages_ASecondAssignToTheSameChildAppends(t *testing.T) {
 
 // The note named must be the picked child's. Another child's note, or an id
 // that is nobody's, is a 404 and nothing is written: not to that note, and
-// no new note for the child either.
+// no new note for the child either. So is the child's own note from another
+// recording, or one typed by hand: the replay guard reads this recording's
+// notes only, so an append it cannot see would be written twice on a retry.
 func TestAssignPassages_RefusesANoteThatIsNotTheChilds(t *testing.T) {
 	w := newAssembleWorld(t)
+	ctx := context.Background()
 	bobs := w.pipelineNoteFor(t, w.bob, "Bob")
+	other, err := w.voiceNotes.Create(ctx, "u1", "monday-again.m4a", "/nowhere/monday-again.m4a")
+	require.NoError(t, err)
+	elsewhere := &Note{StudentID: w.alice, Date: bobs.Date, Source: NoteSourceAuto, TraceID: &other.TraceID, Summary: "Alice sang"}
+	require.NoError(t, w.noteRepo.Create(ctx, elsewhere))
+	typed := &Note{StudentID: w.alice, Date: bobs.Date, Source: NoteSourceManual, Summary: "Alice hummed"}
+	require.NoError(t, w.noteRepo.Create(ctx, typed))
 
-	for name, noteID := range map[string]int64{"another child's note": bobs.ID, "a note that does not exist": 9999} {
+	for name, noteID := range map[string]int64{
+		"another child's note":                    bobs.ID,
+		"a note that does not exist":              9999,
+		"the child's note from another recording": elsewhere.ID,
+		"a note typed by hand":                    typed.ID,
+	} {
 		t.Run(name, func(t *testing.T) {
 			body := w.toAlice(helping)
 			body.AppendToNoteID = noteID
@@ -232,8 +248,13 @@ func TestAssignPassages_RefusesANoteThatIsNotTheChilds(t *testing.T) {
 			assert.Equal(t, http.StatusNotFound, rec.Code, rec.Body.String())
 		})
 	}
-	assert.Empty(t, w.notesFor(t, w.alice))
-	after, err := w.noteRepo.GetByID(context.Background(), bobs.ID)
+	for _, n := range []*Note{elsewhere, typed} {
+		after, err := w.noteRepo.GetByID(ctx, n.ID)
+		require.NoError(t, err)
+		assert.Equal(t, n.Summary, after.Summary, "nothing appended")
+	}
+	assert.Len(t, w.notesFor(t, w.alice), 2, "no new note for the child")
+	after, err := w.noteRepo.GetByID(ctx, bobs.ID)
 	require.NoError(t, err)
 	assert.Equal(t, bobs.Summary, after.Summary)
 }
@@ -559,7 +580,7 @@ func TestAssignPassages_ScatteredWordsAreNotAReplay(t *testing.T) {
 	day, err := uploadDay(row.CreatedAt)
 	require.NoError(t, err)
 	require.NoError(t, w.noteRepo.Create(context.Background(), &Note{
-		StudentID: w.alice, Date: day, Source: NoteSourceAuto,
+		StudentID: w.alice, Date: day, Source: NoteSourceAuto, TraceID: &row.TraceID,
 		Summary: "helped the little ones\n\nsang loudly\n\ndid not say much\n\neveryone worked hard",
 	}))
 
@@ -567,6 +588,83 @@ func TestAssignPassages_ScatteredWordsAreNotAReplay(t *testing.T) {
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 	assert.Contains(t, logs, `"duplicate":false`)
 	assert.Len(t, w.notesFor(t, w.alice), 2)
+}
+
+// The other defect the day scope had: the pipeline dates a note by job
+// dispatch, assign by the row's creation, and across a UTC midnight those
+// are different days. A replay of an append onto such a note then missed and
+// made a second note. Keyed on the recording, the day of the note is nothing
+// to the guard: the replay hits the note it grew.
+func TestAssignPassages_ReplayOfAnAppendHitsAcrossAUTCMidnight(t *testing.T) {
+	w := newAssembleWorld(t)
+	ctx := context.Background()
+	row, err := w.voiceNotes.GetByID(ctx, w.uploadID)
+	require.NoError(t, err)
+	rowDay, err := time.Parse(time.DateOnly, row.CreatedAt[:len(time.DateOnly)])
+	require.NoError(t, err)
+	dayBefore := rowDay.AddDate(0, 0, -1).Format(time.DateOnly)
+	pipelineNote := &Note{
+		StudentID: w.alice, Date: dayBefore, Source: NoteSourceAuto, TraceID: &row.TraceID,
+		Summary: "Alice finished the puzzle alone\n\neveryone worked hard",
+	}
+	require.NoError(t, w.noteRepo.Create(ctx, pipelineNote))
+	require.NoError(t, w.queue.Publish(ctx, VoiceNoteJob{
+		UserID: "u1", UploadID: w.uploadID, TraceID: row.TraceID, FileName: "monday.m4a", Status: JobStatusDone,
+		ClassName: w.tuesday, ClassID: w.tuesdayID,
+		NoteLinks: []NoteLink{{Name: "Alice", NoteID: pipelineNote.ID, StudentID: w.alice, ClassName: w.tuesday}},
+	}))
+	body := w.toAlice(helping, everyone)
+	body.AppendToNoteID = pipelineNote.ID
+
+	rec, _ := w.assign(t, "u1", w.uploadID, body)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	rec, logs := w.assign(t, "u1", w.uploadID, body)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	var replay AssignPassagesResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &replay))
+	assert.True(t, replay.Appended)
+	assert.Equal(t, pipelineNote.ID, replay.NoteID)
+	assert.Contains(t, logs, `"duplicate":true`)
+
+	notes := w.notesFor(t, w.alice)
+	require.Len(t, notes, 1, "no second note: the day of the note is nothing to the guard")
+	assert.Equal(t, dayBefore, notes[0].Date)
+	assert.Equal(t, pipelineNote.Summary+"\n\nhelped the little ones", notes[0].Summary, "the row once, not twice")
+}
+
+// The guard's scope is the recording, not the day. Another recording on the
+// same day made a note for the same child holding the same words, and so did
+// the teacher by hand; a filing from this recording is not their replay, and
+// the child gets a third note. A day scope answered this with the other
+// recording's note (#136). The replay of that filing then hits its own note.
+func TestAssignPassages_ANoteFromAnotherRecordingIsNotAReplay(t *testing.T) {
+	w := newAssembleWorld(t)
+	ctx := context.Background()
+	row, err := w.voiceNotes.GetByID(ctx, w.uploadID)
+	require.NoError(t, err)
+	day, err := uploadDay(row.CreatedAt)
+	require.NoError(t, err)
+	other, err := w.voiceNotes.Create(ctx, "u1", "monday-again.m4a", "/nowhere/monday-again.m4a")
+	require.NoError(t, err)
+	require.NoError(t, w.noteRepo.Create(ctx, &Note{
+		StudentID: w.alice, Date: day, Source: NoteSourceAssigned, TraceID: &other.TraceID,
+		Summary: "helped the little ones\n\neveryone worked hard",
+	}))
+	require.NoError(t, w.noteRepo.Create(ctx, &Note{
+		StudentID: w.alice, Date: day, Source: NoteSourceManual,
+		Summary: "helped the little ones\n\neveryone worked hard",
+	}))
+
+	rec, logs := w.assign(t, "u1", w.uploadID, w.toAlice(helping, everyone))
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	assert.Contains(t, logs, `"duplicate":false`)
+	assert.Contains(t, logs, `"trace_id":"`+row.TraceID+`"`)
+	assert.Len(t, w.notesFor(t, w.alice), 3)
+
+	rec, logs = w.assign(t, "u1", w.uploadID, w.toAlice(helping, everyone))
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	assert.Contains(t, logs, `"duplicate":true`)
+	assert.Len(t, w.notesFor(t, w.alice), 3)
 }
 
 // Two notes hold the block (A filed, then A and B, then A replayed). The

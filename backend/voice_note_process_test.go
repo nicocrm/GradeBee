@@ -363,11 +363,14 @@ func TestProcessJob_QuotedTextPassedToNoteCreator(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	require.NoError(t, queue.Publish(ctx, VoiceNoteJob{UserID: "u1", UploadID: uploadID, FilePath: audioPath, Status: JobStatusQueued, CreatedAt: time.Now()}))
+	row, err := voiceNoteRepo.GetByID(ctx, uploadID)
+	require.NoError(t, err)
+	require.NoError(t, queue.Publish(ctx, VoiceNoteJob{UserID: "u1", UploadID: uploadID, TraceID: row.TraceID, FilePath: audioPath, Status: JobStatusQueued, CreatedAt: time.Now()}))
 	require.NoError(t, processVoiceNote(ctx, d, queue, voiceNoteKey("u1", uploadID)))
 
 	require.Len(t, nc.calls, 1, "expected 1 note creation call")
 	assert.Equal(t, rawQuote, nc.calls[0].QuotedText, "QuotedText not passed through")
+	assert.Equal(t, row.TraceID, nc.calls[0].TraceID, "the note names its recording by the job's copy of the row's key")
 }
 
 // TestProcessJob_DeletesAudioAfterTranscription verifies that the audio file is

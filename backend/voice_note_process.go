@@ -44,9 +44,9 @@ func processVoiceNote(ctx context.Context, d deps, q JobQueue[VoiceNoteJob], key
 	// renders job.Error.
 	failJob := func(step, message string, err error) error {
 		if errors.Is(err, errNoSpeechDetected) {
-			log.Warn("process voice note failed", "step", step, "key", key, "error", err)
+			log.Warn("process voice note failed", "step", step, "key", key, "trace_id", job.TraceID, "error", err)
 		} else {
-			log.Error("process voice note failed", "step", step, "key", key, "error", err)
+			log.Error("process voice note failed", "step", step, "key", key, "trace_id", job.TraceID, "error", err)
 		}
 		now := time.Now()
 		job.Status = JobStatusFailed
@@ -234,7 +234,7 @@ func processVoiceNote(ctx context.Context, d deps, q JobQueue[VoiceNoteJob], key
 		// No student name in telemetry: these logs reach Sentry. See docs/adr/0003.
 		log.Info("process voice note: mention dropped",
 			"reason", "unattributed",
-			"key", key, "user_id", userID, "upload_id", uploadID,
+			"key", key, "user_id", userID, "upload_id", uploadID, "trace_id", job.TraceID,
 			"kind", string(p.Kind),
 			"label_count", len(p.SpokenLabels),
 			"class_name", extractResult.ClassName,
@@ -253,7 +253,7 @@ func processVoiceNote(ctx context.Context, d deps, q JobQueue[VoiceNoteJob], key
 				// No student name in telemetry: these logs reach Sentry. See docs/adr/0003.
 				log.Info("process voice note: mention dropped",
 					"reason", "no_roster_match",
-					"key", key, "user_id", userID, "upload_id", uploadID,
+					"key", key, "user_id", userID, "upload_id", uploadID, "trace_id", job.TraceID,
 					"passage_count", n.Passages,
 					"class_name", extractResult.ClassName,
 					"model", extractor.Model(), "prompt_hash", ExtractionPromptHash)
@@ -271,6 +271,7 @@ func processVoiceNote(ctx context.Context, d deps, q JobQueue[VoiceNoteJob], key
 			Transcript:   transcript,
 			Date:         noteDate,
 			ModelVersion: extractor.Model(),
+			TraceID:      job.TraceID,
 		})
 		if err != nil {
 			return failWith(
@@ -341,7 +342,7 @@ func processVoiceNote(ctx context.Context, d deps, q JobQueue[VoiceNoteJob], key
 	// emits drop records but never reaches this line — and that mistake has already
 	// produced one wrong figure for this task.
 	log.Info("process voice note completed",
-		"key", key, "user_id", userID, "upload_id", uploadID,
+		"key", key, "user_id", userID, "upload_id", uploadID, "trace_id", job.TraceID,
 		"note_count", len(noteLinks),
 		// Without this a decline is unreadable here: it stores no passages and
 		// emits no drop record, so it lands as passages_total=0 with every kind

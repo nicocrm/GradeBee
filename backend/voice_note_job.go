@@ -93,8 +93,12 @@ type JobPassage struct {
 
 // VoiceNoteJob represents an async voice note processing job.
 type VoiceNoteJob struct {
-	UserID     string     `json:"userId"`
-	UploadID   int64      `json:"uploadId"`
+	UserID   string `json:"userId"`
+	UploadID int64  `json:"uploadId"`
+	// TraceID is the recording's key, copied from voice_notes.trace_id at
+	// dispatch and stamped on every note the pipeline makes. The row, not the
+	// job, is its home: the job is in memory and a retry rebuilds it.
+	TraceID    string     `json:"traceId,omitempty"`
 	FilePath   string     `json:"filePath"`
 	FileName   string     `json:"fileName"`
 	MimeType   string     `json:"mimeType"`

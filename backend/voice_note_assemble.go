@@ -289,6 +289,7 @@ func handleAssembleNotes(w http.ResponseWriter, r *http.Request) {
 			Date:         noteDate,
 			ModelVersion: extractor.Model(),
 			Source:       NoteSourceReviewed,
+			TraceID:      row.TraceID,
 		})
 		if err != nil {
 			writeInternalError(w, r, err)
@@ -306,7 +307,7 @@ func handleAssembleNotes(w http.ResponseWriter, r *http.Request) {
 		log.Info("process voice note: passage recovered",
 			"route", "class_picker",
 			"passage_count", n.Passages,
-			"user_id", userID, "upload_id", uploadID, "student_id", studentID,
+			"user_id", userID, "upload_id", uploadID, "trace_id", row.TraceID, "student_id", studentID,
 			"model", extractor.Model(), "prompt_hash", ExtractionPromptHash)
 	}
 
@@ -340,7 +341,7 @@ func handleAssembleNotes(w http.ResponseWriter, r *http.Request) {
 	// not the other makes the Sentry readout lie by omission.
 	kinds := countKinds(extracted)
 	log.Info("assemble notes",
-		"user_id", userID, "upload_id", uploadID,
+		"user_id", userID, "upload_id", uploadID, "trace_id", row.TraceID,
 		"note_count", len(noteLinks),
 		"passages_total", len(extracted),
 		"passages_child", kinds[PassageChild],

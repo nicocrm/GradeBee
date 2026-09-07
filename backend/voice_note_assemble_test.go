@@ -255,6 +255,10 @@ func TestAssembleNotes_RescuesARecordingFiledToTheSiblingClass(t *testing.T) {
 	alice := w.notesFor(t, w.alice)
 	require.Len(t, alice, 1)
 	assert.Equal(t, "Alice's passage", alice[0].Summary)
+	row, err := w.voiceNotes.GetByID(context.Background(), w.uploadID)
+	require.NoError(t, err)
+	require.NotNil(t, alice[0].TraceID)
+	assert.Equal(t, row.TraceID, *alice[0].TraceID, "the note names its recording")
 	// Since #127 the model wrote these words in this request, so the source
 	// constant is literally true: the teacher supplied only the class.
 	assert.Equal(t, NoteSourceReviewed, alice[0].Source)
