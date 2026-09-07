@@ -61,6 +61,7 @@ describe('unattributed', () => {
 describe('PassageReview', () => {
   it('shows one row per passage that reached nobody', () => {
     render(<PassageReview passages={note694} />)
+    expect(screen.getByText("AI couldn't find the student for these:")).toBeInTheDocument()
     const rows = screen.getAllByTestId('passage-review-row')
     expect(rows.map(r => r.textContent)).toEqual([
       'She was helping the younger ones with their blocks.',

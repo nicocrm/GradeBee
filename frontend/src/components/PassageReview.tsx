@@ -165,7 +165,7 @@ export default function PassageReview({ passages, classId, onAssign, onUndo }: P
 
   return (
     <div className="passage-review" data-testid="passage-review">
-      <p className="passage-review-prompt">Not assigned to anyone:</p>
+      <p className="passage-review-prompt">AI couldn't find the student for these:</p>
       <ul className="passage-review-list">
         {rows.map(({ p, key }) => {
           const to = filed.get(key)

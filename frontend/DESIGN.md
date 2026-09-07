@@ -161,10 +161,10 @@ teacher owns. Every class is listed, not a shortlist — the extraction has alre
 once on this recording.
 
 A done card lists every passage that reached nobody (`.passage-review*`, `roster-upload.css`,
-`PassageReview.tsx`): a muted prompt line, then one row per passage showing its summary. Rows
-are parchment on the card with a `--comb` left rule, body font at the card's meta size. The
-block indents to the card text like the class picker, sits below the note links, and renders
-nothing when every passage was filed.
+`PassageReview.tsx`): a muted prompt line ("AI couldn't find the student for these:"), then one
+row per passage showing its summary. Rows are parchment on the card with a `--comb` left rule,
+body font at the card's meta size. The block indents to the card text like the class picker,
+sits below the note links, and renders nothing when every passage was filed.
 
 When the job carries a class, each row gets a checkbox (`.passage-review-pick`, honey
 accent) and one native `<select>` of that class's children sits under the list
